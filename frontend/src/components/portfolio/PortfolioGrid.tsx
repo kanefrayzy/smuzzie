@@ -401,9 +401,19 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [lightboxItem, zoomedMedia, closeLightbox, nextItem, prevItem]);
 
-  const masonryClass = columns === 4
-    ? 'columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5'
-    : 'columns-1 sm:columns-2 lg:columns-3 gap-6';
+  // JS-based masonry: distribute items into column buckets round-robin.
+  // When new items are added via "Load more", only new items get appended —
+  // existing items stay in their columns and don't shift.
+  const colCount = columns === 4 ? columns : 3;
+  const masonryColumns = useMemo(() => {
+    const cols: PortfolioItem[][] = Array.from({ length: colCount }, () => []);
+    visibleItems.forEach((item, i) => {
+      cols[i % colCount].push(item);
+    });
+    return cols;
+  }, [visibleItems, colCount]);
+
+  const gap = columns === 4 ? 'gap-5' : 'gap-6';
 
   return (
     <div>
@@ -459,21 +469,31 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
         </div>
       </ScrollReveal>
 
-      {/* Portfolio grid — masonry */}
-      <div className={masonryClass}>
-        {visibleItems.map((item, index) => (
-          <div key={item.id} className="break-inside-avoid mb-5">
-            <LazyGifCard
-              thumbnailUrl={item.thumbnail_url}
-              gifUrl={item.gif_url}
-              imageUrl={item.image_url}
-              title={item.title}
-              category={item.category?.name}
-              fileType={item.file_type}
-              onClick={() => openLightbox(item)}
-              onExpand={() => openZoom(item)}
-              eager={index < BATCH_SIZE}
-            />
+      {/* Portfolio masonry — JS column distribution */}
+      <div className={`grid gap-5 ${columns === 4
+        ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+        : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'} ${gap}`}
+      >
+        {masonryColumns.map((colItems, colIdx) => (
+          <div key={colIdx} className="flex flex-col gap-5">
+            {colItems.map((item) => {
+              const globalIndex = visibleItems.indexOf(item);
+              return (
+                <div key={item.id}>
+                  <LazyGifCard
+                    thumbnailUrl={item.thumbnail_url}
+                    gifUrl={item.gif_url}
+                    imageUrl={item.image_url}
+                    title={item.title}
+                    category={item.category?.name}
+                    fileType={item.file_type}
+                    onClick={() => openLightbox(item)}
+                    onExpand={() => openZoom(item)}
+                    eager={globalIndex < BATCH_SIZE}
+                  />
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
