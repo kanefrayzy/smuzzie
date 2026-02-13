@@ -1,0 +1,180 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-primary text-white font-sans antialiased;
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-[#060608];
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-accent-red/40;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-accent-red/60;
+  }
+
+  ::selection {
+    @apply bg-accent-red/30 text-white;
+  }
+}
+
+@layer components {
+  /* ─── Gamerflix-style clipped buttons ─── */
+  .btn-primary {
+    @apply relative inline-flex items-center gap-2 px-7 py-3 font-bold text-sm text-white
+    bg-gradient-to-r from-accent-red to-accent-red-dark rounded-full
+    hover:shadow-[0_0_30px_rgba(230,57,70,0.4)] transition-all duration-300
+    hover:scale-105 active:scale-95 uppercase tracking-wider;
+  }
+
+  .btn-get-started {
+    @apply relative inline-flex items-center gap-2.5 px-8 py-3.5 font-bold text-sm
+    border border-accent-red/50 bg-accent-red/5 text-white uppercase tracking-wider rounded-full
+    hover:border-accent-red hover:bg-accent-red/10
+    hover:shadow-[0_0_25px_rgba(230,57,70,0.2)]
+    transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden;
+  }
+
+  .btn-get-started::after {
+    content: '';
+    @apply absolute -top-[1px] -left-[100%] w-[60%] h-[120%] transition-all duration-700;
+    background: linear-gradient(90deg, transparent, rgba(230,57,70,0.15), transparent);
+    transform: skewX(-20deg);
+  }
+
+  .btn-get-started:hover::after {
+    @apply left-[120%];
+  }
+
+  .btn-get-started .sparkle-icon {
+    @apply transition-all duration-300 text-accent-red/80;
+  }
+
+  .btn-get-started:hover .sparkle-icon {
+    @apply animate-sparkle text-accent-red;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center gap-2 px-7 py-3 font-semibold text-sm uppercase tracking-wider rounded-full
+    border border-white/10 hover:border-accent-red/40 bg-transparent
+    hover:bg-accent-red/5 transition-all duration-300 hover:scale-105;
+  }
+
+  /* ─── Section styles ─── */
+  .section-heading {
+    @apply text-3xl md:text-4xl lg:text-5xl font-bold font-display tracking-tight;
+  }
+
+  .section-subheading {
+    @apply text-gray-500 text-base md:text-lg max-w-2xl mx-auto mt-4;
+  }
+
+  /* ─── Gamerflix angular glass card ─── */
+  .glass-card {
+    @apply bg-white/[0.02] backdrop-blur-xl border border-white/[0.06];
+    clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  }
+
+  .glow-border {
+    @apply relative;
+  }
+
+  .glow-border::after {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-500;
+    background: linear-gradient(135deg, rgba(230,57,70,0.15), transparent, rgba(230,57,70,0.1));
+    filter: blur(20px);
+    z-index: -1;
+  }
+
+  .glow-border:hover::after {
+    @apply opacity-100;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-accent-red via-red-400 to-accent-red bg-clip-text text-transparent;
+    background-size: 200% auto;
+  }
+
+  /* ─── Nav link ─── */
+  .nav-link {
+    @apply relative text-gray-400 hover:text-white transition-colors duration-300 text-xs font-bold uppercase tracking-[0.15em];
+  }
+
+  .nav-link::after {
+    content: '';
+    @apply absolute -bottom-1 left-0 w-0 h-[2px] bg-accent-red transition-all duration-300;
+  }
+
+  .nav-link:hover::after {
+    @apply w-full;
+  }
+
+  /* ─── HUD decorative lines ─── */
+  .hud-line {
+    @apply h-px bg-gradient-to-r from-transparent via-accent-red/20 to-transparent;
+  }
+}
+
+@layer utilities {
+  .animate-delay-100 {
+    animation-delay: 100ms;
+  }
+  .animate-delay-200 {
+    animation-delay: 200ms;
+  }
+  .animate-delay-300 {
+    animation-delay: 300ms;
+  }
+  .animate-delay-500 {
+    animation-delay: 500ms;
+  }
+
+  .bg-grid-pattern {
+    background-image:
+      linear-gradient(rgba(230,57,70,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(230,57,70,0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  .clip-angled {
+    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  }
+
+  .clip-card {
+    clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  }
+
+  /* Skeleton shimmer animation for card preloaders */
+  .skeleton-shimmer {
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+}
