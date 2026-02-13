@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import LazyGifCard from './LazyGifCard';
 import ScrollReveal from '@/components/ui/ScrollReveal';
 import { PortfolioItem, Category } from '@/types';
-import { ArrowLeft, ChevronLeft, ChevronRight, Expand, Grid3X3, LayoutGrid, Minus, Plus, RotateCcw, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Expand, Grid3X3, LayoutGrid, Minus, Plus, RotateCcw, X } from 'lucide-react';
 import { getImageUrl } from '@/lib/utils';
 
 /* ─── Fullscreen Pan+Zoom Viewer ─── */
@@ -300,11 +300,10 @@ interface PortfolioGridProps {
   initialCategory?: string;
 }
 
-const BATCH_SIZE = 20; // Load 20 items per batch
-const LOAD_DELAY = 50; // Delay between batches (ms)
+const BATCH_SIZE = 9; // Load 9 items per batch
 
 export default function PortfolioGrid({ items, categories, initialCategory }: PortfolioGridProps) {
-  const [activeCategory, setActiveCategory] = useState<string>(initialCategory || 'all');
+  const [activeCategory, setActiveCategory] = useState<string>(initialCategory || categories[0]?.slug || '');
   const [filteredItems, setFilteredItems] = useState<PortfolioItem[]>(items);
   const [lightboxItem, setLightboxItem] = useState<PortfolioItem | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number>(-1);
@@ -313,8 +312,6 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
 
   // Batched progressive loading state
   const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const loadingRef = useRef(false);
 
   // Visible items (batched)
   const visibleItems = useMemo(
@@ -323,56 +320,9 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
   );
   const hasMore = visibleCount < filteredItems.length;
 
-  // Row-interleaved chunks: for 'all' view, organize items into chunks
-  // where each chunk = one category's row of items. Categories alternate
-  // in round-robin fashion. Each chunk renders as its own mini-grid so
-  // items never mix across categories in the same row, at any screen size.
-  const categoryChunks = useMemo(() => {
-    if (activeCategory !== 'all') return null;
-
-    const cols = columns;
-    const catOrder = new Map(categories.map((c) => [c.id, c.sort_order]));
-    const buckets = new Map<number, PortfolioItem[]>();
-    visibleItems.forEach((item) => {
-      if (!buckets.has(item.category_id)) buckets.set(item.category_id, []);
-      buckets.get(item.category_id)!.push(item);
-    });
-
-    const sortedCatIds = Array.from(buckets.keys()).sort(
-      (a, b) => (catOrder.get(a) ?? 999) - (catOrder.get(b) ?? 999)
-    );
-
-    // Build chunks: take `cols` items at a time from each category, round-robin
-    const chunks: { catId: number; items: PortfolioItem[] }[] = [];
-    const pointers = new Map<number, number>();
-    sortedCatIds.forEach((id) => pointers.set(id, 0));
-
-    let realCount = 0;
-    const totalItems = visibleItems.length;
-    let safety = 0;
-
-    while (realCount < totalItems && safety++ < totalItems + sortedCatIds.length * 50) {
-      let addedAny = false;
-      for (const catId of sortedCatIds) {
-        const bucket = buckets.get(catId)!;
-        const ptr = pointers.get(catId)!;
-        if (ptr < bucket.length) {
-          const rowItems = bucket.slice(ptr, ptr + cols);
-          chunks.push({ catId, items: rowItems });
-          realCount += rowItems.length;
-          pointers.set(catId, ptr + rowItems.length);
-          addedAny = true;
-        }
-      }
-      if (!addedAny) break;
-    }
-
-    return chunks;
-  }, [activeCategory, visibleItems, columns, categories]);
-
   // Count items per category
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: items.length };
+    const counts: Record<string, number> = {};
     items.forEach((item) => {
       if (item.category?.slug) {
         counts[item.category.slug] = (counts[item.category.slug] || 0) + 1;
@@ -384,39 +334,16 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
   // Reset visible count when category changes
   useEffect(() => {
     setVisibleCount(BATCH_SIZE);
-    loadingRef.current = false;
   }, [activeCategory]);
 
-  // Progressive loading observer (load more when scrolling near bottom)
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel || !hasMore) return;
+  const loadMore = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, filteredItems.length));
+  }, [filteredItems.length]);
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !loadingRef.current && hasMore) {
-          loadingRef.current = true;
-          setTimeout(() => {
-            setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, filteredItems.length));
-            loadingRef.current = false;
-          }, LOAD_DELAY);
-        }
-      },
-      { rootMargin: '800px' }
+  useEffect(() => {
+    setFilteredItems(
+      items.filter((item) => item.category?.slug === activeCategory)
     );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, filteredItems.length]);
-
-  useEffect(() => {
-    if (activeCategory === 'all') {
-      setFilteredItems(items);
-    } else {
-      setFilteredItems(
-        items.filter((item) => item.category?.slug === activeCategory)
-      );
-    }
   }, [activeCategory, items]);
 
   const openLightbox = useCallback((item: PortfolioItem) => {
@@ -485,23 +412,6 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
         <div className="relative mb-12">
           {/* Main filter row */}
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <button
-              onClick={() => setActiveCategory('all')}
-              className={`group relative px-5 py-2.5 text-xs font-mono uppercase tracking-[0.15em] font-medium transition-all duration-300 flex items-center gap-2 ${
-                activeCategory === 'all'
-                  ? 'bg-accent-red text-white'
-                  : 'bg-surface/80 border border-white/[0.06] text-gray-400 hover:text-white hover:border-accent-red/20 hover:bg-surface'
-              }`}
-              style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)' }}
-            >
-              <Sparkles size={12} />
-              All
-              <span className={`text-[10px] px-1.5 py-0.5 font-mono ${
-                activeCategory === 'all' ? 'bg-white/20' : 'bg-white/5 text-gray-500'
-              }`}>
-                {categoryCounts.all || 0}
-              </span>
-            </button>
             {categories.map((cat) => (
               <button
                 key={cat.slug}
@@ -550,57 +460,37 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
       </ScrollReveal>
 
       {/* Portfolio grid */}
-      {activeCategory === 'all' && categoryChunks ? (
-        <div className={columns === 4 ? 'space-y-5' : 'space-y-6'}>
-          {categoryChunks.map((chunk, chunkIdx) => (
-            <div key={`chunk-${chunk.catId}-${chunkIdx}`} className={gridClass}>
-              {chunk.items.map((item) => (
-                <div key={item.id}>
-                  <LazyGifCard
-                    thumbnailUrl={item.thumbnail_url}
-                    gifUrl={item.gif_url}
-                    imageUrl={item.image_url}
-                    title={item.title}
-                    category={item.category?.name}
-                    fileType={item.file_type}
-                    onClick={() => openLightbox(item)}
-                    onExpand={() => openZoom(item)}
-                  />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className={gridClass}>
-          {visibleItems.map((item) => (
-            <div key={item.id}>
-              <LazyGifCard
-                thumbnailUrl={item.thumbnail_url}
-                gifUrl={item.gif_url}
-                imageUrl={item.image_url}
-                title={item.title}
-                category={item.category?.name}
-                fileType={item.file_type}
-                onClick={() => openLightbox(item)}
-                onExpand={() => openZoom(item)}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      <div className={gridClass}>
+        {visibleItems.map((item, index) => (
+          <div key={item.id}>
+            <LazyGifCard
+              thumbnailUrl={item.thumbnail_url}
+              gifUrl={item.gif_url}
+              imageUrl={item.image_url}
+              title={item.title}
+              category={item.category?.name}
+              fileType={item.file_type}
+              onClick={() => openLightbox(item)}
+              onExpand={() => openZoom(item)}
+              eager={index < BATCH_SIZE}
+            />
+          </div>
+        ))}
+      </div>
 
-      {/* Loading sentinel + indicator */}
+      {/* Load more button */}
       {hasMore && (
-        <div ref={sentinelRef} className="flex justify-center py-12">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-3 text-gray-500 text-xs font-mono uppercase tracking-wider"
+        <div className="flex justify-center py-12">
+          <button
+            onClick={loadMore}
+            className="group relative px-8 py-3.5 bg-surface/80 border border-white/[0.08] hover:border-accent-red/30 hover:bg-accent-red/10 text-gray-300 hover:text-white text-sm font-mono uppercase tracking-[0.15em] font-medium transition-all duration-300 flex items-center gap-3"
+            style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)' }}
           >
-            <div className="w-5 h-5 border-2 border-accent-red/30 border-t-accent-red animate-spin rounded-full" />
-            Загрузка...
-          </motion.div>
+            Load more...
+            <span className="text-[10px] px-2 py-0.5 bg-white/5 text-gray-500 group-hover:text-accent-red/80 font-mono transition-colors">
+              {filteredItems.length - visibleCount}
+            </span>
+          </button>
         </div>
       )}
 
@@ -619,11 +509,11 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
           <h3 className="text-xl font-semibold text-gray-300 mb-2">No projects found</h3>
           <p className="text-gray-500 text-xs font-mono uppercase tracking-wider">No portfolio items in this category yet.</p>
           <button
-            onClick={() => setActiveCategory('all')}
+            onClick={() => setActiveCategory(categories[0]?.slug || '')}
             className="mt-6 px-5 py-2 bg-accent-red/10 text-accent-red text-xs font-mono uppercase tracking-wider hover:bg-accent-red/20 transition-colors"
             style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)' }}
           >
-            View All Projects
+            View Projects
           </button>
         </motion.div>
       )}

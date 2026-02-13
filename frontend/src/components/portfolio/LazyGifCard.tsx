@@ -15,6 +15,7 @@ interface LazyGifCardProps {
   onClick?: () => void;
   onExpand?: () => void;
   fileType: 'image' | 'gif' | 'video';
+  eager?: boolean;
 }
 
 export default function LazyGifCard({
@@ -26,6 +27,7 @@ export default function LazyGifCard({
   onClick,
   onExpand,
   fileType,
+  eager = false,
 }: LazyGifCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [mediaLoaded, setMediaLoaded] = useState(false);
@@ -37,6 +39,7 @@ export default function LazyGifCard({
     triggerOnce: true,
     threshold: 0.05,
     rootMargin: '300px',
+    skip: eager,
   });
 
   const isGif = fileType === 'gif' && gifUrl;
@@ -130,7 +133,7 @@ export default function LazyGifCard({
       onTouchStart={handleTouchStart}
       onClick={onClick}
       initial={{ opacity: 0, scale: 0.97 }}
-      animate={inView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.97 }}
+      animate={inView || eager ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
     >
       {/* Angular border glow */}
@@ -166,7 +169,7 @@ export default function LazyGifCard({
               muted
               loop
               playsInline
-              preload={isMobile ? 'auto' : 'none'}
+              preload={isMobile || eager ? 'auto' : 'none'}
               autoPlay={isMobile}
               onLoadedData={() => setMediaLoaded(true)}
             />
@@ -175,7 +178,7 @@ export default function LazyGifCard({
               src={thumbSrc}
               alt={title}
               className={`w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-105 ${!mediaLoaded ? 'absolute inset-0 opacity-0' : 'opacity-100'}`}
-              loading="lazy"
+              loading={eager ? 'eager' : 'lazy'}
               onLoad={() => setMediaLoaded(true)}
             />
           )}
