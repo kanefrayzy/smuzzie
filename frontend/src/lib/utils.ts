@@ -33,26 +33,31 @@ export function formatFileSize(bytes: number | null) {
 export function getImageUrl(url: string | null | undefined): string {
   if (!url) return 'https://placehold.co/400x300/1a1a1a/333?text=No+Image';
   
-  // If it's already a full URL with the correct backend port, return as-is
   const backendUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1')
     .replace(/\/api\/v1$/, '');
   
-  // Extract the storage path and route through /media/ for cache headers
-  let storagePath = '';
-
+  // If the URL is a relative path like /storage/...
   if (url.startsWith('/storage/')) {
-    storagePath = url.replace('/storage/', '');
-  } else if (url.startsWith('http://localhost/storage/')) {
-    storagePath = url.replace('http://localhost/storage/', '');
-  } else if (url.startsWith('storage/')) {
-    storagePath = url.replace('storage/', '');
-  } else if (url.includes('/storage/')) {
-    storagePath = url.split('/storage/').pop() || '';
+    return `${backendUrl}${url}`;
+  }
+  
+  // If URL points to localhost without port (old entries), fix it
+  if (url.startsWith('http://localhost/storage/')) {
+    return url.replace('http://localhost/storage/', `${backendUrl}/storage/`);
+  }
+  
+  // If URL is just a path like storage/...
+  if (url.startsWith('storage/')) {
+    return `${backendUrl}/${url}`;
   }
 
-  if (storagePath) {
-    return `${backendUrl}/media/${storagePath}`;
+  // If URL has a different backend host, rewrite to current backend
+  if (url.includes('/storage/')) {
+    const storagePath = url.split('/storage/').pop() || '';
+    if (storagePath) {
+      return `${backendUrl}/storage/${storagePath}`;
+    }
   }
-
+  
   return url;
 }
