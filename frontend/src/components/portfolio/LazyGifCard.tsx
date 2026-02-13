@@ -31,7 +31,9 @@ export default function LazyGifCard({
 }: LazyGifCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [mediaLoaded, setMediaLoaded] = useState(false);
+  const [gifReady, setGifReady] = useState(false); // GIF fully loaded in background
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const gifPreloadRef = useRef<HTMLImageElement | null>(null);
   const { ref: inViewRef, inView } = useInView({
     triggerOnce: true,
     threshold: 0.05,
@@ -39,13 +41,13 @@ export default function LazyGifCard({
     skip: eager,
   });
 
+  const isVisible = inView || eager;
   const isGif = fileType === 'gif' && gifUrl;
   const isVideo = fileType === 'video';
-  // For GIFs — always use the animated source so they play constantly
-  // For images — use the lightweight thumbnail
   const thumbSrc = getImageUrl(thumbnailUrl || imageUrl);
   const gifSrc = getImageUrl(gifUrl || imageUrl);
-  const displaySrc = isGif ? gifSrc : thumbSrc;
+  // Show thumbnail first; once GIF is loaded in background, switch to it
+  const displaySrc = (isGif && gifReady) ? gifSrc : thumbSrc;
   const [isMobile, setIsMobile] = useState(false);
 
   // Detect mobile/touch device
@@ -55,6 +57,21 @@ export default function LazyGifCard({
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
+
+  // Preload GIF in background when card becomes visible
+  useEffect(() => {
+    if (!isGif || !isVisible || gifReady) return;
+    const img = new Image();
+    img.onload = () => setGifReady(true);
+    img.src = gifSrc;
+    gifPreloadRef.current = img;
+    return () => {
+      if (gifPreloadRef.current) {
+        gifPreloadRef.current.onload = null;
+        gifPreloadRef.current = null;
+      }
+    };
+  }, [isGif, isVisible, gifReady, gifSrc]);
 
   // On mobile: autoplay video when card scrolls into view
   useEffect(() => {
@@ -107,7 +124,7 @@ export default function LazyGifCard({
       onTouchStart={handleTouchStart}
       onClick={onClick}
       initial={{ opacity: 0, scale: 0.97 }}
-      animate={inView || eager ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.97 }}
+      animate={isVisible ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
     >
       {/* Angular border glow */}
@@ -159,10 +176,20 @@ export default function LazyGifCard({
 
           {/* GIF badge — angular */}
           {isGif && (
-            <div className="absolute top-3 right-3 px-2 py-0.5 bg-accent-red/90 text-[10px] font-mono font-bold tracking-wider uppercase z-20"
-              style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)' }}
-            >
-              GIF
+            <div className="absolute top-3 right-3 z-20 flex items-center gap-1">
+              {!gifReady && (
+                <div className="px-2 py-0.5 bg-black/60 backdrop-blur-sm text-[10px] font-mono tracking-wider text-white/50 border border-white/[0.08]"
+                  style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)' }}
+                >
+                  <div className="w-3 h-3 border border-accent-red/40 border-t-accent-red rounded-full animate-spin inline-block mr-1" />
+                  Loading
+                </div>
+              )}
+              <div className="px-2 py-0.5 bg-accent-red/90 text-[10px] font-mono font-bold tracking-wider uppercase"
+                style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)' }}
+              >
+                GIF
+              </div>
             </div>
           )}
 
