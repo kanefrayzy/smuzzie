@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { getImageUrl } from '@/lib/utils';
 import { Expand, Eye } from 'lucide-react';
@@ -31,9 +31,6 @@ export default function LazyGifCard({
 }: LazyGifCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [mediaLoaded, setMediaLoaded] = useState(false);
-  const [gifLoaded, setGifLoaded] = useState(false);
-  const [gifCached, setGifCached] = useState(false);
-  const gifRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const { ref: inViewRef, inView } = useInView({
     triggerOnce: true,
@@ -44,10 +41,11 @@ export default function LazyGifCard({
 
   const isGif = fileType === 'gif' && gifUrl;
   const isVideo = fileType === 'video';
-  // Use lightweight thumbnail for initial display (not the 25MB gif!)
-  // thumbnailUrl is a small jpg for images/gifs, but for videos it may be the mp4 itself
+  // For GIFs — always use the animated source so they play constantly
+  // For images — use the lightweight thumbnail
   const thumbSrc = getImageUrl(thumbnailUrl || imageUrl);
-  const animatedSrc = getImageUrl(gifUrl || imageUrl);
+  const gifSrc = getImageUrl(gifUrl || imageUrl);
+  const displaySrc = isGif ? gifSrc : thumbSrc;
   const [isMobile, setIsMobile] = useState(false);
 
   // Detect mobile/touch device
@@ -78,20 +76,11 @@ export default function LazyGifCard({
 
   const handleMouseEnter = useCallback(() => {
     setIsHovered(true);
-    if (isGif && !gifCached) {
-      const img = new Image();
-      img.onload = () => {
-        setGifLoaded(true);
-        setGifCached(true);
-      };
-      img.src = animatedSrc;
-      gifRef.current = img;
-    }
     if (isVideo && videoRef.current && !isMobile) {
       videoRef.current.currentTime = 0;
       videoRef.current.play().catch(() => {});
     }
-  }, [isGif, isVideo, gifCached, animatedSrc, isMobile]);
+  }, [isVideo, isMobile]);
 
   const handleMouseLeave = useCallback(() => {
     setIsHovered(false);
@@ -106,22 +95,7 @@ export default function LazyGifCard({
     if (isVideo && videoRef.current) {
       videoRef.current.play().catch(() => {});
     }
-    if (isGif && !gifCached) {
-      const img = new Image();
-      img.onload = () => {
-        setGifLoaded(true);
-        setGifCached(true);
-      };
-      img.src = animatedSrc;
-      gifRef.current = img;
-    }
-  }, [isVideo, isGif, gifCached, animatedSrc]);
-
-  useEffect(() => {
-    if (isHovered && gifCached) {
-      setGifLoaded(true);
-    }
-  }, [isHovered, gifCached]);
+  }, [isVideo]);
 
   return (
     <motion.div
@@ -175,42 +149,12 @@ export default function LazyGifCard({
             />
           ) : (
             <img
-              src={thumbSrc}
+              src={displaySrc}
               alt={title}
               className={`w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-105 ${!mediaLoaded ? 'absolute inset-0 opacity-0' : 'opacity-100'}`}
               loading={eager ? 'eager' : 'lazy'}
               onLoad={() => setMediaLoaded(true)}
             />
-          )}
-
-          {/* GIF overlay */}
-          {isGif && (
-            <AnimatePresence>
-              {isHovered && (
-                <motion.div
-                  className="absolute inset-0"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: gifLoaded ? 1 : 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {gifCached && (
-                    <img
-                      src={animatedSrc}
-                      alt={`${title} animated`}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          )}
-
-          {/* Loading indicator */}
-          {isGif && isHovered && !gifLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-              <div className="w-6 h-6 border-2 border-accent-red/30 border-t-accent-red animate-spin" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' }} />
-            </div>
           )}
 
           {/* GIF badge — angular */}
