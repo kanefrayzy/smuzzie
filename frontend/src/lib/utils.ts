@@ -37,20 +37,22 @@ export function getImageUrl(url: string | null | undefined): string {
   const backendUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1')
     .replace(/\/api\/v1$/, '');
   
-  // If the URL is a relative path like /storage/...
+  // Extract the storage path and route through /media/ for cache headers
+  let storagePath = '';
+
   if (url.startsWith('/storage/')) {
-    return `${backendUrl}${url}`;
+    storagePath = url.replace('/storage/', '');
+  } else if (url.startsWith('http://localhost/storage/')) {
+    storagePath = url.replace('http://localhost/storage/', '');
+  } else if (url.startsWith('storage/')) {
+    storagePath = url.replace('storage/', '');
+  } else if (url.includes('/storage/')) {
+    storagePath = url.split('/storage/').pop() || '';
   }
-  
-  // If URL points to localhost without port (old entries), fix it
-  if (url.startsWith('http://localhost/storage/')) {
-    return url.replace('http://localhost/storage/', `${backendUrl}/storage/`);
+
+  if (storagePath) {
+    return `${backendUrl}/media/${storagePath}`;
   }
-  
-  // If URL is just a path like storage/...
-  if (url.startsWith('storage/')) {
-    return `${backendUrl}/${url}`;
-  }
-  
+
   return url;
 }
