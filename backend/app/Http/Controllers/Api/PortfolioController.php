@@ -257,7 +257,7 @@ class PortfolioController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'category_id' => 'required|exists:categories,id',
-            'images' => 'required|array|min:1|max:20',
+            'images' => 'required|array|min:1|max:100',
             'images.*' => 'file|mimes:jpeg,png,gif,webp,mp4,webm|max:512000',
         ]);
 
