@@ -65,6 +65,7 @@ export default function AdminPortfolioPage() {
   const [bulkFiles, setBulkFiles] = useState<FileList | null>(null);
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ uploaded: 0, total: 0, failed: 0 });
   const [saving, setSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -195,15 +196,35 @@ export default function AdminPortfolioPage() {
       return;
     }
     setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('category_id', bulkCategoryId);
-      Array.from(bulkFiles).forEach((file) => {
-        formData.append('images[]', file);
-      });
 
-      await adminApi.bulkUpload(formData);
-      toast.success(`${bulkFiles.length} items uploaded successfully!`);
+    const allFiles = Array.from(bulkFiles);
+    const BATCH_SIZE = 5;
+    const total = allFiles.length;
+    let uploaded = 0;
+    let failed = 0;
+    setUploadProgress({ uploaded: 0, total, failed: 0 });
+
+    try {
+      for (let i = 0; i < total; i += BATCH_SIZE) {
+        const batch = allFiles.slice(i, i + BATCH_SIZE);
+        const formData = new FormData();
+        formData.append('category_id', bulkCategoryId);
+        batch.forEach((file) => formData.append('images[]', file));
+
+        try {
+          await adminApi.bulkUpload(formData);
+          uploaded += batch.length;
+        } catch {
+          failed += batch.length;
+        }
+        setUploadProgress({ uploaded, total, failed });
+      }
+
+      if (failed === 0) {
+        toast.success(`${total} items uploaded successfully!`);
+      } else {
+        toast.success(`Uploaded ${uploaded} of ${total} (${failed} failed)`);
+      }
       setShowBulkUpload(false);
       setBulkFiles(null);
       setBulkCategoryId('');
@@ -212,6 +233,7 @@ export default function AdminPortfolioPage() {
       toast.error(err.response?.data?.message || 'Bulk upload failed');
     } finally {
       setUploading(false);
+      setUploadProgress({ uploaded: 0, total: 0, failed: 0 });
     }
   };
 
@@ -492,10 +514,33 @@ export default function AdminPortfolioPage() {
               ) : (
                 <div>
                   <Upload size={24} className="mx-auto text-gray-500 mb-2" />
-                  <p className="text-sm text-gray-400">Click to select multiple files (up to 20)</p>
+                  <p className="text-sm text-gray-400">Click to select files</p>
                 </div>
               )}
             </div>
+
+            {/* Upload progress */}
+            {uploading && uploadProgress.total > 0 && (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-400">
+                    Uploading... {uploadProgress.uploaded} / {uploadProgress.total}
+                    {uploadProgress.failed > 0 && (
+                      <span className="text-red-400 ml-2">({uploadProgress.failed} failed)</span>
+                    )}
+                  </span>
+                  <span className="text-white font-medium">
+                    {Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-surface-dark rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-accent-red rounded-full transition-all duration-300"
+                    style={{ width: `${(uploadProgress.uploaded / uploadProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-4 mt-4">
               <button
