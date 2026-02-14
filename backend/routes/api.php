@@ -55,6 +55,7 @@ Route::prefix('v1')->group(function () {
             ->parameters(['portfolio' => 'portfolioItem']);
         Route::patch('/portfolio/{portfolioItem}/toggle', [PortfolioController::class, 'toggleField']);
         Route::post('/portfolio/bulk-upload', [PortfolioController::class, 'bulkUpload']);
+        Route::post('/portfolio/bulk-delete', [PortfolioController::class, 'bulkDelete']);
         Route::post('/portfolio/reorder', [PortfolioController::class, 'reorder']);
 
         // Reviews CRUD

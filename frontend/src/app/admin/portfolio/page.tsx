@@ -7,7 +7,7 @@ import { PortfolioItem, Category } from '@/types';
 import { formatDate, formatFileSize, getImageUrl } from '@/lib/utils';
 import {
   Plus, Edit2, Trash2, Upload, Image as ImageIcon,
-  Save, X, Star, Eye, EyeOff, Filter
+  Save, X, Star, Eye, EyeOff, Filter, CheckSquare, Square, MinusSquare
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -66,6 +66,8 @@ export default function AdminPortfolioPage() {
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const bulkInputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +92,62 @@ export default function AdminPortfolioPage() {
   const filteredItems = filterCategory === 'all'
     ? items
     : items.filter((i) => i.category_id === parseInt(filterCategory));
+
+  // ─── Selection helpers ───
+  const allFilteredIds = filteredItems.map(i => i.id);
+  const allSelected = filteredItems.length > 0 && allFilteredIds.every(id => selectedIds.has(id));
+  const someSelected = allFilteredIds.some(id => selectedIds.has(id));
+  const selectedCount = allFilteredIds.filter(id => selectedIds.has(id)).length;
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      // Deselect all in current filter
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        allFilteredIds.forEach(id => next.delete(id));
+        return next;
+      });
+    } else {
+      // Select all in current filter
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        allFilteredIds.forEach(id => next.add(id));
+        return next;
+      });
+    }
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkDelete = async () => {
+    const idsToDelete = allFilteredIds.filter(id => selectedIds.has(id));
+    if (idsToDelete.length === 0) return;
+    if (!confirm(`Delete ${idsToDelete.length} selected items? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      await adminApi.bulkDeletePortfolio(idsToDelete);
+      toast.success(`${idsToDelete.length} items deleted!`);
+      setItems(prev => prev.filter(item => !idsToDelete.includes(item.id)));
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        idsToDelete.forEach(id => next.delete(id));
+        return next;
+      });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Bulk delete failed');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
 
   const handleSingleUpload = async () => {
     if (!selectedFile || !uploadForm.category_id) {
@@ -618,28 +676,40 @@ export default function AdminPortfolioPage() {
         )}
       </AnimatePresence>
 
-      {/* Category filter */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        <Filter size={14} className="text-gray-500 flex-shrink-0" />
-        <button
-          onClick={() => setFilterCategory('all')}
-          className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-            filterCategory === 'all' ? 'bg-accent-red text-white' : 'bg-surface text-gray-400 hover:text-white'
-          }`}
-        >
-          All
-        </button>
-        {categories.map((c) => (
+      {/* Category filter + selection controls */}
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2">
+          <Filter size={14} className="text-gray-500 flex-shrink-0" />
           <button
-            key={c.id}
-            onClick={() => setFilterCategory(c.id.toString())}
+            onClick={() => setFilterCategory('all')}
             className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
-              filterCategory === c.id.toString() ? 'bg-accent-red text-white' : 'bg-surface text-gray-400 hover:text-white'
+              filterCategory === 'all' ? 'bg-accent-red text-white' : 'bg-surface text-gray-400 hover:text-white'
             }`}
           >
-            {c.icon} {c.name}
+            All
           </button>
-        ))}
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setFilterCategory(c.id.toString())}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                filterCategory === c.id.toString() ? 'bg-accent-red text-white' : 'bg-surface text-gray-400 hover:text-white'
+              }`}
+            >
+              {c.icon} {c.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Select all toggle */}
+        <button
+          onClick={toggleSelectAll}
+          className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap bg-surface text-gray-400 hover:text-white border border-white/5 hover:border-white/20"
+          title={allSelected ? 'Deselect All' : 'Select All'}
+        >
+          {allSelected ? <CheckSquare size={14} className="text-accent-red" /> : someSelected ? <MinusSquare size={14} className="text-accent-red" /> : <Square size={14} />}
+          {allSelected ? 'Deselect All' : 'Select All'}
+        </button>
       </div>
 
       {/* Items grid */}
@@ -648,10 +718,25 @@ export default function AdminPortfolioPage() {
           <motion.div
             key={item.id}
             layout
-            className="glass-card border border-white/5 overflow-hidden group"
+            className={`glass-card border overflow-hidden group cursor-pointer transition-all ${
+              selectedIds.has(item.id)
+                ? 'border-accent-red/60 ring-2 ring-accent-red/30'
+                : 'border-white/5 hover:border-white/10'
+            }`}
           >
             {/* Thumbnail */}
             <div className="relative aspect-[4/3] bg-surface-dark">
+              {/* Selection checkbox */}
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleSelect(item.id); }}
+                className={`absolute top-2 right-2 z-10 p-1 rounded-md transition-all ${
+                  selectedIds.has(item.id)
+                    ? 'bg-accent-red text-white shadow-lg shadow-accent-red/30'
+                    : 'bg-black/50 text-white/50 opacity-0 group-hover:opacity-100 hover:bg-black/70 hover:text-white'
+                }`}
+              >
+                {selectedIds.has(item.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+              </button>
               {item.file_type === 'video' ? (
                 <video
                   src={getImageUrl(item.image_url)}
@@ -740,6 +825,41 @@ export default function AdminPortfolioPage() {
           <p className="text-gray-400">No items found. Upload your first portfolio piece!</p>
         </div>
       )}
+
+      {/* Floating bulk action bar */}
+      <AnimatePresence>
+        {selectedCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-6 py-3 rounded-2xl bg-surface/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/50"
+          >
+            <span className="text-sm text-gray-300">
+              <span className="font-bold text-white">{selectedCount}</span> selected
+            </span>
+            <div className="w-px h-6 bg-white/10" />
+            <button
+              onClick={clearSelection}
+              className="px-4 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/20 transition-all disabled:opacity-50"
+            >
+              {bulkDeleting ? (
+                <div className="w-3.5 h-3.5 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+              ) : (
+                <Trash2 size={14} />
+              )}
+              Delete Selected
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

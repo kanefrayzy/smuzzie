@@ -79,6 +79,7 @@ export const adminApi = {
   togglePortfolioField: (id: number, data: Record<string, any>) =>
     api.patch(`/admin/portfolio/${id}/toggle`, data),
   deletePortfolioItem: (id: number) => api.delete(`/admin/portfolio/${id}`),
+  bulkDeletePortfolio: (ids: number[]) => api.post('/admin/portfolio/bulk-delete', { ids }),
   bulkUpload: (data: FormData) =>
     api.post('/admin/portfolio/bulk-upload', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
   reorderPortfolio: (items: { id: number; sort_order: number }[]) =>

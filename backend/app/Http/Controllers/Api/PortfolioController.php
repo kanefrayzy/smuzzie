@@ -204,6 +204,38 @@ class PortfolioController extends Controller
         return response()->json(['message' => 'Portfolio item deleted successfully']);
     }
 
+    /**
+     * Bulk delete multiple portfolio items.
+     */
+    public function bulkDelete(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer|exists:portfolio_items,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $ids = $request->input('ids');
+        $items = PortfolioItem::whereIn('id', $ids)->get();
+        $count = 0;
+
+        foreach ($items as $item) {
+            if ($item->local_path) {
+                $this->storage->delete($item->local_path);
+            }
+            $item->delete();
+            $count++;
+        }
+
+        return response()->json([
+            'message' => "{$count} portfolio items deleted successfully",
+            'deleted_count' => $count,
+        ]);
+    }
+
     public function toggleField(Request $request, PortfolioItem $portfolioItem)
     {
         $validator = Validator::make($request->all(), [
