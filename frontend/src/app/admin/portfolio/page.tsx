@@ -13,8 +13,8 @@ import toast, { Toaster } from 'react-hot-toast';
 
 export default function AdminPortfolioPage() {
   // ─── File validation constants ───
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4'];
-  const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4'];
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'];
+  const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm'];
   const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 
   const validateFile = (file: File): string | null => {
@@ -23,7 +23,7 @@ export default function AdminPortfolioPage() {
       return `Invalid file type: .${ext}. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`;
     }
     if (!ALLOWED_TYPES.includes(file.type)) {
-      return `Invalid MIME type: ${file.type}. Allowed: JPEG, PNG, GIF, WebP, MP4`;
+      return `Invalid MIME type: ${file.type}. Allowed: JPEG, PNG, GIF, WebP, MP4, WebM`;
     }
     if (file.size > MAX_FILE_SIZE) {
       return `File too large: ${formatFileSize(file.size)}. Maximum: 500MB`;
@@ -374,7 +374,7 @@ export default function AdminPortfolioPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".jpg,.jpeg,.png,.gif,.webp,.mp4"
+                accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.webm"
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
                   if (file) {
@@ -471,7 +471,7 @@ export default function AdminPortfolioPage() {
               <input
                 ref={bulkInputRef}
                 type="file"
-                accept=".jpg,.jpeg,.png,.gif,.webp,.mp4"
+                accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.webm"
                 multiple
                 onChange={(e) => {
                   const files = e.target.files;
@@ -544,7 +544,7 @@ export default function AdminPortfolioPage() {
                 {/* Current image preview */}
                 <div className="flex items-start gap-4">
                   <div className="w-32 h-24 rounded-xl overflow-hidden bg-surface-dark flex-shrink-0">
-                    {(editFile ? editFile.type === 'video/mp4' : editingItem.file_type === 'video') ? (
+                    {(editFile ? editFile.type.startsWith('video/') : editingItem.file_type === 'video') ? (
                       <video
                         src={editFile ? URL.createObjectURL(editFile) : getImageUrl(editingItem.image_url)}
                         className="w-full h-full object-cover"
@@ -574,7 +574,7 @@ export default function AdminPortfolioPage() {
                     <input
                       ref={editFileInputRef}
                       type="file"
-                      accept=".jpg,.jpeg,.png,.gif,.webp,.mp4"
+                      accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.webm"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
                         if (file) {
@@ -762,7 +762,7 @@ export default function AdminPortfolioPage() {
                   <span className="px-2 py-0.5 bg-accent-red/80 backdrop-blur-sm rounded text-[10px] font-bold">GIF</span>
                 )}
                 {item.file_type === 'video' && (
-                  <span className="px-2 py-0.5 bg-purple-500/80 backdrop-blur-sm rounded text-[10px] font-bold">MP4</span>
+                  <span className="px-2 py-0.5 bg-purple-500/80 backdrop-blur-sm rounded text-[10px] font-bold">VIDEO</span>
                 )}
                 {item.is_featured && (
                   <span className="px-2 py-0.5 bg-yellow-500/80 backdrop-blur-sm rounded text-[10px] font-bold">★</span>

@@ -17,8 +17,8 @@ function SliderCard({ item }: { item: PortfolioItem }) {
   const videoSrc = isVideo ? getImageUrl(item.image_url || item.gif_url) : '';
 
   // For non-video items, use thumbnail_url as the image source
-  // For video items, thumbnail_url is often the .mp4 itself (can't be used as <img>)
-  const isThumbUsable = item.thumbnail_url && !item.thumbnail_url.endsWith('.mp4');
+  // For video items, thumbnail_url is often the video itself (can't be used as <img>)
+  const isThumbUsable = item.thumbnail_url && !item.thumbnail_url.endsWith('.mp4') && !item.thumbnail_url.endsWith('.webm');
   const thumbSrc = isThumbUsable ? getImageUrl(item.thumbnail_url) : '';
   // Final image src: prefer usable thumbnail, fallback to image_url
   const imgSrc = thumbSrc || getImageUrl(item.image_url);

@@ -72,7 +72,7 @@ class PortfolioController extends Controller
 
         $ext = strtolower($file->guessExtension() ?: $file->getClientOriginalExtension());
         $isGif = $ext === 'gif';
-        $isVideo = $ext === 'mp4';
+        $isVideo = in_array($ext, ['mp4', 'webm']);
 
         try {
             // Upload to local storage
@@ -125,7 +125,7 @@ class PortfolioController extends Controller
             'category_id' => 'sometimes|exists:categories,id',
             'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
-            'image' => 'nullable|file|mimes:jpeg,png,gif,webp,mp4|max:512000',
+            'image' => 'nullable|file|mimes:jpeg,png,gif,webp,mp4,webm|max:512000',
             'is_featured' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
             'sort_order' => 'nullable|integer',
@@ -163,7 +163,7 @@ class PortfolioController extends Controller
 
                 $ext = strtolower($file->guessExtension() ?: $file->getClientOriginalExtension());
                 $isGif = $ext === 'gif';
-                $isVideo = $ext === 'mp4';
+                $isVideo = in_array($ext, ['mp4', 'webm']);
 
                 $uploadResult = $this->storage->upload($file, 'portfolio');
                 $thumbnailUrl = $isVideo ? $uploadResult['url'] : $this->storage->generateThumbnail($uploadResult['path'], 400, 300);
@@ -258,7 +258,7 @@ class PortfolioController extends Controller
         $validator = Validator::make($request->all(), [
             'category_id' => 'required|exists:categories,id',
             'images' => 'required|array|min:1|max:20',
-            'images.*' => 'file|mimes:jpeg,png,gif,webp,mp4|max:512000',
+            'images.*' => 'file|mimes:jpeg,png,gif,webp,mp4,webm|max:512000',
         ]);
 
         if ($validator->fails()) {
@@ -285,7 +285,7 @@ class PortfolioController extends Controller
         foreach ($files as $index => $file) {
             $ext = strtolower($file->guessExtension() ?: $file->getClientOriginalExtension());
             $isGif = $ext === 'gif';
-            $isVideo = $ext === 'mp4';
+            $isVideo = in_array($ext, ['mp4', 'webm']);
             $uploadResult = $this->storage->upload($file, 'portfolio');
 
             $thumbnailUrl = $isVideo ? $uploadResult['url'] : $this->storage->generateThumbnail($uploadResult['path'], 400, 300);

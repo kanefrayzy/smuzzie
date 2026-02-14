@@ -19,7 +19,7 @@ class LocalStorageService
         $path = $file->storeAs($folder, $filename, 'public');
 
         $isGif = strtolower($extension) === 'gif';
-        $isVideo = strtolower($extension) === 'mp4';
+        $isVideo = in_array(strtolower($extension), ['mp4', 'webm']);
         $width = null;
         $height = null;
 
@@ -130,8 +130,8 @@ class LocalStorageService
     {
         $errors = [];
         $extension = strtolower($file->getClientOriginalExtension());
-        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4'];
-        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4'];
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm'];
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'];
         $maxSize = 500 * 1024 * 1024; // 500MB
 
         // Check extension
@@ -151,7 +151,7 @@ class LocalStorageService
         }
 
         // Verify that the file is actually an image (skip for video)
-        if ($extension !== 'mp4') {
+        if (!in_array($extension, ['mp4', 'webm'])) {
             try {
                 $imageInfo = getimagesize($file->getRealPath());
                 if ($imageInfo === false) {
