@@ -115,7 +115,7 @@ export default function Header() {
                 transition={{ delay: 0.4 }}
                 className="mt-4"
               >
-                <GetStartedButton size="lg" />
+                <GetStartedButton size="lg" onClick={() => setMobileOpen(false)} />
               </motion.div>
             </nav>
           </motion.div>

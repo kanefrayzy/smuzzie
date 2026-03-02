@@ -43,7 +43,7 @@ export default function GetStartedButton({
     </motion.span>
   );
 
-  if (onClick) {
+  if (onClick && !href) {
     return (
       <button onClick={onClick} className="group">
         {buttonContent}
@@ -52,7 +52,7 @@ export default function GetStartedButton({
   }
 
   return (
-    <Link href={href} className="group">
+    <Link href={href} className="group" onClick={onClick}>
       {buttonContent}
     </Link>
   );
