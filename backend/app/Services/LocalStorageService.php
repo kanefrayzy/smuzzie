@@ -117,9 +117,9 @@ class LocalStorageService
         $outputFullPath = $disk->path($thumbnailPath);
 
         try {
-            // Extract frame at 0.5s, scale to fit within WxH keeping aspect ratio
+            // Extract frame at 0.5s, scale+crop to fill WxH exactly (like Intervention fit())
             $cmd = sprintf(
-                'ffmpeg -y -i %s -ss 00:00:00.5 -vframes 1 -vf "scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=black" -q:v 2 %s 2>&1',
+                'ffmpeg -y -i %s -ss 00:00:00.5 -vframes 1 -vf "scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d" -q:v 2 %s 2>&1',
                 escapeshellarg($fullPath),
                 $width,
                 $height,
