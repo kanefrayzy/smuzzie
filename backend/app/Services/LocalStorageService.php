@@ -97,6 +97,52 @@ class LocalStorageService
     }
 
     /**
+     * Generate a JPG thumbnail from a video file using FFmpeg.
+     * Extracts the first frame at 0.5s.
+     */
+    public function generateVideoThumbnail(string $sourcePath, int $width = 400, int $height = 300): string
+    {
+        $disk = Storage::disk('public');
+        $fullPath = $disk->path($sourcePath);
+
+        $info = pathinfo($sourcePath);
+        $thumbnailFilename = $info['filename'] . '_thumb.jpg';
+        $thumbnailPath = $info['dirname'] . '/thumbnails/' . $thumbnailFilename;
+
+        $thumbnailDir = dirname($disk->path($thumbnailPath));
+        if (!is_dir($thumbnailDir)) {
+            mkdir($thumbnailDir, 0755, true);
+        }
+
+        $outputFullPath = $disk->path($thumbnailPath);
+
+        try {
+            // Extract frame at 0.5s, scale to fit within WxH keeping aspect ratio
+            $cmd = sprintf(
+                'ffmpeg -y -i %s -ss 00:00:00.5 -vframes 1 -vf "scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=black" -q:v 2 %s 2>&1',
+                escapeshellarg($fullPath),
+                $width,
+                $height,
+                $width,
+                $height,
+                escapeshellarg($outputFullPath)
+            );
+
+            exec($cmd, $output, $returnCode);
+
+            if ($returnCode !== 0 || !file_exists($outputFullPath)) {
+                \Log::warning('FFmpeg thumbnail failed (code ' . $returnCode . '): ' . implode("\n", $output));
+                return $disk->url($sourcePath);
+            }
+
+            return $disk->url($thumbnailPath);
+        } catch (\Exception $e) {
+            \Log::error('Video thumbnail generation error: ' . $e->getMessage());
+            return $disk->url($sourcePath);
+        }
+    }
+
+    /**
      * Delete a file and its thumbnail from local storage.
      */
     public function delete(string $path): bool

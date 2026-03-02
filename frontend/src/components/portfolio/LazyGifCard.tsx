@@ -156,11 +156,12 @@ export default function LazyGifCard({
             <video
               ref={videoRef}
               src={getImageUrl(gifUrl || imageUrl)}
+              poster={thumbSrc}
               className={`w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-105 ${!mediaLoaded ? 'absolute inset-0 opacity-0' : 'opacity-100'}`}
               muted
               loop
               playsInline
-              preload={isMobile || eager ? 'auto' : 'none'}
+              preload={eager ? 'auto' : 'metadata'}
               autoPlay={isMobile}
               onLoadedData={() => setMediaLoaded(true)}
             />

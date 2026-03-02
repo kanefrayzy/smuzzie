@@ -78,8 +78,12 @@ class PortfolioController extends Controller
             // Upload to local storage
             $uploadResult = $this->storage->upload($file, 'portfolio');
 
-            // Generate thumbnail (skip for videos)
-            $thumbnailUrl = $isVideo ? $uploadResult['url'] : $this->storage->generateThumbnail($uploadResult['path'], 400, 300);
+            // Generate thumbnail
+            if ($isVideo) {
+                $thumbnailUrl = $this->storage->generateVideoThumbnail($uploadResult['path'], 400, 300);
+            } else {
+                $thumbnailUrl = $this->storage->generateThumbnail($uploadResult['path'], 400, 300);
+            }
         } catch (\RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 503);
         } catch (\Exception $e) {
@@ -166,7 +170,11 @@ class PortfolioController extends Controller
                 $isVideo = in_array($ext, ['mp4', 'webm']);
 
                 $uploadResult = $this->storage->upload($file, 'portfolio');
-                $thumbnailUrl = $isVideo ? $uploadResult['url'] : $this->storage->generateThumbnail($uploadResult['path'], 400, 300);
+                if ($isVideo) {
+                    $thumbnailUrl = $this->storage->generateVideoThumbnail($uploadResult['path'], 400, 300);
+                } else {
+                    $thumbnailUrl = $this->storage->generateThumbnail($uploadResult['path'], 400, 300);
+                }
 
                 $data['image_url'] = $uploadResult['url'];
                 $data['thumbnail_url'] = $thumbnailUrl;
@@ -288,7 +296,11 @@ class PortfolioController extends Controller
             $isVideo = in_array($ext, ['mp4', 'webm']);
             $uploadResult = $this->storage->upload($file, 'portfolio');
 
-            $thumbnailUrl = $isVideo ? $uploadResult['url'] : $this->storage->generateThumbnail($uploadResult['path'], 400, 300);
+            if ($isVideo) {
+                $thumbnailUrl = $this->storage->generateVideoThumbnail($uploadResult['path'], 400, 300);
+            } else {
+                $thumbnailUrl = $this->storage->generateThumbnail($uploadResult['path'], 400, 300);
+            }
 
             $safeTitle = strip_tags(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
             $data = [
