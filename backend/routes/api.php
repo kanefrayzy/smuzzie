@@ -57,6 +57,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/portfolio/bulk-upload', [PortfolioController::class, 'bulkUpload']);
         Route::post('/portfolio/bulk-delete', [PortfolioController::class, 'bulkDelete']);
         Route::post('/portfolio/reorder', [PortfolioController::class, 'reorder']);
+        Route::post('/portfolio/regenerate-thumbnails', [PortfolioController::class, 'regenerateThumbnails']);
 
         // Reviews CRUD
         Route::apiResource('/reviews', ReviewController::class);

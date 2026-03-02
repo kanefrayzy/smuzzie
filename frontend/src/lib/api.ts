@@ -84,6 +84,8 @@ export const adminApi = {
     api.post('/admin/portfolio/bulk-upload', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
   reorderPortfolio: (items: { id: number; sort_order: number }[]) =>
     api.post('/admin/portfolio/reorder', { items }),
+  regenerateThumbnails: (force = false) =>
+    api.post('/admin/portfolio/regenerate-thumbnails', { force }),
 
   // Reviews
   getReviews: () => api.get('/admin/reviews', { params: { include_inactive: true } }),

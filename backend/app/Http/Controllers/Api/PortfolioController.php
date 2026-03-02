@@ -352,4 +352,51 @@ class PortfolioController extends Controller
 
         return response()->json(['message' => 'Items reordered successfully']);
     }
-}
+    /**
+     * Regenerate video thumbnails via FFmpeg.
+     */
+    public function regenerateThumbnails(Request $request)
+    {
+        $force = $request->boolean('force', false);
+
+        $query = PortfolioItem::where('file_type', 'video');
+
+        if (!$force) {
+            $query->where(function ($q) {
+                $q->whereRaw("thumbnail_url LIKE '%.mp4'")
+                  ->orWhereRaw("thumbnail_url LIKE '%.webm'")
+                  ->orWhereColumn('thumbnail_url', 'image_url');
+            });
+        }
+
+        $videos = $query->get();
+
+        if ($videos->isEmpty()) {
+            return response()->json(['message' => 'No videos need thumbnail generation.', 'processed' => 0, 'failed' => 0]);
+        }
+
+        $success = 0;
+        $failed = 0;
+
+        foreach ($videos as $item) {
+            if (!$item->local_path) {
+                $failed++;
+                continue;
+            }
+
+            $thumbnailUrl = $this->storage->generateVideoThumbnail($item->local_path, 400, 300);
+
+            if ($thumbnailUrl && !str_ends_with($thumbnailUrl, '.mp4') && !str_ends_with($thumbnailUrl, '.webm')) {
+                $item->update(['thumbnail_url' => $thumbnailUrl]);
+                $success++;
+            } else {
+                $failed++;
+            }
+        }
+
+        return response()->json([
+            'message' => "{$success} thumbnails generated" . ($failed > 0 ? ", {$failed} failed" : ''),
+            'processed' => $success,
+            'failed' => $failed,
+        ]);
+    }}

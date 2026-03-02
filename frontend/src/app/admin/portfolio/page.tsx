@@ -7,7 +7,7 @@ import { PortfolioItem, Category } from '@/types';
 import { formatDate, formatFileSize, getImageUrl } from '@/lib/utils';
 import {
   Plus, Edit2, Trash2, Upload, Image as ImageIcon,
-  Save, X, Star, Eye, EyeOff, Filter, CheckSquare, Square, MinusSquare
+  Save, X, Star, Eye, EyeOff, Filter, CheckSquare, Square, MinusSquare, Film
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -69,6 +69,7 @@ export default function AdminPortfolioPage() {
   const [saving, setSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [regenLoading, setRegenLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const bulkInputRef = useRef<HTMLInputElement>(null);
@@ -334,6 +335,30 @@ export default function AdminPortfolioPage() {
           <p className="text-gray-500 text-sm mt-1">{items.length} total items</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              setRegenLoading(true);
+              try {
+                const res = await adminApi.regenerateThumbnails(true);
+                toast.success(res.data.message);
+                if (res.data.processed > 0) fetchData();
+              } catch (err: any) {
+                toast.error(err.response?.data?.message || 'Failed');
+              } finally {
+                setRegenLoading(false);
+              }
+            }}
+            disabled={regenLoading}
+            className="px-4 py-2.5 rounded-xl text-sm font-medium bg-surface border border-white/5 text-gray-300 hover:text-white hover:border-white/20 transition-all flex items-center gap-2 disabled:opacity-50"
+            title="Regenerate video thumbnails (FFmpeg)"
+          >
+            {regenLoading ? (
+              <div className="w-3.5 h-3.5 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
+            ) : (
+              <Film size={14} />
+            )}
+            Regen Posters
+          </button>
           <button
             onClick={() => { setShowBulkUpload(true); setShowUpload(false); }}
             className="px-4 py-2.5 rounded-xl text-sm font-medium bg-surface border border-white/5 text-gray-300 hover:text-white hover:border-white/20 transition-all flex items-center gap-2"
