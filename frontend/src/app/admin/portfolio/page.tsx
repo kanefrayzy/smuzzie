@@ -339,7 +339,7 @@ export default function AdminPortfolioPage() {
             onClick={async () => {
               setRegenLoading(true);
               try {
-                const res = await adminApi.regenerateThumbnails(true);
+                const res = await adminApi.regenerateThumbnails();
                 toast.success(res.data.message);
                 if (res.data.processed > 0) fetchData();
               } catch (err: any) {

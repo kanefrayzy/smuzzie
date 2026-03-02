@@ -51,7 +51,7 @@ class PortfolioController extends Controller
             'category_id' => 'required|exists:categories,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'image' => 'required|file|mimes:jpeg,png,gif,webp,mp4|max:512000',
+            'image' => 'required|file|mimes:jpeg,png,gif,webp,mp4,webm|max:512000',
             'is_featured' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
             'sort_order' => 'nullable|integer',
