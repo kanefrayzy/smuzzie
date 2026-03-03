@@ -5,11 +5,11 @@ import { motion } from 'framer-motion';
 import ScrollReveal from '@/components/ui/ScrollReveal';
 
 const cryptos = [
-  { name: 'Bitcoin', symbol: 'BTC', logo: 'https://cryptologos.cc/logos/bitcoin-btc-logo.svg?v=040' },
-  { name: 'Ethereum', symbol: 'ETH', logo: 'https://cryptologos.cc/logos/ethereum-eth-logo.svg?v=040' },
-  { name: 'Litecoin', symbol: 'LTC', logo: 'https://cryptologos.cc/logos/litecoin-ltc-logo.svg?v=040' },
-  { name: 'Tether', symbol: 'USDT', logo: 'https://cryptologos.cc/logos/tether-usdt-logo.svg?v=040' },
-  { name: 'Solana', symbol: 'SOL', logo: 'https://cryptologos.cc/logos/solana-sol-logo.svg?v=040' },
+  { name: 'Bitcoin', symbol: 'BTC', logo: '/images/crypto/bitcoin-btc-logo.svg' },
+  { name: 'Ethereum', symbol: 'ETH', logo: '/images/crypto/ethereum-eth-logo.svg' },
+  { name: 'Litecoin', symbol: 'LTC', logo: '/images/crypto/litecoin-ltc-logo.svg' },
+  { name: 'Tether', symbol: 'USDT', logo: '/images/crypto/tether-usdt-logo.svg' },
+  { name: 'Solana', symbol: 'SOL', logo: '/images/crypto/solana-sol-logo.svg' },
 ];
 
 export default function CryptoSection() {
