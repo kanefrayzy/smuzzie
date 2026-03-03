@@ -45,9 +45,11 @@ export default function LazyGifCard({
   const isGif = fileType === 'gif' && gifUrl;
   const isVideo = fileType === 'video';
   const thumbSrc = getImageUrl(thumbnailUrl || imageUrl);
+  const fullSrc = getImageUrl(imageUrl);
   const gifSrc = getImageUrl(gifUrl || imageUrl);
-  // Show thumbnail first; once GIF is loaded in background, switch to it
-  const displaySrc = (isGif && gifReady) ? gifSrc : thumbSrc;
+  // For GIFs: show thumbnail until GIF preloaded, then switch to GIF
+  // For images: always show full-size original (not the cropped thumbnail)
+  const displaySrc = (isGif && gifReady) ? gifSrc : isGif ? thumbSrc : fullSrc;
   const [isMobile, setIsMobile] = useState(false);
 
   // Detect mobile/touch device
