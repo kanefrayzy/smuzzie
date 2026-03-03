@@ -136,12 +136,12 @@ export default function LazyGifCard({
       <div className="relative z-10 overflow-hidden bg-surface border border-white/[0.06] group-hover:border-transparent transition-colors duration-500"
         style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)' }}
       >
-        {/* Image container */}
-        <div className="relative overflow-hidden bg-[#0a0a0c]">
+        {/* Image container — fixed 4:3 to prevent layout shifts */}
+        <div className="relative overflow-hidden bg-[#0a0a0c] aspect-[4/3]">
           {/* Thumbnail (image or video poster) */}
           {/* Skeleton preloader */}
           {!mediaLoaded && (
-            <div className="w-full aspect-square bg-[#0a0a0c] animate-pulse">
+            <div className="absolute inset-0 bg-[#0a0a0c] animate-pulse">
               <div className="w-full h-full relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent skeleton-shimmer" />
                 <div className="absolute bottom-4 left-4 right-4 space-y-2">
@@ -157,7 +157,7 @@ export default function LazyGifCard({
               ref={videoRef}
               src={getImageUrl(gifUrl || imageUrl)}
               poster={thumbSrc}
-              className={`w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-105 ${!mediaLoaded ? 'absolute inset-0 opacity-0' : 'opacity-100'}`}
+              className={`absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 ${!mediaLoaded ? 'opacity-0' : 'opacity-100'}`}
               muted
               loop
               playsInline
@@ -169,7 +169,7 @@ export default function LazyGifCard({
             <img
               src={displaySrc}
               alt={title}
-              className={`w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-105 ${!mediaLoaded ? 'absolute inset-0 opacity-0' : 'opacity-100'}`}
+              className={`absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 ${!mediaLoaded ? 'opacity-0' : 'opacity-100'}`}
               loading={eager ? 'eager' : 'lazy'}
               onLoad={() => setMediaLoaded(true)}
             />

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import ScrollReveal from '@/components/ui/ScrollReveal';
@@ -8,19 +8,13 @@ import { publicApi } from '@/lib/api';
 import { getImageUrl } from '@/lib/utils';
 import { PortfolioItem } from '@/types';
 
-/* ─── Slider card that eagerly loads its thumbnail ─── */
+/* ─── Slider card — always uses <img> for performance (no <video>) ─── */
 function SliderCard({ item }: { item: PortfolioItem }) {
-  const [videoReady, setVideoReady] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
   const isVideo = item.file_type === 'video';
-  const videoSrc = isVideo ? getImageUrl(item.image_url || item.gif_url) : '';
 
-  // For non-video items, use thumbnail_url as the image source
-  // For video items, thumbnail_url is often the video itself (can't be used as <img>)
+  // Prefer thumbnail that is an actual image (not a video file)
   const isThumbUsable = item.thumbnail_url && !item.thumbnail_url.endsWith('.mp4') && !item.thumbnail_url.endsWith('.webm');
   const thumbSrc = isThumbUsable ? getImageUrl(item.thumbnail_url) : '';
-  // Final image src: prefer usable thumbnail, fallback to image_url
   const imgSrc = thumbSrc || getImageUrl(item.image_url);
 
   return (
@@ -33,49 +27,31 @@ function SliderCard({ item }: { item: PortfolioItem }) {
         {/* Background gradient so there's never a pure black flash */}
         <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/40 to-zinc-900/40" />
 
-        {isVideo ? (
-          <>
-            {/* Pulse skeleton until video has loaded a frame */}
-            {!videoReady && (
-              <div className="absolute inset-0 z-[1] bg-gradient-to-br from-white/[0.04] to-white/[0.01] animate-pulse flex items-center justify-center">
-                <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white/20" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                </div>
-              </div>
-            )}
-            {/* Video — preload metadata to get poster frame */}
-            <video
-              ref={videoRef}
-              src={videoSrc}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 group-hover:scale-110 ${videoReady ? 'opacity-100' : 'opacity-0'}`}
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              onLoadedData={() => setVideoReady(true)}
-              onMouseEnter={(e) => { e.currentTarget.play().catch(() => {}); }}
-              onMouseLeave={(e) => { const v = e.currentTarget; v.pause(); v.currentTime = 0; }}
-              onTouchStart={(e) => { e.currentTarget.play().catch(() => {}); }}
-            />
-          </>
-        ) : (
-          /* Image — always visible, no opacity tricks, no lazy loading */
-          <img
-            src={imgSrc}
-            alt={item.title}
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-            loading="eager"
-            onError={(e) => {
-              // On error, replace with fallback image_url, or hide
-              const el = e.currentTarget as HTMLImageElement;
-              if (thumbSrc && el.src !== getImageUrl(item.image_url)) {
-                el.src = getImageUrl(item.image_url);
-              } else {
-                el.style.display = 'none';
-              }
-            }}
-          />
+        {/* Always render <img> — slider is just a preview, no heavy <video> */}
+        <img
+          src={imgSrc}
+          alt={item.title}
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          loading="eager"
+          onError={(e) => {
+            const el = e.currentTarget as HTMLImageElement;
+            if (thumbSrc && el.src !== getImageUrl(item.image_url)) {
+              el.src = getImageUrl(item.image_url);
+            } else {
+              el.style.display = 'none';
+            }
+          }}
+        />
+
+        {/* Video badge */}
+        {isVideo && (
+          <div className="absolute top-3 right-3 z-[2] px-2 py-0.5 bg-purple-500/90 text-[10px] font-mono font-bold tracking-wider uppercase"
+            style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)' }}
+          >
+            VIDEO
+          </div>
         )}
+
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10 backdrop-blur-[6px] opacity-0 group-hover:opacity-100 transition-all duration-300" />
         {/* Category badge */}
         <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-sm text-[10px] font-mono uppercase tracking-wider text-white/70 border border-white/[0.08]"

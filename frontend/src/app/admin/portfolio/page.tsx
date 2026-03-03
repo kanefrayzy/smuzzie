@@ -7,7 +7,8 @@ import { PortfolioItem, Category } from '@/types';
 import { formatDate, formatFileSize, getImageUrl } from '@/lib/utils';
 import {
   Plus, Edit2, Trash2, Upload, Image as ImageIcon,
-  Save, X, Star, Eye, EyeOff, Filter, CheckSquare, Square, MinusSquare, Film
+  Save, X, Star, Eye, EyeOff, Filter, CheckSquare, Square, MinusSquare, Film,
+  ArrowUp, ArrowDown, ArrowUpDown, GripVertical
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -70,6 +71,8 @@ export default function AdminPortfolioPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [regenLoading, setRegenLoading] = useState(false);
+  const [sortBy, setSortBy] = useState<'custom' | 'newest' | 'oldest' | 'name'>('custom');
+  const [sortDirty, setSortDirty] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const bulkInputRef = useRef<HTMLInputElement>(null);
@@ -91,9 +94,19 @@ export default function AdminPortfolioPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const filteredItems = filterCategory === 'all'
-    ? items
-    : items.filter((i) => i.category_id === parseInt(filterCategory));
+  const filteredItems = (() => {
+    let result = filterCategory === 'all'
+      ? [...items]
+      : items.filter((i) => i.category_id === parseInt(filterCategory));
+    switch (sortBy) {
+      case 'newest': result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()); break;
+      case 'oldest': result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()); break;
+      case 'name': result.sort((a, b) => a.title.localeCompare(b.title)); break;
+      case 'custom':
+      default: result.sort((a, b) => a.sort_order - b.sort_order); break;
+    }
+    return result;
+  })();
 
   // ─── Selection helpers ───
   const allFilteredIds = filteredItems.map(i => i.id);
@@ -129,6 +142,35 @@ export default function AdminPortfolioPage() {
   };
 
   const clearSelection = () => setSelectedIds(new Set());
+
+  // ─── Sort order helpers ───
+  const moveItem = (id: number, direction: 'up' | 'down') => {
+    const idx = filteredItems.findIndex(i => i.id === id);
+    if (idx === -1) return;
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === filteredItems.length - 1) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const thisItem = filteredItems[idx];
+    const otherItem = filteredItems[swapIdx];
+    // Swap sort_order values
+    setItems(prev => prev.map(item => {
+      if (item.id === thisItem.id) return { ...item, sort_order: otherItem.sort_order };
+      if (item.id === otherItem.id) return { ...item, sort_order: thisItem.sort_order };
+      return item;
+    }));
+    setSortDirty(true);
+  };
+
+  const saveSortOrder = async () => {
+    const payload = items.map((item, idx) => ({ id: item.id, sort_order: item.sort_order }));
+    try {
+      await adminApi.reorderPortfolio(payload);
+      toast.success('Sort order saved!');
+      setSortDirty(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to save order');
+    }
+  };
 
   const handleBulkDelete = async () => {
     const idsToDelete = allFilteredIds.filter(id => selectedIds.has(id));
@@ -746,8 +788,8 @@ export default function AdminPortfolioPage() {
         )}
       </AnimatePresence>
 
-      {/* Category filter + selection controls */}
-      <div className="flex items-center justify-between gap-4 mb-6">
+      {/* Category filter + sort + selection controls */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2 overflow-x-auto pb-2">
           <Filter size={14} className="text-gray-500 flex-shrink-0" />
           <button
@@ -771,15 +813,41 @@ export default function AdminPortfolioPage() {
           ))}
         </div>
 
-        {/* Select all toggle */}
-        <button
-          onClick={toggleSelectAll}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap bg-surface text-gray-400 hover:text-white border border-white/5 hover:border-white/20"
-          title={allSelected ? 'Deselect All' : 'Select All'}
-        >
-          {allSelected ? <CheckSquare size={14} className="text-accent-red" /> : someSelected ? <MinusSquare size={14} className="text-accent-red" /> : <Square size={14} />}
-          {allSelected ? 'Deselect All' : 'Select All'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Sort dropdown */}
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown size={14} className="text-gray-500" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="bg-surface border border-white/5 rounded-full px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-accent-red/50 appearance-none cursor-pointer"
+            >
+              <option value="custom">Custom Order</option>
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="name">By Name</option>
+            </select>
+          </div>
+
+          {sortDirty && (
+            <button
+              onClick={saveSortOrder}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/20 hover:bg-green-500/30 transition-all"
+            >
+              <Save size={12} /> Save Order
+            </button>
+          )}
+
+          {/* Select all toggle */}
+          <button
+            onClick={toggleSelectAll}
+            className="flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap bg-surface text-gray-400 hover:text-white border border-white/5 hover:border-white/20"
+            title={allSelected ? 'Deselect All' : 'Select All'}
+          >
+            {allSelected ? <CheckSquare size={14} className="text-accent-red" /> : someSelected ? <MinusSquare size={14} className="text-accent-red" /> : <Square size={14} />}
+            {allSelected ? 'Deselect All' : 'Select All'}
+          </button>
+        </div>
       </div>
 
       {/* Items grid */}
@@ -850,6 +918,24 @@ export default function AdminPortfolioPage() {
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
                 <span className="text-[10px] text-gray-600">{formatDate(item.created_at)}</span>
                 <div className="flex items-center gap-1">
+                  {sortBy === 'custom' && (
+                    <>
+                      <button
+                        onClick={() => moveItem(item.id, 'up')}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-all"
+                        title="Move up"
+                      >
+                        <ArrowUp size={12} />
+                      </button>
+                      <button
+                        onClick={() => moveItem(item.id, 'down')}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-all"
+                        title="Move down"
+                      >
+                        <ArrowDown size={12} />
+                      </button>
+                    </>
+                  )}
                   <button
                     onClick={() => startEdit(item)}
                     className="p-1.5 rounded-lg text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 transition-all"

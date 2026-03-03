@@ -337,7 +337,12 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
   }, [activeCategory]);
 
   const loadMore = useCallback(() => {
+    const scrollY = window.scrollY;
     setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, filteredItems.length));
+    // Restore scroll position after React re-render
+    requestAnimationFrame(() => {
+      window.scrollTo(0, scrollY);
+    });
   }, [filteredItems.length]);
 
   useEffect(() => {
@@ -502,7 +507,7 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
       {hasMore && (
         <div className="flex justify-center py-12">
           <button
-            onClick={loadMore}
+            onClick={(e) => { e.preventDefault(); loadMore(); }}
             className="group relative px-8 py-3.5 bg-surface/80 border border-white/[0.08] hover:border-accent-red/30 hover:bg-accent-red/10 text-gray-300 hover:text-white text-sm font-mono uppercase tracking-[0.15em] font-medium transition-all duration-300 flex items-center gap-3"
             style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)' }}
           >
