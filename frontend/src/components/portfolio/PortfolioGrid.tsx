@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useInView } from 'react-intersection-observer';
 import { motion, AnimatePresence } from 'framer-motion';
 import LazyGifCard from './LazyGifCard';
 import ScrollReveal from '@/components/ui/ScrollReveal';
@@ -336,14 +337,16 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
     setVisibleCount(BATCH_SIZE);
   }, [activeCategory]);
 
-  const loadMore = useCallback(() => {
-    const scrollY = window.scrollY;
-    setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, filteredItems.length));
-    // Restore scroll position after React re-render
-    requestAnimationFrame(() => {
-      window.scrollTo(0, scrollY);
-    });
-  }, [filteredItems.length]);
+  // Infinite scroll sentinel
+  const { ref: loadMoreRef } = useInView({
+    threshold: 0,
+    rootMargin: '400px',
+    onChange: (inView) => {
+      if (inView && visibleCount < filteredItems.length) {
+        setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, filteredItems.length));
+      }
+    },
+  });
 
   useEffect(() => {
     setFilteredItems(
@@ -503,19 +506,10 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
         ))}
       </div>
 
-      {/* Load more button */}
+      {/* Infinite scroll sentinel */}
       {hasMore && (
-        <div className="flex justify-center py-12">
-          <button
-            onClick={(e) => { e.preventDefault(); loadMore(); }}
-            className="group relative px-8 py-3.5 bg-surface/80 border border-white/[0.08] hover:border-accent-red/30 hover:bg-accent-red/10 text-gray-300 hover:text-white text-sm font-mono uppercase tracking-[0.15em] font-medium transition-all duration-300 flex items-center gap-3"
-            style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)' }}
-          >
-            Load more...
-            <span className="text-[10px] px-2 py-0.5 bg-white/5 text-gray-500 group-hover:text-accent-red/80 font-mono transition-colors">
-              {filteredItems.length - visibleCount}
-            </span>
-          </button>
+        <div ref={loadMoreRef} className="flex justify-center py-12">
+          <div className="w-8 h-8 border-2 border-accent-red/30 border-t-accent-red rounded-full animate-spin" />
         </div>
       )}
 

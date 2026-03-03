@@ -154,18 +154,28 @@ export default function LazyGifCard({
           )}
 
           {isVideo ? (
-            <video
-              ref={videoRef}
-              src={getImageUrl(gifUrl || imageUrl)}
-              poster={thumbSrc}
-              className={`w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-105 ${!mediaLoaded ? 'absolute inset-0 opacity-0' : 'opacity-100'}`}
-              muted
-              loop
-              playsInline
-              preload={eager ? 'auto' : 'metadata'}
-              autoPlay={isMobile}
-              onLoadedData={() => setMediaLoaded(true)}
-            />
+            <>
+              {/* Poster image shown at natural aspect ratio until video loads */}
+              {!mediaLoaded && thumbSrc && (
+                <img
+                  src={thumbSrc}
+                  alt={title}
+                  className="w-full h-auto block"
+                  onLoad={() => setMediaLoaded(true)}
+                />
+              )}
+              <video
+                ref={videoRef}
+                src={getImageUrl(gifUrl || imageUrl)}
+                className={`w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-105 ${!mediaLoaded ? 'absolute inset-0 opacity-0' : 'opacity-100'}`}
+                muted
+                loop
+                playsInline
+                preload={eager ? 'auto' : 'metadata'}
+                autoPlay={isMobile}
+                onLoadedData={() => setMediaLoaded(true)}
+              />
+            </>
           ) : (
             <img
               src={displaySrc}
