@@ -31,6 +31,8 @@ export default function LazyGifCard({
 }: LazyGifCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [mediaLoaded, setMediaLoaded] = useState(false);
+  const [posterLoaded, setPosterLoaded] = useState(false); // Video poster img loaded (hides skeleton)
+  const [videoPlaying, setVideoPlaying] = useState(false); // Video is actively playing (hides poster)
   const [gifReady, setGifReady] = useState(false); // GIF fully loaded in background
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const gifPreloadRef = useRef<HTMLImageElement | null>(null);
@@ -141,7 +143,7 @@ export default function LazyGifCard({
         {/* Image container — natural aspect ratio for masonry */}
         <div className="relative overflow-hidden bg-[#0a0a0c]">
           {/* Skeleton preloader */}
-          {!mediaLoaded && (
+          {!(isVideo ? posterLoaded : mediaLoaded) && (
             <div className="w-full aspect-[4/3] bg-[#0a0a0c] animate-pulse">
               <div className="w-full h-full relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent skeleton-shimmer" />
@@ -155,25 +157,26 @@ export default function LazyGifCard({
 
           {isVideo ? (
             <>
-              {/* Poster image shown at natural aspect ratio until video loads */}
-              {!mediaLoaded && thumbSrc && (
+              {/* Poster image — always in DOM, visible until video plays */}
+              {thumbSrc && (
                 <img
                   src={thumbSrc}
                   alt={title}
-                  className="w-full h-auto block"
-                  onLoad={() => setMediaLoaded(true)}
+                  className={`w-full h-auto block transition-opacity duration-300 ${videoPlaying ? 'hidden' : 'opacity-100'}`}
+                  onLoad={() => setPosterLoaded(true)}
                 />
               )}
+              {/* Video — hidden behind poster until play, then takes over */}
               <video
                 ref={videoRef}
                 src={getImageUrl(gifUrl || imageUrl)}
-                className={`w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-105 ${!mediaLoaded ? 'absolute inset-0 opacity-0' : 'opacity-100'}`}
+                className={`w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-105 ${videoPlaying ? 'opacity-100' : 'absolute inset-0 opacity-0'}`}
                 muted
                 loop
                 playsInline
                 preload={eager ? 'auto' : 'metadata'}
-                autoPlay={isMobile}
-                onLoadedData={() => setMediaLoaded(true)}
+                onPlay={() => setVideoPlaying(true)}
+                onPause={() => setVideoPlaying(false)}
               />
             </>
           ) : (
