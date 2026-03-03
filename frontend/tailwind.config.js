@@ -48,6 +48,8 @@ module.exports = {
         'gradient-x': 'gradient-x 3s ease infinite',
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'shimmer': 'shimmer 2s linear infinite',
+        'marquee': 'marquee var(--marquee-duration, 30s) linear infinite',
+        'marquee-reverse': 'marquee-reverse var(--marquee-duration, 30s) linear infinite',
       },
       keyframes: {
         'glow-pulse': {
@@ -85,6 +87,14 @@ module.exports = {
         'shimmer': {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
+        },
+        'marquee': {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
+        'marquee-reverse': {
+          '0%': { transform: 'translateX(-50%)' },
+          '100%': { transform: 'translateX(0)' },
         },
       },
       backgroundImage: {
