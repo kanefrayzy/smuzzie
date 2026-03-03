@@ -80,7 +80,7 @@ class PortfolioController extends Controller
 
             // Generate thumbnail
             if ($isVideo) {
-                $thumbnailUrl = $this->storage->generateVideoThumbnail($uploadResult['path'], 400, 300);
+                $thumbnailUrl = $this->storage->generateVideoThumbnail($uploadResult['path']);
             } else {
                 $thumbnailUrl = $this->storage->generateThumbnail($uploadResult['path'], 400, 300);
             }
@@ -171,7 +171,7 @@ class PortfolioController extends Controller
 
                 $uploadResult = $this->storage->upload($file, 'portfolio');
                 if ($isVideo) {
-                    $thumbnailUrl = $this->storage->generateVideoThumbnail($uploadResult['path'], 400, 300);
+                    $thumbnailUrl = $this->storage->generateVideoThumbnail($uploadResult['path']);
                 } else {
                     $thumbnailUrl = $this->storage->generateThumbnail($uploadResult['path'], 400, 300);
                 }
@@ -297,7 +297,7 @@ class PortfolioController extends Controller
             $uploadResult = $this->storage->upload($file, 'portfolio');
 
             if ($isVideo) {
-                $thumbnailUrl = $this->storage->generateVideoThumbnail($uploadResult['path'], 400, 300);
+                $thumbnailUrl = $this->storage->generateVideoThumbnail($uploadResult['path']);
             } else {
                 $thumbnailUrl = $this->storage->generateThumbnail($uploadResult['path'], 400, 300);
             }
@@ -384,7 +384,7 @@ class PortfolioController extends Controller
                 continue;
             }
 
-            $thumbnailUrl = $this->storage->generateVideoThumbnail($item->local_path, 400, 300);
+            $thumbnailUrl = $this->storage->generateVideoThumbnail($item->local_path);
 
             if ($thumbnailUrl && !str_ends_with($thumbnailUrl, '.mp4') && !str_ends_with($thumbnailUrl, '.webm')) {
                 $item->update(['thumbnail_url' => $thumbnailUrl]);

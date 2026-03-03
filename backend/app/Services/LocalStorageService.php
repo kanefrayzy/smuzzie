@@ -98,9 +98,9 @@ class LocalStorageService
 
     /**
      * Generate a JPG thumbnail from a video file using FFmpeg.
-     * Extracts the first frame at 0.5s.
+     * Extracts a frame at 0.5s, scales to given width preserving aspect ratio.
      */
-    public function generateVideoThumbnail(string $sourcePath, int $width = 400, int $height = 300): string
+    public function generateVideoThumbnail(string $sourcePath, int $width = 800): string
     {
         $disk = Storage::disk('public');
         $fullPath = $disk->path($sourcePath);
@@ -117,14 +117,11 @@ class LocalStorageService
         $outputFullPath = $disk->path($thumbnailPath);
 
         try {
-            // Extract frame at 0.5s, scale+crop to fill WxH exactly (like Intervention fit())
+            // Extract frame at 0.5s, scale to width preserving aspect ratio (-2 = auto even height)
             $cmd = sprintf(
-                'ffmpeg -y -i %s -ss 00:00:00.5 -vframes 1 -vf "scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d" -q:v 2 %s 2>&1',
+                'ffmpeg -y -i %s -ss 00:00:00.5 -vframes 1 -vf "scale=%d:-2" -q:v 2 %s 2>&1',
                 escapeshellarg($fullPath),
                 $width,
-                $height,
-                $width,
-                $height,
                 escapeshellarg($outputFullPath)
             );
 

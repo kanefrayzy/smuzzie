@@ -49,7 +49,7 @@ class RegenerateVideoThumbnails extends Command
                 continue;
             }
 
-            $thumbnailUrl = $storage->generateVideoThumbnail($item->local_path, 400, 300);
+            $thumbnailUrl = $storage->generateVideoThumbnail($item->local_path);
 
             // Check if it actually generated (not just returned the video URL back)
             if ($thumbnailUrl && !str_ends_with($thumbnailUrl, '.mp4') && !str_ends_with($thumbnailUrl, '.webm')) {
