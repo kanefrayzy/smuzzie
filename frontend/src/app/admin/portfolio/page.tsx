@@ -144,25 +144,52 @@ export default function AdminPortfolioPage() {
   const clearSelection = () => setSelectedIds(new Set());
 
   // ─── Sort order helpers ───
-  const moveItem = (id: number, direction: 'up' | 'down') => {
-    const idx = filteredItems.findIndex(i => i.id === id);
+  // Ensure items have sequential sort_order on first load
+  useEffect(() => {
+    if (items.length > 0) {
+      const needsFix = items.some((item, idx) => {
+        const sorted = [...items].sort((a, b) => a.sort_order - b.sort_order);
+        return sorted[idx]?.sort_order !== idx;
+      });
+      if (needsFix) {
+        const sorted = [...items].sort((a, b) => a.sort_order - b.sort_order || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setItems(sorted.map((item, idx) => ({ ...item, sort_order: idx })));
+      }
+    }
+  }, [items.length]);
+
+  const moveItem = (id: number, direction: 'up' | 'down' | 'top' | 'bottom') => {
+    // Work on the currently filtered+sorted list
+    const list = [...filteredItems];
+    const idx = list.findIndex(i => i.id === id);
     if (idx === -1) return;
-    if (direction === 'up' && idx === 0) return;
-    if (direction === 'down' && idx === filteredItems.length - 1) return;
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    const thisItem = filteredItems[idx];
-    const otherItem = filteredItems[swapIdx];
-    // Swap sort_order values
+
+    let newIdx = idx;
+    if (direction === 'up' && idx > 0) newIdx = idx - 1;
+    else if (direction === 'down' && idx < list.length - 1) newIdx = idx + 1;
+    else if (direction === 'top') newIdx = 0;
+    else if (direction === 'bottom') newIdx = list.length - 1;
+    else return;
+    if (newIdx === idx) return;
+
+    // Remove and insert at new position
+    const [moved] = list.splice(idx, 1);
+    list.splice(newIdx, 0, moved);
+
+    // Reassign sort_order sequentially
+    const idToOrder = new Map<number, number>();
+    list.forEach((item, i) => idToOrder.set(item.id, i));
+
     setItems(prev => prev.map(item => {
-      if (item.id === thisItem.id) return { ...item, sort_order: otherItem.sort_order };
-      if (item.id === otherItem.id) return { ...item, sort_order: thisItem.sort_order };
-      return item;
+      const newOrder = idToOrder.get(item.id);
+      return newOrder !== undefined ? { ...item, sort_order: newOrder } : item;
     }));
     setSortDirty(true);
   };
 
   const saveSortOrder = async () => {
-    const payload = items.map((item, idx) => ({ id: item.id, sort_order: item.sort_order }));
+    // Send current sort_order for all items
+    const payload = items.map(item => ({ id: item.id, sort_order: item.sort_order }));
     try {
       await adminApi.reorderPortfolio(payload);
       toast.success('Sort order saved!');
@@ -920,19 +947,36 @@ export default function AdminPortfolioPage() {
                 <div className="flex items-center gap-1">
                   {sortBy === 'custom' && (
                     <>
+                      <span className="text-[10px] text-gray-600 font-mono mr-1">#{item.sort_order + 1}</span>
                       <button
-                        onClick={() => moveItem(item.id, 'up')}
+                        onClick={(e) => { e.stopPropagation(); moveItem(item.id, 'top'); }}
+                        className="p-1 rounded text-gray-600 hover:text-accent-red hover:bg-accent-red/10 transition-all"
+                        title="Move to top"
+                      >
+                        <ArrowUp size={10} className="stroke-[3]" />
+                        <ArrowUp size={10} className="stroke-[3] -mt-1.5" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); moveItem(item.id, 'up'); }}
                         className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-all"
                         title="Move up"
                       >
                         <ArrowUp size={12} />
                       </button>
                       <button
-                        onClick={() => moveItem(item.id, 'down')}
+                        onClick={(e) => { e.stopPropagation(); moveItem(item.id, 'down'); }}
                         className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-all"
                         title="Move down"
                       >
                         <ArrowDown size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); moveItem(item.id, 'bottom'); }}
+                        className="p-1 rounded text-gray-600 hover:text-accent-red hover:bg-accent-red/10 transition-all"
+                        title="Move to bottom"
+                      >
+                        <ArrowDown size={10} className="stroke-[3]" />
+                        <ArrowDown size={10} className="stroke-[3] -mt-1.5" />
                       </button>
                     </>
                   )}
