@@ -62,7 +62,7 @@ export default function TermsPage() {
               },
               {
                 title: '10. Contact',
-                content: 'For questions about these Terms of Service, please contact us at contact@smuzzie.com or through our Contact page.',
+                content: 'For questions about these Terms of Service, please contact us at smuzziedesign@gmail.com  or through our Contact page.',
               },
             ].map((section) => (
               <div key={section.title}>

@@ -56,7 +56,7 @@ const contactChannels = [
     title: 'Email',
     description: 'Send a detailed email',
     label: 'Send Email',
-    href: 'mailto:contact@smuzzie.com',
+    href: 'mailto:smuzziedesign@gmail.com ',
     color: 'from-accent-red/20 to-accent-red/5',
     borderColor: 'hover:border-accent-red/40',
     iconColor: 'text-accent-red',

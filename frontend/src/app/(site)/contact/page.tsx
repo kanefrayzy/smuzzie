@@ -31,7 +31,7 @@ const contactMethods = [
     title: 'Email',
     description: 'Send me an email for detailed project inquiries',
     label: 'Send Email',
-    href: 'mailto:contact@smuzzie.com',
+    href: 'mailto:smuzziedesign@gmail.com ',
     color: 'from-accent-red/20 to-accent-red/5',
     borderColor: 'hover:border-accent-red/30',
     iconColor: 'text-accent-red',

@@ -62,7 +62,7 @@ export default function PrivacyPage() {
               },
               {
                 title: '10. Contact Us',
-                content: 'If you have questions about this privacy policy or your personal data, please contact us at contact@smuzzie.com.',
+                content: 'If you have questions about this privacy policy or your personal data, please contact us at smuzziedesign@gmail.com .',
               },
             ].map((section) => (
               <div key={section.title}>
