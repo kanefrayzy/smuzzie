@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { Star, Quote } from 'lucide-react';
 import ScrollReveal from '@/components/ui/ScrollReveal';
 import { publicApi } from '@/lib/api';
@@ -101,10 +100,8 @@ export default function ReviewsSection() {
     fetchReviews();
   }, []);
 
-  // Need at least a few items for the scrolling animation to work well
-  const items = reviews.length >= 3
-    ? [...reviews, ...reviews, ...reviews]
-    : [...reviews, ...reviews, ...reviews, ...reviews, ...reviews, ...reviews];
+  // Duplicate for seamless loop (2x is enough for CSS translateX(-50%))
+  const items = [...reviews, ...reviews];
 
   if (loading) {
     return (
@@ -150,10 +147,9 @@ export default function ReviewsSection() {
           <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-primary to-transparent z-10" />
           <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-primary to-transparent z-10" />
 
-          <motion.div
-            className="flex gap-5 w-max px-8"
-            animate={{ x: ['0%', '-33.333%'] }}
-            transition={{ duration: 40, repeat: Infinity, ease: 'linear', repeatType: 'loop' }}
+          <div
+            className="flex gap-5 w-max px-8 animate-marquee"
+            style={{ '--marquee-duration': `${reviews.length * 6}s` } as React.CSSProperties}
           >
             {items.map((review, index) => (
               <div
@@ -191,7 +187,7 @@ export default function ReviewsSection() {
                 </div>
               </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>
