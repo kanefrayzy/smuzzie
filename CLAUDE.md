@@ -73,6 +73,15 @@ The project migrated off Cloudinary (see the `2026_02_07` migration). `app/Servi
 
 On the frontend, pick what to render with `getItemMedia()` in `src/lib/media.ts` (variants when present, originals as fallback — so unprocessed items keep working); raw URLs go through `getImageUrl()` in `src/lib/utils.ts`. It rewrites whatever host the DB stored to the current backend origin derived from `NEXT_PUBLIC_API_URL`, which covers stale `APP_URL` values in old rows.
 
+### Production server
+
+`ssh smuzzie` (root, key `~/.ssh/smuzzie_root`). Ubuntu 24.04; repo checked out at `/var/www/smuzzie` (deployed via `git pull` from `origin/main`); nginx site config `/etc/nginx/sites-enabled/smuzzie.com` (serves `smuzzie.com` and `smuzzie.design`); Laravel on PHP 8.3-FPM (`www-data`); Next.js under pm2 as `smuzzie-frontend` (`npm start -- -p 3000`); MySQL database `design_portfolio`. `/storage` is served by nginx straight from `backend/storage/app/public`. Pre-deploy backups go to `/root/backups/smuzzie-<timestamp>/` (DB dump, env files, nginx config, previous commit).
+
+Deploy without downtime:
+1. Back up the DB, then `git pull` in `/var/www/smuzzie` (check `git status` first — production has had hand edits before).
+2. Backend: `sudo -u www-data php artisan migrate --force` (run artisan as `www-data` so log/cache files stay writable by FPM).
+3. Frontend: `cd frontend && NEXT_DIST_DIR=.next-new npm run build`, smoke-test with `NEXT_DIST_DIR=.next-new npx next start -p 3001`, then `mv .next .next.prev && mv .next-new .next && pm2 restart smuzzie-frontend`. Don't build into the live `.next` (pages 500 mid-build), and don't build in another directory and copy it over (the build embeds absolute source paths).
+
 ### Frontend layout
 
 - `src/app/(site)/` — public pages sharing the Header/Footer layout. Pages are client components that fetch from the API at runtime (`publicApi` in `src/lib/api.ts`), not at build time. Because client pages can't export `metadata`, each route has a small server `layout.tsx` that sets title/description/canonical/OG via `pageMetadata()` in `src/lib/site.ts`. `robots.ts`, `sitemap.ts` and `opengraph-image.tsx` (edge runtime — the Node build of `next/og` fails on Windows) live in `src/app/`.
