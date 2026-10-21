@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { adminApi } from '@/lib/api';
 import { PortfolioItem, Category } from '@/types';
-import { formatDate, formatFileSize, getImageUrl } from '@/lib/utils';
+import { formatDate, formatFileSize, getApiError, getImageUrl } from '@/lib/utils';
 import {
   Plus, Edit2, Trash2, Upload, Image as ImageIcon,
   Save, X, Star, Eye, EyeOff, Filter, CheckSquare, Square, MinusSquare, Film,
@@ -63,6 +63,9 @@ export default function AdminPortfolioPage() {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [editFile, setEditFile] = useState<File | null>(null);
+  // One blob URL per selected file, released when the file changes or the page unmounts
+  const editPreviewUrl = useMemo(() => (editFile ? URL.createObjectURL(editFile) : null), [editFile]);
+  useEffect(() => () => { if (editPreviewUrl) URL.revokeObjectURL(editPreviewUrl); }, [editPreviewUrl]);
   const [bulkFiles, setBulkFiles] = useState<FileList | null>(null);
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -195,7 +198,7 @@ export default function AdminPortfolioPage() {
       toast.success('Sort order saved!');
       setSortDirty(false);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to save order');
+      toast.error(getApiError(err, 'Failed to save order'));
     }
   };
 
@@ -214,7 +217,7 @@ export default function AdminPortfolioPage() {
         return next;
       });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Bulk delete failed');
+      toast.error(getApiError(err, 'Bulk delete failed'));
     } finally {
       setBulkDeleting(false);
     }
@@ -248,7 +251,7 @@ export default function AdminPortfolioPage() {
       setUploadForm({ category_id: '', title: '', description: '', is_featured: false, is_active: true });
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Upload failed');
+      toast.error(getApiError(err, 'Upload failed'));
     } finally {
       setUploading(false);
     }
@@ -300,7 +303,7 @@ export default function AdminPortfolioPage() {
       setBulkCategoryId('');
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Bulk upload failed');
+      toast.error(getApiError(err, 'Bulk upload failed'));
     } finally {
       setUploading(false);
       setUploadProgress({ uploaded: 0, total: 0, failed: 0 });
@@ -379,7 +382,7 @@ export default function AdminPortfolioPage() {
       setEditFile(null);
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update');
+      toast.error(getApiError(err, 'Failed to update'));
     } finally {
       setSaving(false);
     }
@@ -412,7 +415,7 @@ export default function AdminPortfolioPage() {
                 toast.success(res.data.message);
                 if (res.data.processed > 0) fetchData();
               } catch (err: any) {
-                toast.error(err.response?.data?.message || 'Failed');
+                toast.error(getApiError(err, 'Failed'));
               } finally {
                 setRegenLoading(false);
               }
@@ -685,7 +688,7 @@ export default function AdminPortfolioPage() {
                   <div className="w-32 h-24 rounded-xl overflow-hidden bg-surface-dark flex-shrink-0">
                     {(editFile ? editFile.type.startsWith('video/') : editingItem.file_type === 'video') ? (
                       <video
-                        src={editFile ? URL.createObjectURL(editFile) : getImageUrl(editingItem.image_url)}
+                        src={editPreviewUrl ?? getImageUrl(editingItem.image_url)}
                         className="w-full h-full object-cover"
                         muted
                         loop
@@ -694,7 +697,7 @@ export default function AdminPortfolioPage() {
                       />
                     ) : (
                       <img
-                        src={editFile ? URL.createObjectURL(editFile) : getImageUrl(editingItem.thumbnail_url)}
+                        src={editPreviewUrl ?? getImageUrl(editingItem.thumbnail_url)}
                         alt={editingItem.title}
                         className="w-full h-full object-cover"
                       />

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { adminApi } from '@/lib/api';
 import { Review } from '@/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, getApiError, isImageUrl } from '@/lib/utils';
 import { Plus, Edit2, Trash2, Star, Save, X, Eye, EyeOff } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -43,7 +43,7 @@ export default function AdminReviewsPage() {
       resetForm();
       fetchReviews();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed');
+      toast.error(getApiError(err, 'Failed'));
     }
   };
 
@@ -54,7 +54,7 @@ export default function AdminReviewsPage() {
       setEditingId(null);
       fetchReviews();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed');
+      toast.error(getApiError(err, 'Failed'));
     }
   };
 
@@ -64,8 +64,8 @@ export default function AdminReviewsPage() {
       await adminApi.deleteReview(id);
       toast.success('Review deleted!');
       setReviews(prev => prev.filter(review => review.id !== id));
-    } catch {
-      toast.error('Failed');
+    } catch (err) {
+      toast.error(getApiError(err, 'Failed'));
     }
   };
 
@@ -93,7 +93,9 @@ export default function AdminReviewsPage() {
     );
   }
 
-  const ReviewForm = ({ onSubmit, submitLabel }: { onSubmit: () => void; submitLabel: string }) => (
+  // Plain render function, not a component: a component declared inside render
+  // remounts on every keystroke and the input loses focus.
+  const renderReviewForm = (onSubmit: () => void, submitLabel: string) => (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <input
@@ -179,7 +181,7 @@ export default function AdminReviewsPage() {
           className="glass-card p-6 border border-white/5 mb-6"
         >
           <h3 className="text-lg font-semibold text-white mb-4">New Review</h3>
-          <ReviewForm onSubmit={handleCreate} submitLabel="Create" />
+          {renderReviewForm(handleCreate, 'Create')}
         </motion.div>
       )}
 
@@ -191,11 +193,15 @@ export default function AdminReviewsPage() {
             className="glass-card p-5 border border-white/5"
           >
             {editingId === review.id ? (
-              <ReviewForm onSubmit={() => handleUpdate(review.id)} submitLabel="Save" />
+              renderReviewForm(() => handleUpdate(review.id), 'Save')
             ) : (
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center text-lg flex-shrink-0">
-                  {review.customer_avatar || '👤'}
+                  {isImageUrl(review.customer_avatar) ? (
+                    <img src={review.customer_avatar!} alt="" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    review.customer_avatar || '👤'
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

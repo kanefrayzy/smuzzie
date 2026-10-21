@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { adminApi } from '@/lib/api';
 import { Category } from '@/types';
+import { getApiError } from '@/lib/utils';
 import { Plus, Edit2, Trash2, GripVertical, Save, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -35,7 +36,7 @@ export default function AdminCategoriesPage() {
       setForm({ name: '', slug: '', icon: '', description: '', sort_order: 0, is_active: true });
       fetchCategories();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create category');
+      toast.error(getApiError(err, 'Failed to create category'));
     }
   };
 
@@ -46,7 +47,7 @@ export default function AdminCategoriesPage() {
       setEditingId(null);
       fetchCategories();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update category');
+      toast.error(getApiError(err, 'Failed to update category'));
     }
   };
 
@@ -57,7 +58,7 @@ export default function AdminCategoriesPage() {
       toast.success('Category deleted!');
       setCategories(prev => prev.filter(cat => cat.id !== id));
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to delete category');
+      toast.error(getApiError(err, 'Failed to delete category'));
     }
   };
 

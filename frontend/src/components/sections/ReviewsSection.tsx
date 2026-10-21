@@ -5,6 +5,7 @@ import { Star, Quote } from 'lucide-react';
 import ScrollReveal from '@/components/ui/ScrollReveal';
 import { publicApi } from '@/lib/api';
 import { Review } from '@/types';
+import { isImageUrl } from '@/lib/utils';
 
 // Fallback reviews in case API fails or returns empty
 const fallbackReviews: Review[] = [
@@ -170,7 +171,11 @@ export default function ReviewsSection() {
                   <div className="w-10 h-10 flex items-center justify-center bg-white/[0.03] border border-white/[0.06] text-lg"
                     style={{ clipPath: 'polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px)' }}
                   >
-                    {review.customer_avatar || avatarEmojis[review.id % avatarEmojis.length]}
+                    {isImageUrl(review.customer_avatar) ? (
+                      <img src={review.customer_avatar!} alt={review.customer_name} loading="lazy" className="w-full h-full object-cover" />
+                    ) : (
+                      review.customer_avatar || avatarEmojis[review.id % avatarEmojis.length]
+                    )}
                   </div>
                   <div>
                     <h4 className="text-white font-semibold text-sm">{review.customer_name}</h4>

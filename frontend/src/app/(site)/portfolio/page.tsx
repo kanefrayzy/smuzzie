@@ -9,22 +9,31 @@ import { publicApi } from '@/lib/api';
 import { PortfolioItem, Category } from '@/types';
 import { Sparkles, Layers, Eye } from 'lucide-react';
 
-export default function PortfolioPage() {
+function LoadingSpinner() {
   return (
-    <Suspense fallback={
-      <div className="pt-24 pb-20 relative min-h-screen bg-[#060608] flex items-center justify-center">
-        <div className="w-10 h-10 border border-accent-red/30 border-t-accent-red animate-spin" />
-      </div>
-    }>
-      <PortfolioContent />
-    </Suspense>
+    <div className="flex flex-col items-center justify-center py-20 gap-4">
+      <div className="w-10 h-10 border border-accent-red/30 border-t-accent-red animate-spin" />
+      <span className="text-gray-600 text-xs font-mono tracking-wider uppercase">Loading portfolio...</span>
+    </div>
   );
 }
 
-function PortfolioContent() {
+// useSearchParams forces client-only rendering up to the nearest Suspense boundary,
+// so it's isolated here to keep the page heading and text in the prerendered HTML.
+function PortfolioGridWithParams({ items, categories }: { items: PortfolioItem[]; categories: Category[] }) {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
 
+  return (
+    <PortfolioGrid
+      items={items}
+      categories={categories}
+      initialCategory={categoryParam || undefined}
+    />
+  );
+}
+
+export default function PortfolioPage() {
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,16 +126,11 @@ function PortfolioContent() {
       {/* Portfolio content */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <div className="w-10 h-10 border border-accent-red/30 border-t-accent-red animate-spin" />
-            <span className="text-gray-600 text-xs font-mono tracking-wider uppercase">Loading portfolio...</span>
-          </div>
+          <LoadingSpinner />
         ) : (
-          <PortfolioGrid
-            items={items}
-            categories={categories}
-            initialCategory={categoryParam || undefined}
-          />
+          <Suspense fallback={<LoadingSpinner />}>
+            <PortfolioGridWithParams items={items} categories={categories} />
+          </Suspense>
         )}
       </div>
     </div>

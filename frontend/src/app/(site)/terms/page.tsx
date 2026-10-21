@@ -79,7 +79,7 @@ export default function TermsPage() {
                 <div className="h-px w-6 bg-accent-red/40" />
               </div>
               <div className="space-y-3 text-gray-400 leading-relaxed text-sm">
-                <p>All content on this server is limited to design work only. Nothing here is intended for real use, distribution, or promotion. All designs are visual concepts only.</p>
+                <p>All content on this WEBSITE is limited to design work only. Nothing here is intended for real use, distribution, or promotion. All designs are visual concepts only.</p>
                 <p>Nothing is connected to real cheats, hacks, exploits, or software. No sales, offers, or transactions are made except for graphic design services. We do not encourage cheating, scamming, fraud, or any illegal activity.</p>
                 <p>Any names, prices, or features shown in designs are placeholders for artistic and illustrative purposes only. This website does not promote, advertise, or facilitate any real products, tools, or services outside of design or coding.</p>
                 <p>By joining or viewing this website, you acknowledge that all content is purely hypothetical and unrelated to real usage. All designs shown here are purely visual concepts and have no connection to sales, promotion, cheating, scamming, or any real products. They exist only as design work.</p>

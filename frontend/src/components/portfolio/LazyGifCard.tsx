@@ -3,129 +3,90 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
-import { getImageUrl } from '@/lib/utils';
+import { getItemMedia } from '@/lib/media';
+import type { PortfolioItem } from '@/types';
 import { Expand, Eye } from 'lucide-react';
 
 interface LazyGifCardProps {
-  thumbnailUrl: string;
-  gifUrl: string | null;
-  imageUrl: string;
-  title: string;
-  category?: string;
+  item: PortfolioItem;
+  /** `sizes` attribute for responsive images — how wide the card renders at each breakpoint */
+  sizes: string;
   onClick?: () => void;
   onExpand?: () => void;
-  fileType: 'image' | 'gif' | 'video';
   eager?: boolean;
 }
 
-export default function LazyGifCard({
-  thumbnailUrl,
-  gifUrl,
-  imageUrl,
-  title,
-  category,
-  onClick,
-  onExpand,
-  fileType,
-  eager = false,
-}: LazyGifCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
-  const [mediaLoaded, setMediaLoaded] = useState(false);
-  const [posterLoaded, setPosterLoaded] = useState(false); // Video poster img loaded (hides skeleton)
-  const [videoPlaying, setVideoPlaying] = useState(false); // Video is actively playing (hides poster)
-  const [gifReady, setGifReady] = useState(false); // GIF fully loaded in background
+const CLIP = 'polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)';
+const CLIP_SM = 'polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)';
+const CLIP_BTN = 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)';
+
+export default function LazyGifCard({ item, sizes, onClick, onExpand, eager = false }: LazyGifCardProps) {
+  const media = getItemMedia(item);
+  const isVideo = media.kind === 'video';
+  const category = item.category?.name;
+
+  const [loaded, setLoaded] = useState(false); // image / poster ready (hides skeleton)
+  const [posterFailed, setPosterFailed] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const gifPreloadRef = useRef<HTMLImageElement | null>(null);
-  const { ref: inViewRef, inView } = useInView({
+
+  // Reveal animation — fires once
+  const { ref: revealRef, inView: revealed } = useInView({
     triggerOnce: true,
     threshold: 0.05,
     rootMargin: '300px',
     skip: eager,
   });
+  const isVisible = revealed || eager;
 
-  const isVisible = inView || eager;
-  const isGif = fileType === 'gif' && gifUrl;
-  const isVideo = fileType === 'video';
-  const thumbSrc = getImageUrl(thumbnailUrl || imageUrl);
-  const fullSrc = getImageUrl(imageUrl);
-  const gifSrc = getImageUrl(gifUrl || imageUrl);
-  // For GIFs: show thumbnail until GIF preloaded, then switch to GIF
-  // For images: always show full-size original (not the cropped thumbnail)
-  const displaySrc = (isGif && gifReady) ? gifSrc : isGif ? thumbSrc : fullSrc;
-  const [isMobile, setIsMobile] = useState(false);
+  // Playback visibility — videos only; pauses (and stops downloading) anything off-screen
+  const { ref: playRef, inView: onScreen } = useInView({ threshold: 0.3, skip: !isVideo });
 
-  // Detect mobile/touch device
   useEffect(() => {
-    const check = () => setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
+    setIsTouch(window.matchMedia('(hover: none)').matches);
   }, []);
 
-  // Preload GIF in background when card becomes visible
-  useEffect(() => {
-    if (!isGif || !isVisible || gifReady) return;
-    const img = new Image();
-    img.onload = () => setGifReady(true);
-    img.src = gifSrc;
-    gifPreloadRef.current = img;
-    return () => {
-      if (gifPreloadRef.current) {
-        gifPreloadRef.current.onload = null;
-        gifPreloadRef.current = null;
-      }
-    };
-  }, [isGif, isVisible, gifReady, gifSrc]);
+  const hasPoster = isVideo && !!media.poster && !posterFailed;
+  const autoplays = isVideo && (media.autoplay || isTouch);
 
-  // On mobile: autoplay video when card scrolls into view
+  // Autoplay converted GIFs (and every video on touch screens) only while on screen
   useEffect(() => {
-    if (!isVideo || !isMobile || !videoRef.current) return;
     const video = videoRef.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          video.play().catch(() => {});
-        } else {
-          video.pause();
-        }
-      },
-      { threshold: 0.3 }
-    );
-    observer.observe(video);
-    return () => observer.disconnect();
-  }, [isVideo, isMobile]);
+    if (!isVideo || !video) return;
+    if (autoplays && onScreen) {
+      video.play().catch(() => {});
+    } else if (!onScreen) {
+      video.pause();
+    }
+  }, [isVideo, autoplays, onScreen]);
 
   const handleMouseEnter = useCallback(() => {
-    setIsHovered(true);
-    if (isVideo && videoRef.current && !isMobile) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play().catch(() => {});
+    const video = videoRef.current;
+    if (isVideo && video && !autoplays) {
+      video.currentTime = 0;
+      video.play().catch(() => {});
     }
-  }, [isVideo, isMobile]);
+  }, [isVideo, autoplays]);
 
   const handleMouseLeave = useCallback(() => {
-    setIsHovered(false);
-    if (isVideo && videoRef.current && !isMobile) {
+    if (isVideo && videoRef.current && !autoplays) {
       videoRef.current.pause();
     }
-  }, [isVideo, isMobile]);
+  }, [isVideo, autoplays]);
 
-  // Touch handlers for video play on tap (fallback for mobile)
-  const handleTouchStart = useCallback(() => {
-    setIsHovered(true);
-    if (isVideo && videoRef.current) {
-      videoRef.current.play().catch(() => {});
-    }
-  }, [isVideo]);
+  // Known dimensions → reserve the exact box up front (no layout jump when media arrives)
+  const ratio = media.width && media.height ? `${media.width} / ${media.height}` : undefined;
+  const fill = 'absolute inset-0 w-full h-full object-cover';
+  const flowClass = (shown: boolean) => (ratio ? fill : `w-full h-auto block ${shown ? '' : 'absolute inset-0 opacity-0'}`);
 
   return (
     <motion.div
-      ref={inViewRef}
+      ref={revealRef}
       className="group relative overflow-hidden bg-surface cursor-pointer transition-all duration-500 hover:-translate-y-1"
-      style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)' }}
+      style={{ clipPath: CLIP }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onTouchStart={handleTouchStart}
       onClick={onClick}
       initial={{ opacity: 0, scale: 0.97 }}
       animate={isVisible ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.97 }}
@@ -133,18 +94,18 @@ export default function LazyGifCard({
     >
       {/* Angular border glow */}
       <div className="absolute -inset-[1px] bg-gradient-to-br from-accent-red/0 via-accent-red/0 to-accent-red/0 group-hover:from-accent-red/60 group-hover:via-accent-red/20 group-hover:to-accent-red-dark/60 transition-all duration-500 z-0"
-        style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)' }}
+        style={{ clipPath: CLIP }}
       />
-      
+
       {/* Card inner */}
       <div className="relative z-10 overflow-hidden bg-surface border border-white/[0.06] group-hover:border-transparent transition-colors duration-500"
-        style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)' }}
+        style={{ clipPath: CLIP }}
       >
-        {/* Image container — natural aspect ratio for masonry */}
-        <div className="relative overflow-hidden bg-[#0a0a0c]">
+        {/* Media container — natural aspect ratio for masonry */}
+        <div ref={playRef} className="relative overflow-hidden bg-[#0a0a0c]" style={ratio ? { aspectRatio: ratio } : undefined}>
           {/* Skeleton preloader */}
-          {!(isVideo ? posterLoaded : mediaLoaded) && (
-            <div className="w-full aspect-[4/3] bg-[#0a0a0c] animate-pulse">
+          {!loaded && (
+            <div className={`${ratio ? 'absolute inset-0' : 'w-full aspect-[4/3]'} bg-[#0a0a0c] animate-pulse`}>
               <div className="w-full h-full relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent skeleton-shimmer" />
                 <div className="absolute bottom-4 left-4 right-4 space-y-2">
@@ -157,70 +118,67 @@ export default function LazyGifCard({
 
           {isVideo ? (
             <>
-              {/* Poster image — always in DOM, visible until video plays */}
-              {thumbSrc && (
+              {/* Poster — light WebP frame shown until the video actually plays */}
+              {hasPoster && (
                 <img
-                  src={thumbSrc}
-                  alt={title}
-                  className={`w-full h-auto block transition-opacity duration-300 ${videoPlaying ? 'hidden' : 'opacity-100'}`}
-                  onLoad={() => setPosterLoaded(true)}
+                  src={media.poster}
+                  alt={item.title}
+                  className={ratio
+                    ? `${fill} ${videoPlaying ? 'invisible' : ''}`
+                    : videoPlaying ? 'hidden' : flowClass(loaded)}
+                  loading={eager ? 'eager' : 'lazy'}
+                  decoding="async"
+                  onLoad={() => setLoaded(true)}
+                  onError={() => { setPosterFailed(true); setLoaded(true); }}
                 />
               )}
-              {/* Video — hidden behind poster until play, then takes over */}
+              {/* Video — nothing is downloaded until it's played (hover, or on screen for GIFs / touch) */}
               <video
                 ref={videoRef}
-                src={getImageUrl(gifUrl || imageUrl)}
-                className={`w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-105 ${videoPlaying ? 'opacity-100' : 'absolute inset-0 opacity-0'}`}
+                src={media.previewVideo}
+                className={`transition-transform duration-700 ease-out group-hover:scale-105 ${
+                  ratio
+                    ? `${fill} ${videoPlaying || !hasPoster ? 'opacity-100' : 'opacity-0'}`
+                    : videoPlaying || !hasPoster ? 'w-full h-auto block' : 'absolute inset-0 w-full h-full opacity-0'
+                }`}
                 muted
                 loop
                 playsInline
-                preload={eager ? 'auto' : 'metadata'}
+                preload={hasPoster ? 'none' : 'metadata'}
+                onLoadedMetadata={() => { if (!hasPoster) setLoaded(true); }}
                 onPlay={() => setVideoPlaying(true)}
                 onPause={() => setVideoPlaying(false)}
               />
             </>
           ) : (
             <img
-              src={displaySrc}
-              alt={title}
-              className={`w-full h-auto block transition-transform duration-700 ease-out group-hover:scale-105 ${!mediaLoaded ? 'absolute inset-0 opacity-0' : 'opacity-100'}`}
+              src={media.src}
+              srcSet={media.srcSet}
+              sizes={media.srcSet ? sizes : undefined}
+              alt={item.title}
+              className={`${flowClass(loaded)} transition-transform duration-700 ease-out group-hover:scale-105`}
               loading={eager ? 'eager' : 'lazy'}
-              onLoad={() => setMediaLoaded(true)}
+              decoding="async"
+              onLoad={() => setLoaded(true)}
+              onError={() => setLoaded(true)}
             />
           )}
 
-          {/* GIF badge — angular */}
-          {isGif && (
-            <div className="absolute top-3 right-3 z-20 flex items-center gap-1">
-              {!gifReady && (
-                <div className="px-2 py-0.5 bg-black/60 backdrop-blur-sm text-[10px] font-mono tracking-wider text-white/50 border border-white/[0.08]"
-                  style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)' }}
-                >
-                  <div className="w-3 h-3 border border-accent-red/40 border-t-accent-red rounded-full animate-spin inline-block mr-1" />
-                  Loading
-                </div>
-              )}
-              <div className="px-2 py-0.5 bg-accent-red/90 text-[10px] font-mono font-bold tracking-wider uppercase"
-                style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)' }}
-              >
-                GIF
-              </div>
-            </div>
-          )}
-
-          {/* Video badge */}
-          {isVideo && (
-            <div className="absolute top-3 right-3 px-2 py-0.5 bg-purple-500/90 text-[10px] font-mono font-bold tracking-wider uppercase z-20"
-              style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)' }}
+          {/* GIF / video badge — angular */}
+          {(item.file_type === 'gif' || item.file_type === 'video') && (
+            <div className={`absolute top-3 right-3 px-2 py-0.5 text-[10px] font-mono font-bold tracking-wider uppercase z-20 ${
+              item.file_type === 'gif' ? 'bg-accent-red/90' : 'bg-purple-500/90'
+            }`}
+              style={{ clipPath: CLIP_SM }}
             >
-              MP4
+              {item.file_type === 'gif' ? 'GIF' : 'MP4'}
             </div>
           )}
 
-          {/* Category badge — angular */}
+          {/* Category badge — solid background: backdrop-blur would re-render on every video frame */}
           {category && (
-            <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-md text-[10px] font-mono uppercase tracking-wider text-white/70 border border-white/[0.08] z-20"
-              style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)' }}
+            <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/75 text-[10px] font-mono uppercase tracking-wider text-white/70 border border-white/[0.08] z-20"
+              style={{ clipPath: CLIP_SM }}
             >
               {category}
             </div>
@@ -229,28 +187,22 @@ export default function LazyGifCard({
           {/* Hover overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 z-10" />
 
-          {/* Hover action buttons — angular */}
+          {/* Hover action buttons — CSS transitions, no per-card observers */}
           <div className="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              whileInView={isHovered ? { scale: 1, opacity: 1 } : { scale: 0.5, opacity: 0 }}
-              transition={{ duration: 0.2, delay: 0.05 }}
-              className="w-10 h-10 bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center hover:bg-accent-red/60 hover:border-accent-red/40 transition-colors cursor-pointer"
-              style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)' }}
+            <div
+              className="w-10 h-10 bg-white/10 border border-white/20 flex items-center justify-center hover:bg-accent-red/60 hover:border-accent-red/40 transition-all duration-200 cursor-pointer scale-50 group-hover:scale-100"
+              style={{ clipPath: CLIP_BTN }}
               onClick={(e) => { e.stopPropagation(); onClick?.(); }}
             >
               <Eye size={16} className="text-white" />
-            </motion.div>
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              whileInView={isHovered ? { scale: 1, opacity: 1 } : { scale: 0.5, opacity: 0 }}
-              transition={{ duration: 0.2, delay: 0.1 }}
-              className="w-10 h-10 bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center hover:bg-accent-red/60 hover:border-accent-red/40 transition-colors cursor-pointer"
-              style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)' }}
+            </div>
+            <div
+              className="w-10 h-10 bg-white/10 border border-white/20 flex items-center justify-center hover:bg-accent-red/60 hover:border-accent-red/40 transition-all duration-200 delay-75 cursor-pointer scale-50 group-hover:scale-100"
+              style={{ clipPath: CLIP_BTN }}
               onClick={(e) => { e.stopPropagation(); onExpand?.(); }}
             >
               <Expand size={16} className="text-white" />
-            </motion.div>
+            </div>
           </div>
 
           {/* Bottom gradient */}
@@ -260,7 +212,7 @@ export default function LazyGifCard({
         {/* Info bar */}
         <div className="relative px-4 py-3 -mt-2 z-20">
           <h3 className="text-white font-semibold text-sm truncate group-hover:text-accent-red transition-colors duration-300">
-            {title}
+            {item.title}
           </h3>
           <div className="flex items-center justify-between mt-1">
             <span className="text-gray-600 text-[10px] font-mono uppercase tracking-wider">{category || 'Design'}</span>

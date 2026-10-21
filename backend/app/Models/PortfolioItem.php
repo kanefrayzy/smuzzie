@@ -17,6 +17,7 @@ class PortfolioItem extends Model
         'image_url',
         'gif_url',
         'local_path',
+        'variants',
         'width',
         'height',
         'file_type',
@@ -31,6 +32,7 @@ class PortfolioItem extends Model
         'is_featured' => 'boolean',
         'is_active' => 'boolean',
         'tags' => 'array',
+        'variants' => 'array',
     ];
 
     public function category()

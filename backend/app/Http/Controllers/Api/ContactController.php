@@ -9,9 +9,10 @@ use Illuminate\Support\Facades\Validator;
 
 class ContactController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $submissions = ContactSubmission::orderBy('created_at', 'desc')->paginate(20);
+        $perPage = max(1, min((int) $request->get('per_page', 20), 100));
+        $submissions = ContactSubmission::orderBy('created_at', 'desc')->paginate($perPage);
         return response()->json($submissions);
     }
 

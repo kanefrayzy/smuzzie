@@ -7,7 +7,7 @@ import LazyGifCard from './LazyGifCard';
 import ScrollReveal from '@/components/ui/ScrollReveal';
 import { PortfolioItem, Category } from '@/types';
 import { ArrowLeft, ChevronLeft, ChevronRight, Expand, Grid3X3, LayoutGrid, Minus, Plus, RotateCcw, X } from 'lucide-react';
-import { getImageUrl } from '@/lib/utils';
+import { getItemMedia } from '@/lib/media';
 
 /* ─── Fullscreen Pan+Zoom Viewer ─── */
 const ZOOM_STEPS = [25, 50, 75, 100, 150, 200, 300, 400, 500];
@@ -305,7 +305,17 @@ const BATCH_SIZE = 9; // Load 9 items per batch
 
 export default function PortfolioGrid({ items, categories, initialCategory }: PortfolioGridProps) {
   const [activeCategory, setActiveCategory] = useState<string>(initialCategory || categories[0]?.slug || '');
-  const [filteredItems, setFilteredItems] = useState<PortfolioItem[]>(items);
+  // Derived, not stored: a state copy started as the full list, so the first paint
+  // showed (and eagerly loaded) items from every category.
+  const filteredItems = useMemo(
+    () => items.filter((item) => item.category?.slug === activeCategory),
+    [items, activeCategory]
+  );
+
+  // Follow ?category= changes (e.g. footer links clicked while already on /portfolio)
+  useEffect(() => {
+    if (initialCategory) setActiveCategory(initialCategory);
+  }, [initialCategory]);
   const [lightboxItem, setLightboxItem] = useState<PortfolioItem | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number>(-1);
   const [columns, setColumns] = useState<3 | 4>(3);
@@ -348,12 +358,6 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
     },
   });
 
-  useEffect(() => {
-    setFilteredItems(
-      items.filter((item) => item.category?.slug === activeCategory)
-    );
-  }, [activeCategory, items]);
-
   const openLightbox = useCallback((item: PortfolioItem) => {
     const index = filteredItems.findIndex((i) => i.id === item.id);
     setLightboxItem(item);
@@ -367,9 +371,8 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
   }, []);
 
   const openZoom = useCallback((item: PortfolioItem) => {
-    const url = getImageUrl(item.gif_url || item.image_url);
-    const type = item.file_type === 'video' ? 'video' : 'image';
-    setZoomedMedia({ url, type });
+    const media = getItemMedia(item);
+    setZoomedMedia({ url: media.originalUrl, type: media.originalIsVideo ? 'video' : 'image' });
   }, []);
 
   const nextItem = useCallback(() => {
@@ -422,6 +425,16 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
   }, [visibleItems, colCount]);
 
   const gap = columns === 4 ? 'gap-5' : 'gap-6';
+
+  const indexById = useMemo(() => new Map(visibleItems.map((item, i) => [item.id, i])), [visibleItems]);
+
+  // How wide a card renders at each breakpoint, so the browser picks the right WebP size
+  // (container is max-w-7xl with side padding; columns per the grid classes below)
+  const cardSizes = columns === 4
+    ? '(min-width: 1280px) 290px, (min-width: 1024px) 31vw, (min-width: 640px) 48vw, 100vw'
+    : '(min-width: 1280px) 390px, (min-width: 1024px) 31vw, (min-width: 640px) 48vw, 100vw';
+
+  const lightboxMedia = lightboxItem ? getItemMedia(lightboxItem) : null;
 
   return (
     <div>
@@ -485,16 +498,12 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
         {masonryColumns.map((colItems, colIdx) => (
           <div key={colIdx} className="flex flex-col gap-5">
             {colItems.map((item) => {
-              const globalIndex = visibleItems.indexOf(item);
+              const globalIndex = indexById.get(item.id) ?? 0;
               return (
                 <div key={item.id}>
                   <LazyGifCard
-                    thumbnailUrl={item.thumbnail_url}
-                    gifUrl={item.gif_url}
-                    imageUrl={item.image_url}
-                    title={item.title}
-                    category={item.category?.name}
-                    fileType={item.file_type}
+                    item={item}
+                    sizes={cardSizes}
                     onClick={() => openLightbox(item)}
                     onExpand={() => openZoom(item)}
                     eager={globalIndex < BATCH_SIZE}
@@ -586,9 +595,10 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
                       <div className="relative bg-black/30 rounded-xl overflow-hidden shadow-xl border border-white/10 flex items-center justify-center group/media cursor-pointer"
                         onClick={() => openZoom(lightboxItem)}
                       >
-                        {lightboxItem.file_type === 'video' ? (
+                        {lightboxMedia?.kind === 'video' ? (
                           <video
-                            src={getImageUrl(lightboxItem.gif_url || lightboxItem.image_url)}
+                            src={lightboxMedia.fullVideo}
+                            poster={lightboxMedia.poster}
                             className="w-full h-auto max-h-[500px] object-contain"
                             autoPlay
                             muted
@@ -597,7 +607,9 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
                           />
                         ) : (
                           <img
-                            src={getImageUrl(lightboxItem.gif_url || lightboxItem.image_url)}
+                            src={lightboxMedia?.largeSrc}
+                            srcSet={lightboxMedia?.srcSet}
+                            sizes="(min-width: 1024px) 560px, 100vw"
                             alt={lightboxItem.title}
                             className="w-full h-auto max-h-[500px] object-contain"
                           />

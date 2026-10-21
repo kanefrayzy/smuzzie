@@ -61,3 +61,29 @@ export function getImageUrl(url: string | null | undefined): string {
   
   return url;
 }
+
+/** True for http(s) URLs (e.g. a review avatar that is a link, not an emoji). */
+export function isImageUrl(value: string | null | undefined): boolean {
+  return !!value && /^https?:\/\//i.test(value);
+}
+
+/** True when a URL points at a video file rather than an image. */
+export function isVideoUrl(url: string | null | undefined): boolean {
+  return !!url && /\.(mp4|webm)(\?|#|$)/i.test(url);
+}
+
+/**
+ * Human-readable message from a Laravel API error.
+ * The backend returns {message}, {error} or {errors: {field: [msg]}} depending on the case.
+ */
+export function getApiError(err: any, fallback: string): string {
+  const data = err?.response?.data;
+  if (!data) return fallback;
+  if (typeof data.message === 'string' && data.message) return data.message;
+  if (typeof data.error === 'string' && data.error) return data.error;
+  if (data.errors && typeof data.errors === 'object') {
+    const first = Object.values(data.errors).flat()[0];
+    if (typeof first === 'string') return first;
+  }
+  return fallback;
+}

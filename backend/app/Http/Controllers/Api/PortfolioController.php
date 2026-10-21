@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\OptimizePortfolioMedia;
 use App\Models\PortfolioItem;
 use App\Services\LocalStorageService;
 use Illuminate\Http\Request;
@@ -35,11 +36,12 @@ class PortfolioController extends Controller
             $query->featured();
         }
 
-        if ($request->has('active_only') || !$request->has('include_inactive')) {
+        if (!$this->isAdminRequest($request) || $request->has('active_only') || !$request->has('include_inactive')) {
             $query->active();
         }
 
-        $perPage = $request->get('per_page', 20);
+        // Cap page size so a single request can't dump the whole table
+        $perPage = max(1, min((int) $request->get('per_page', 20), 500));
         $items = $query->orderBy('sort_order')->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json($items);
@@ -114,11 +116,17 @@ class PortfolioController extends Controller
         $item = PortfolioItem::create($data);
         $item->load('category');
 
+        OptimizePortfolioMedia::dispatchAfterResponse($item->id);
+
         return response()->json($item, 201);
     }
 
-    public function show(PortfolioItem $portfolioItem)
+    public function show(Request $request, PortfolioItem $portfolioItem)
     {
+        if (!$portfolioItem->is_active && !$this->isAdminRequest($request)) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
         $portfolioItem->load('category');
         return response()->json($portfolioItem);
     }
@@ -159,12 +167,9 @@ class PortfolioController extends Controller
                 return response()->json(['errors' => ['image' => $fileErrors]], 422);
             }
 
-            try {
-                // Delete old file from local storage
-                if ($portfolioItem->local_path) {
-                    $this->storage->delete($portfolioItem->local_path);
-                }
+            $oldPath = $portfolioItem->local_path;
 
+            try {
                 $ext = strtolower($file->guessExtension() ?: $file->getClientOriginalExtension());
                 $isGif = $ext === 'gif';
                 $isVideo = in_array($ext, ['mp4', 'webm']);
@@ -183,10 +188,11 @@ class PortfolioController extends Controller
                 $data['height'] = $uploadResult['height'];
                 $data['file_type'] = $isVideo ? 'video' : ($isGif ? 'gif' : 'image');
                 $data['file_size'] = $uploadResult['size'];
+                $data['variants'] = null; // rebuilt for the new file after the response
 
-                if ($isGif || $isVideo) {
-                    $data['gif_url'] = $uploadResult['url'];
-                }
+                // Clear gif_url when replacing a GIF/video with a static image,
+                // otherwise it keeps pointing at the deleted old file
+                $data['gif_url'] = ($isGif || $isVideo) ? $uploadResult['url'] : null;
             } catch (\RuntimeException $e) {
                 return response()->json(['error' => $e->getMessage()], 503);
             } catch (\Exception $e) {
@@ -197,6 +203,12 @@ class PortfolioController extends Controller
         }
 
         $portfolioItem->update($data);
+
+        // Remove the old file only after the new one is stored and saved
+        if (!empty($oldPath) && $oldPath !== $portfolioItem->local_path) {
+            $this->storage->delete($oldPath);
+            OptimizePortfolioMedia::dispatchAfterResponse($portfolioItem->id);
+        }
         $portfolioItem->load('category');
 
         return response()->json($portfolioItem);
@@ -320,7 +332,9 @@ class PortfolioController extends Controller
                 $data['gif_url'] = $uploadResult['url'];
             }
 
-            $items[] = PortfolioItem::create($data);
+            $item = PortfolioItem::create($data);
+            OptimizePortfolioMedia::dispatchAfterResponse($item->id);
+            $items[] = $item;
         }
         } catch (\RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 503);

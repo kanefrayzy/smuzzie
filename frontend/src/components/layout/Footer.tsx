@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Github, Twitter, MessageCircle, Mail, Heart } from 'lucide-react';
+import { MessageCircle, Mail, Heart } from 'lucide-react';
 import Logo from '@/components/ui/Logo';
 
 const footerLinks = {
@@ -25,9 +25,7 @@ const footerLinks = {
 };
 
 const socialLinks = [
-  { icon: MessageCircle, href: '#', label: 'Discord' },
-  { icon: Twitter, href: '#', label: 'Twitter' },
-  { icon: Github, href: '#', label: 'GitHub' },
+
   { icon: Mail, href: '/contact', label: 'Email' },
 ];
 

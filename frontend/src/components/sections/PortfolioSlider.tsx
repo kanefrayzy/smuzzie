@@ -5,14 +5,19 @@ import Link from 'next/link';
 import ScrollReveal from '@/components/ui/ScrollReveal';
 import { publicApi } from '@/lib/api';
 import { getImageUrl } from '@/lib/utils';
+import { getItemMedia } from '@/lib/media';
 import { PortfolioItem } from '@/types';
 
 /* ─── Slider card — lightweight, no title bar ─── */
 function SliderCard({ item }: { item: PortfolioItem }) {
   const isVideo = item.file_type === 'video';
+  const media = getItemMedia(item);
   const isThumbUsable = item.thumbnail_url && !item.thumbnail_url.endsWith('.mp4') && !item.thumbnail_url.endsWith('.webm');
   const thumbSrc = isThumbUsable ? getImageUrl(item.thumbnail_url) : '';
-  const imgSrc = thumbSrc || getImageUrl(item.image_url);
+  // Optimized WebP (responsive sizes for images, poster frame for videos/GIFs) when available,
+  // otherwise the old 400×300 thumbnail
+  const optimized = media.srcSet || (item.variants?.poster ? media.poster : undefined);
+  const imgSrc = optimized ? (media.srcSet ? media.src : media.poster!) : thumbSrc || getImageUrl(item.image_url);
 
   return (
     <Link
@@ -24,6 +29,8 @@ function SliderCard({ item }: { item: PortfolioItem }) {
         <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/40 to-zinc-900/40" />
         <img
           src={imgSrc}
+          srcSet={media.srcSet}
+          sizes={media.srcSet ? '(min-width: 768px) 320px, (min-width: 640px) 288px, 240px' : undefined}
           alt={item.title}
           className="absolute inset-0 w-full h-full object-cover will-change-transform transition-transform duration-500 group-hover:scale-110"
           loading="eager"

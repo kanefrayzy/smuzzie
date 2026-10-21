@@ -16,8 +16,15 @@ export default function AdminContactsPage() {
 
   const fetchContacts = async () => {
     try {
-      const res = await adminApi.getContacts();
-      setContacts(res.data.data || res.data);
+      // The API is paginated; load every page so older messages aren't hidden
+      const first = await adminApi.getContacts({ page: 1, per_page: 100 });
+      let all: ContactSubmission[] = first.data.data || first.data;
+      const lastPage: number = first.data.last_page || 1;
+      for (let page = 2; page <= lastPage; page++) {
+        const res = await adminApi.getContacts({ page, per_page: 100 });
+        all = all.concat(res.data.data || []);
+      }
+      setContacts(all);
     } catch (err) {
       console.error(err);
     } finally {

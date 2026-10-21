@@ -13,7 +13,7 @@ class ReviewController extends Controller
     {
         $query = Review::query();
 
-        if (!$request->has('include_inactive')) {
+        if (!$this->isAdminRequest($request) || !$request->has('include_inactive')) {
             $query->active();
         }
 
@@ -27,7 +27,7 @@ class ReviewController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'customer_name' => 'required|string|max:255',
-            'customer_avatar' => 'nullable|url|max:500',
+            'customer_avatar' => 'nullable|string|max:500', // emoji or image URL
             'content' => 'required|string|max:2000',
             'rating' => 'required|integer|min:1|max:5',
             'is_active' => 'nullable|boolean',
@@ -53,7 +53,7 @@ class ReviewController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'customer_name' => 'sometimes|string|max:255',
-            'customer_avatar' => 'nullable|url|max:500',
+            'customer_avatar' => 'nullable|string|max:500', // emoji or image URL
             'content' => 'sometimes|string|max:2000',
             'rating' => 'sometimes|integer|min:1|max:5',
             'is_active' => 'nullable|boolean',
@@ -64,7 +64,14 @@ class ReviewController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $review->update($validator->validated());
+        $validated = $validator->validated();
+        foreach (['customer_name', 'content'] as $field) {
+            if (isset($validated[$field])) {
+                $validated[$field] = strip_tags($validated[$field]);
+            }
+        }
+
+        $review->update($validated);
 
         return response()->json($review);
     }

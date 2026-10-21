@@ -152,6 +152,9 @@ class LocalStorageService
                 $disk->delete($path);
             }
 
+            // Delete web-optimized variants (responsive WebP, MP4 previews, poster)
+            (new MediaOptimizer())->deleteVariants($path);
+
             // Delete the thumbnail
             $info = pathinfo($path);
             $thumbnailPath = $info['dirname'] . '/thumbnails/' . $info['filename'] . '_thumb.jpg';
