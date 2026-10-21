@@ -44,6 +44,15 @@ return [
             'throw' => false,
         ],
 
+        // Private storage for the banner builder: template sources, buyer logos, rendered files.
+        // Not under storage/app/public, so nginx never serves it; downloads go through signed routes.
+        'banners' => [
+            'driver' => 'local',
+            'root' => storage_path('app/banners'),
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

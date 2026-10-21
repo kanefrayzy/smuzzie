@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>overlay render</title>
+<link rel="stylesheet" href="overlay.css">
+<style>html,body{margin:0;background:transparent}</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="overlay.js"></script>
+<script>
+// Вызывается из render.mjs: строим тот же слой, что в превью, только в родном разрешении.
+window.renderOverlay = async function (tpl, data) {
+  const stage = document.getElementById('stage');
+  stage.innerHTML = '';
+  BannerOverlay.build(stage, tpl);
+  await document.fonts.load('700 10px Unbounded', 'АZ');
+  await document.fonts.load('800 10px Manrope', 'АZ');
+  await document.fonts.ready;
+  await BannerOverlay.update(stage, tpl, data);
+  return true;
+};
+</script>
+</body>
+</html>

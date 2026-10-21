@@ -1,0 +1,33 @@
+{
+  "id": "neon-cards",
+  "name": "Neon Cards",
+  "width": 1450,
+  "height": 1694,
+  "duration": 4,
+  "fps": 30,
+  "accent": "#1e9bff",
+  "source": "source.mp4",
+  "preview": "preview.mp4",
+  "fields": [
+    { "key": "logo", "type": "image", "label": "Логотип",
+      "x": 30, "y": 3.3, "w": 40, "h": 5.6 },
+    { "key": "title", "type": "text", "label": "Заголовок", "default": "SMUZZIE STUDIO",
+      "x": 26.5, "y": 14.6, "w": 47, "h": 9.2,
+      "font": "Unbounded", "weight": 700, "size": 4.4, "minSize": 2.2, "maxLength": 32, "case": "upper" },
+    { "key": "card1", "type": "text", "label": "Карточка 1", "default": "Быстрый запуск за 24 часа",
+      "x": 7.2, "y": 39, "w": 17.8, "h": 38,
+      "font": "Manrope", "weight": 800, "size": 3.0, "minSize": 1.6, "maxLength": 48 },
+    { "key": "card2", "type": "text", "label": "Карточка 2", "default": "Защита данных",
+      "x": 29.6, "y": 39, "w": 17.8, "h": 38,
+      "font": "Manrope", "weight": 800, "size": 3.0, "minSize": 1.6, "maxLength": 48 },
+    { "key": "card3", "type": "text", "label": "Карточка 3", "default": "Своя сеть партнёров",
+      "x": 52.6, "y": 39, "w": 17.8, "h": 38,
+      "font": "Manrope", "weight": 800, "size": 3.0, "minSize": 1.6, "maxLength": 48 },
+    { "key": "card4", "type": "text", "label": "Карточка 4", "default": "Оплата в один клик",
+      "x": 75.1, "y": 39, "w": 17.8, "h": 38,
+      "font": "Manrope", "weight": 800, "size": 3.0, "minSize": 1.6, "maxLength": 48 },
+    { "key": "button", "type": "text", "label": "Кнопка", "default": "Начать",
+      "x": 34.5, "y": 87.9, "w": 31, "h": 4.6,
+      "font": "Unbounded", "weight": 700, "size": 2.5, "minSize": 1.4, "maxLength": 20, "case": "upper", "glow": false, "color": "#ffffff" }
+  ]
+}

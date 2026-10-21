@@ -42,6 +42,17 @@ return [
             'after_commit' => false,
         ],
 
+        // Banner pipeline (template processing + renders). Used explicitly by the banner jobs;
+        // the default connection stays as configured. retry_after must stay above the render
+        // job timeout, otherwise a long render would be picked up a second time while running.
+        'banners' => [
+            'driver' => 'database',
+            'table' => 'jobs',
+            'queue' => 'banners',
+            'retry_after' => 900,
+            'after_commit' => true,
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => 'localhost',

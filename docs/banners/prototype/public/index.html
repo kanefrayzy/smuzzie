@@ -1,0 +1,284 @@
+<title>Smuzzie Banner Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="overlay.css">
+<style>
+/* Layout: превью шаблона слева (липкое), справа форма покупателя; на телефоне всё в одну колонку */
+:root{
+  --ink:#0a0c11; --panel:#11151d; --panel-2:#171c26; --line:#252c39;
+  --text:#e9edf4; --muted:#8b95a7; --accent:#1e9bff; --accent-ink:#06121f;
+  --danger:#ff7a7a;
+  --f-display:"Unbounded","Onest",system-ui,sans-serif;
+  --f-body:"Onest",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:12px;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{background:var(--ink);color:var(--text)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.5;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:22px}
+
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 20px;border-bottom:1px solid var(--line);padding-bottom:16px}
+.brand{font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.04em;text-transform:uppercase}
+.brand span{color:var(--accent);transition:color .3s}
+.meta{display:flex;flex-wrap:wrap;gap:6px;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.meta b{color:var(--text);font-weight:600}
+.meta i{font-style:normal;opacity:.4}
+
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:28px;align-items:start}
+.stage-col{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:grid;gap:10px;min-width:0}
+.viewport{position:relative;width:min(100%,calc((100vh - 140px) * 0.856));max-width:100%;aspect-ratio:1450/1694;margin:0 auto;border-radius:var(--r);overflow:hidden;background:#000;box-shadow:0 0 0 1px var(--line),0 30px 80px -30px color-mix(in srgb,var(--accent) 45%,transparent);transition:box-shadow .3s}
+.viewport .bn-stage{position:absolute;left:0;top:0;transform-origin:0 0}
+.viewport video{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}
+.stage-note{color:var(--muted);font-size:12.5px;text-align:center}
+
+form{display:grid;gap:22px;min-width:0}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:12px;min-width:0}
+legend{font-family:var(--f-display);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;padding:0}
+.field{display:grid;gap:6px}
+.field-head{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted)}
+.field-head label{color:var(--text);font-weight:500}
+.count{font-variant-numeric:tabular-nums}
+.count.full{color:var(--danger)}
+.in{width:100%;height:44px;padding:0 13px;border-radius:10px;border:1px solid var(--line);background:var(--panel);transition:border-color .15s}
+.in:hover{border-color:#36404f}
+.in:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.drop{display:flex;align-items:center;gap:14px;padding:12px;border:1px dashed #3a4456;border-radius:var(--r);background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--panel-2)}
+.drop input{position:absolute;width:1px;height:1px;opacity:0}
+.thumb{flex:none;width:64px;height:44px;border-radius:8px;display:grid;place-items:center;background:repeating-conic-gradient(#1b212c 0 25%,#141922 0 50%) 0 0/12px 12px;overflow:hidden}
+.thumb img{max-width:90%;max-height:80%;object-fit:contain}
+.thumb svg{width:20px;height:20px;color:var(--muted)}
+.drop-text{display:grid;gap:2px;min-width:0;font-size:13px}
+.drop-text strong{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drop-text span{color:var(--muted)}
+.linkbtn{background:none;border:0;padding:0;color:var(--muted);font-size:13px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;justify-self:start}
+.linkbtn:hover{color:var(--text)}
+.err{color:var(--danger);font-size:13px;min-height:0}
+
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.sw{width:36px;height:36px;border-radius:50%;border:2px solid transparent;padding:3px;background:none;cursor:pointer}
+.sw i{display:block;width:100%;height:100%;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
+.sw[aria-pressed="true"]{border-color:var(--text)}
+.range-row{display:flex;align-items:center;gap:12px}
+.range-row input[type=range]{flex:1;accent-color:var(--accent);height:24px}
+.range-row output{width:44px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
+.hue-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--h0),var(--h1),var(--h2),var(--h3),var(--h4),var(--h5),var(--h0));margin-top:-4px}
+
+.buy{display:grid;gap:12px;padding:16px;border-radius:var(--r);background:var(--panel);border:1px solid var(--line)}
+.buy-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:13px;color:var(--muted)}
+.price{font-family:var(--f-display);font-weight:700;font-size:22px;color:var(--text)}
+.cta{height:50px;border:0;border-radius:10px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:15px;cursor:pointer;transition:background .3s,filter .15s}
+.cta:hover{filter:brightness(1.08)}
+.cta-note{font-size:12.5px;color:var(--muted)}
+.cta-note.on{color:var(--text)}
+details{font-size:13px;color:var(--muted)}
+summary{cursor:pointer}
+pre{margin:8px 0 0;padding:12px;border-radius:10px;background:var(--panel-2);border:1px solid var(--line);overflow-x:auto;font-size:12px;line-height:1.5;color:var(--text)}
+
+.result{display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:24px;align-items:center;border-top:1px solid var(--line);padding-top:24px}
+.result video{width:100%;max-width:100%;border-radius:10px;display:block;box-shadow:0 0 0 1px var(--line)}
+.result h2{font-family:var(--f-display);font-size:16px;font-weight:700;margin:0 0 8px;text-wrap:balance}
+.result p{margin:0 0 8px;color:var(--muted);max-width:60ch}
+.result dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:12px 0 0;font-size:13px;font-variant-numeric:tabular-nums}
+.result dt{color:var(--muted)}
+.result dd{margin:0}
+
+@media (max-width:900px){
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .stage-col{position:static}
+  .viewport{width:min(100%,calc(70vh * 0.856))}
+}
+@media (max-width:480px){
+  .cards{grid-template-columns:1fr}
+  .result{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">Smuzzie <span>Banner Studio</span></div>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <div class="grid">
+    <div class="stage-col">
+      <div class="viewport" id="viewport"></div>
+      <div class="stage-note">Превью с водяным знаком. В купленном файле его нет.</div>
+    </div>
+
+    <form id="form" novalidate>
+      <fieldset>
+        <legend>Логотип</legend>
+        <label class="drop" id="drop" for="logo">
+          <input id="logo" type="file" accept="image/png,image/jpeg,image/webp">
+          <span class="thumb" id="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span>
+          <span class="drop-text"><strong id="logoName">Загрузить логотип</strong><span>PNG с прозрачным фоном, JPG или WebP, до 2 МБ</span></span>
+        </label>
+        <button type="button" class="linkbtn" id="logoClear" hidden>Убрать логотип</button>
+        <div class="err" id="logoErr" role="status"></div>
+      </fieldset>
+
+      <fieldset id="textFields">
+        <legend>Тексты</legend>
+      </fieldset>
+
+      <fieldset>
+        <legend>Цвет баннера</legend>
+        <div class="swatches" id="swatches" role="group" aria-label="Готовые цвета"></div>
+        <div class="range-row">
+          <input id="hue" type="range" min="0" max="359" step="1" value="0" aria-label="Оттенок, градусы">
+          <output id="hueOut" for="hue">0°</output>
+        </div>
+        <div class="hue-track" id="hueTrack" aria-hidden="true"></div>
+      </fieldset>
+
+      <div class="buy">
+        <div class="buy-row"><span>MP4 1450×1694 и GIF 600 px</span><span class="price">$15</span></div>
+        <button type="submit" class="cta">Оформить заказ</button>
+        <div class="cta-note" id="ctaNote">После оплаты сервер соберёт файлы без водяного знака и пришлёт ссылку на почту.</div>
+        <details>
+          <summary>Что уходит на сервер</summary>
+          <pre id="payload"></pre>
+        </details>
+      </div>
+    </form>
+  </div>
+
+  <section class="result">
+    <video src="sample-render.mp4" muted loop playsinline autoplay preload="metadata"></video>
+    <div>
+      <h2>Пример готового файла</h2>
+      <p>Так выглядит MP4 после рендера на сервере: логотип NOVA, свои тексты, цвет сдвинут на 150°. Текст и лого рисует тот же код, что и превью, поэтому переносы и размеры совпадают.</p>
+      <dl>
+        <dt>Разрешение</dt><dd>1450×1694, 30 fps, 4 с</dd>
+        <dt>MP4</dt><dd>2,4 МБ</dd>
+        <dt>GIF 600 px</dt><dd>4,7 МБ</dd>
+        <dt>Рендер</dt><dd>около 15 с на тестовой машине</dd>
+      </dl>
+    </div>
+  </section>
+</div>
+
+<script src="overlay.js"></script>
+<script>
+'use strict';
+(async function () {
+  const $ = id => document.getElementById(id);
+  const tpl = await (await fetch('template/template.json')).json();
+  const data = { hue: 0 };
+  tpl.fields.forEach(f => { if (f.type === 'text') data[f.key] = f.default || ''; });
+
+  $('meta').innerHTML = '<b>' + tpl.name + '</b><i>/</i>' + tpl.width + '×' + tpl.height +
+    '<i>/</i>' + tpl.duration + ' с<i>/</i>MP4 + GIF';
+
+  // Сцена в родном разрешении шаблона, ужатая transform. Вёрстка такая же, как при рендере.
+  const viewport = $('viewport');
+  const stage = document.createElement('div');
+  const video = document.createElement('video');
+  Object.assign(video, { src: 'template/' + tpl.preview, muted: true, loop: true, autoplay: true, playsInline: true });
+  video.setAttribute('muted', '');
+  stage.appendChild(video);
+  viewport.appendChild(stage);
+  BannerOverlay.build(stage, tpl);
+  const scale = () => { stage.style.transform = 'scale(' + viewport.clientWidth / tpl.width + ')'; };
+  new ResizeObserver(scale).observe(viewport);
+  scale();
+
+  // Поля ввода из шаблона
+  const textBox = $('textFields');
+  let cardsBox = null;
+  tpl.fields.filter(f => f.type === 'text').forEach(f => {
+    const wrap = document.createElement('div');
+    wrap.className = 'field';
+    const id = 'f_' + f.key;
+    wrap.innerHTML = '<div class="field-head"><label for="' + id + '"></label><span class="count" id="c_' + f.key + '"></span></div>' +
+      '<input class="in" id="' + id + '" type="text" autocomplete="off" maxlength="' + (f.maxLength || 200) + '">';
+    wrap.querySelector('label').textContent = f.label;
+    const input = wrap.querySelector('input');
+    input.value = data[f.key];
+    input.addEventListener('input', () => { data[f.key] = input.value; render(); });
+    if (/^card\d/.test(f.key)) {
+      if (!cardsBox) { cardsBox = document.createElement('div'); cardsBox.className = 'cards'; textBox.appendChild(cardsBox); }
+      cardsBox.appendChild(wrap);
+    } else textBox.appendChild(wrap);
+  });
+
+  // Цвет: свотчи показывают реальный цвет акцента после сдвига
+  const presets = [0, 35, 95, 150, 195, 250, 300];
+  presets.forEach(deg => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'sw'; b.dataset.deg = deg;
+    b.setAttribute('aria-label', 'Оттенок ' + deg + '°');
+    b.innerHTML = '<i style="background:' + BannerOverlay.shiftColor(tpl.accent, deg) + '"></i>';
+    b.addEventListener('click', () => { $('hue').value = deg; data.hue = deg; render(); });
+    $('swatches').appendChild(b);
+  });
+  [0, 60, 120, 180, 240, 300].forEach((d, i) =>
+    $('hueTrack').style.setProperty('--h' + i, BannerOverlay.shiftColor(tpl.accent, d)));
+  $('hue').addEventListener('input', e => { data.hue = Number(e.target.value); render(); });
+
+  // Логотип
+  const MAX_LOGO = 2 * 1024 * 1024;
+  async function setLogo(file) {
+    $('logoErr').textContent = '';
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) { $('logoErr').textContent = 'Нужен PNG, JPG или WebP. SVG пока не поддерживается.'; return; }
+    if (file.size > MAX_LOGO) { $('logoErr').textContent = 'Файл больше 2 МБ. Сожмите логотип или сохраните в PNG поменьше.'; return; }
+    const url = await new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = fail; r.readAsDataURL(file); });
+    data.logo = url;
+    data.logoName = file.name;
+    $('thumb').innerHTML = '<img alt="" src="' + url + '">';
+    $('logoName').textContent = file.name;
+    $('logoClear').hidden = false;
+    render();
+  }
+  $('logo').addEventListener('change', e => setLogo(e.target.files[0]).catch(() => { $('logoErr').textContent = 'Не удалось прочитать файл.'; }));
+  const drop = $('drop');
+  ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => setLogo(e.dataTransfer.files[0]));
+  $('logoClear').addEventListener('click', () => {
+    delete data.logo; delete data.logoName; $('logo').value = '';
+    $('thumb').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>';
+    $('logoName').textContent = 'Загрузить логотип'; $('logoClear').hidden = true; render();
+  });
+
+  $('form').addEventListener('submit', e => {
+    e.preventDefault();
+    const n = $('ctaNote');
+    n.textContent = 'Это демо. На сайте здесь будет оплата, а после неё заказ уйдёт в очередь на рендер.';
+    n.classList.add('on');
+  });
+
+  function render() {
+    BannerOverlay.update(stage, tpl, data);
+    video.style.filter = data.hue ? 'hue-rotate(' + data.hue + 'deg)' : '';
+    const accent = BannerOverlay.shiftColor(tpl.accent, data.hue);
+    document.documentElement.style.setProperty('--accent', accent);
+    $('hueOut').textContent = data.hue + '°';
+    document.querySelectorAll('.sw').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.deg) === data.hue)));
+    tpl.fields.filter(f => f.type === 'text').forEach(f => {
+      const c = $('c_' + f.key), len = (data[f.key] || '').length;
+      c.textContent = len + ' / ' + f.maxLength;
+      c.classList.toggle('full', len >= f.maxLength);
+    });
+    const shown = { template_id: tpl.id, ...data };
+    if (shown.logo) shown.logo = '<файл ' + (data.logoName || 'logo') + '>';
+    delete shown.logoName;
+    $('payload').textContent = JSON.stringify(shown, null, 2);
+  }
+
+  await document.fonts.load('700 10px Unbounded', 'АZ').catch(() => {});
+  await document.fonts.load('800 10px Manrope', 'АZ').catch(() => {});
+  render();
+  document.fonts.ready.then(render);
+})();
+</script>

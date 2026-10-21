@@ -20,8 +20,8 @@ php artisan migrate --seed          # seeds admin user, 8 categories, sample rev
 php artisan db:seed --class=DemoPortfolioSeeder
 php artisan storage:link            # required: uploads are served from public/storage
 php artisan serve                   # http://localhost:8000
-php artisan test                    # PHPUnit; only Laravel example tests exist
-php artisan test --filter=ExampleTest
+php vendor/bin/phpunit              # in-memory SQLite (phpunit.xml), no .env needed; needs doctrine/dbal (require-dev)
+php vendor/bin/phpunit --filter=AdminRoutesAccessTest
 ./vendor/bin/pint                   # PHP code style
 php artisan portfolio:video-thumbnails [--force]   # backfill video poster JPGs (needs ffmpeg)
 ```

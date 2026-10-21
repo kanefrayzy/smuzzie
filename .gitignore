@@ -18,3 +18,13 @@ frontend/.env.production
 # OS
 .DS_Store
 Thumbs.db
+
+# Banner prototype: keep only code and template.json in git (videos, GIFs, images and fonts stay local)
+docs/banners/prototype/**/*.mp4
+docs/banners/prototype/**/*.gif
+docs/banners/prototype/**/*.png
+docs/banners/prototype/**/*.woff2
+
+# Tool caches
+backend/.phpunit.result.cache
+frontend/tsconfig.tsbuildinfo
