@@ -10,6 +10,8 @@ import {
   Save, X, Star, Eye, EyeOff, Filter, CheckSquare, Square, MinusSquare, Film,
   ArrowUp, ArrowDown, ArrowUpDown, GripVertical
 } from 'lucide-react';
+import CategoryIcon from '@/components/ui/CategoryIcon';
+import { Star as PhStar, Images } from '@phosphor-icons/react';
 import toast, { Toaster } from 'react-hot-toast';
 
 export default function AdminPortfolioPage() {
@@ -466,7 +468,7 @@ export default function AdminPortfolioPage() {
               >
                 <option value="">Select Category</option>
                 {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
               <input
@@ -579,7 +581,7 @@ export default function AdminPortfolioPage() {
             >
               <option value="">Select Category</option>
               {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
 
@@ -747,7 +749,7 @@ export default function AdminPortfolioPage() {
                       className="w-full bg-primary border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-accent-red/50"
                     >
                       {categories.map((c) => (
-                        <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                        <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
                   </div>
@@ -838,7 +840,8 @@ export default function AdminPortfolioPage() {
                 filterCategory === c.id.toString() ? 'bg-accent-red text-white' : 'bg-surface text-gray-400 hover:text-white'
               }`}
             >
-              {c.icon} {c.name}
+              <CategoryIcon icon={c.icon} slug={c.slug} size={13} className="inline-block -mt-0.5 mr-1" />
+              {c.name}
             </button>
           ))}
         </div>
@@ -933,7 +936,7 @@ export default function AdminPortfolioPage() {
                   <span className="px-2 py-0.5 bg-purple-500/80 backdrop-blur-sm rounded text-[10px] font-bold">VIDEO</span>
                 )}
                 {item.is_featured && (
-                  <span className="px-2 py-0.5 bg-yellow-500/80 backdrop-blur-sm rounded text-[10px] font-bold">★</span>
+                  <span className="px-2 py-0.5 bg-yellow-500/80 backdrop-blur-sm rounded text-[10px] font-bold flex items-center"><PhStar size={10} weight="fill" aria-label="Featured" /></span>
                 )}
                 {!item.is_active && (
                   <span className="px-2 py-0.5 bg-red-500/80 backdrop-blur-sm rounded text-[10px] font-bold">Hidden</span>
@@ -1024,7 +1027,7 @@ export default function AdminPortfolioPage() {
 
       {filteredItems.length === 0 && (
         <div className="text-center py-16">
-          <div className="text-4xl mb-4">🖼️</div>
+          <Images size={44} weight="duotone" className="mx-auto mb-4 text-accent-red/60" />
           <p className="text-gray-400">No items found. Upload your first portfolio piece!</p>
         </div>
       )}

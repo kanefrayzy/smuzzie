@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import MagicWandIcon from './MagicWandIcon';
+import { Sparkle } from '@phosphor-icons/react';
 
 interface GetStartedButtonProps {
   href?: string;
@@ -33,7 +34,7 @@ export default function GetStartedButton({
       whileTap={{ scale: 0.95 }}
     >
       {/* Sparkle effect on the left */}
-      <span className="sparkle-icon">✨</span>
+      <Sparkle size={iconSize[size]} weight="fill" className="sparkle-icon" aria-hidden="true" />
 
       {/* Button text */}
       <span className="relative z-10 font-bold tracking-wide">Get Started</span>

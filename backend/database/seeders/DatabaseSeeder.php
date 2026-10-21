@@ -22,14 +22,14 @@ class DatabaseSeeder extends Seeder
 
         // Create categories
         $categories = [
-            ['name' => 'Logo Design', 'slug' => 'logo-design', 'icon' => '🎨', 'sort_order' => 1],
-            ['name' => 'Thread Design', 'slug' => 'thread-design', 'icon' => '🧵', 'sort_order' => 2],
-            ['name' => 'Signature Design', 'slug' => 'signature-design', 'icon' => '✍️', 'sort_order' => 3],
-            ['name' => 'Ads Design', 'slug' => 'ads-design', 'icon' => '📢', 'sort_order' => 4],
-            ['name' => 'Avatar Design', 'slug' => 'avatar-design', 'icon' => '👤', 'sort_order' => 5],
-            ['name' => 'Custom Design', 'slug' => 'custom-design', 'icon' => '🎯', 'sort_order' => 6],
-            ['name' => '3D Design', 'slug' => '3d-design', 'icon' => '🔮', 'sort_order' => 7],
-            ['name' => 'CSS/Font Design', 'slug' => 'css-font-design', 'icon' => '🔤', 'sort_order' => 8],
+            ['name' => 'Logo Design', 'slug' => 'logo-design', 'icon' => 'pen-nib', 'sort_order' => 1],
+            ['name' => 'Thread Design', 'slug' => 'thread-design', 'icon' => 'scroll', 'sort_order' => 2],
+            ['name' => 'Signature Design', 'slug' => 'signature-design', 'icon' => 'signature', 'sort_order' => 3],
+            ['name' => 'Ads Design', 'slug' => 'ads-design', 'icon' => 'megaphone', 'sort_order' => 4],
+            ['name' => 'Avatar Design', 'slug' => 'avatar-design', 'icon' => 'user-focus', 'sort_order' => 5],
+            ['name' => 'Custom Design', 'slug' => 'custom-design', 'icon' => 'shapes', 'sort_order' => 6],
+            ['name' => '3D Design', 'slug' => '3d-design', 'icon' => 'cube', 'sort_order' => 7],
+            ['name' => 'CSS/Font Design', 'slug' => 'css-font-design', 'icon' => 'text-aa', 'sort_order' => 8],
         ];
 
         foreach ($categories as $cat) {

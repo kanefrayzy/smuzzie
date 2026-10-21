@@ -5,14 +5,14 @@ import { Star, Quote } from 'lucide-react';
 import ScrollReveal from '@/components/ui/ScrollReveal';
 import { publicApi } from '@/lib/api';
 import { Review } from '@/types';
-import { isImageUrl } from '@/lib/utils';
+import Monogram from '@/components/ui/Monogram';
 
 // Fallback reviews in case API fails or returns empty
 const fallbackReviews: Review[] = [
   {
     id: 1,
     customer_name: 'xNightWolf',
-    customer_avatar: '🧑‍💻',
+    customer_avatar: null,
     content: 'Absolutely incredible work! The logo design exceeded all my expectations. Professional, creative, and delivered on time. Will definitely come back for more!',
     rating: 5,
     is_active: true,
@@ -23,7 +23,7 @@ const fallbackReviews: Review[] = [
   {
     id: 2,
     customer_name: 'PixelQueen',
-    customer_avatar: '👩‍🎨',
+    customer_avatar: null,
     content: 'Best designer I\'ve worked with. The attention to detail in the 3D design was phenomenal. Highly recommend to anyone looking for quality!',
     rating: 5,
     is_active: true,
@@ -34,7 +34,7 @@ const fallbackReviews: Review[] = [
   {
     id: 3,
     customer_name: 'DarkViper_',
-    customer_avatar: '👨‍🎤',
+    customer_avatar: null,
     content: 'Outstanding thread designs that really captured the vibe I was going for. Quick turnaround and amazing communication throughout.',
     rating: 5,
     is_active: true,
@@ -45,7 +45,7 @@ const fallbackReviews: Review[] = [
   {
     id: 4,
     customer_name: 'CyberNova',
-    customer_avatar: '👩‍💼',
+    customer_avatar: null,
     content: 'The custom avatar design was exactly what I needed for my brand. Creative, unique, and professional quality. Couldn\'t be happier!',
     rating: 4,
     is_active: true,
@@ -56,7 +56,7 @@ const fallbackReviews: Review[] = [
   {
     id: 5,
     customer_name: 'BlazeFrost',
-    customer_avatar: '🧑‍🔬',
+    customer_avatar: null,
     content: 'Exceptional CSS/Font design work. The animations and styling were top-notch. Will definitely work together again on future projects!',
     rating: 5,
     is_active: true,
@@ -67,7 +67,7 @@ const fallbackReviews: Review[] = [
   {
     id: 6,
     customer_name: 'ShadowMint',
-    customer_avatar: '👩‍🚀',
+    customer_avatar: null,
     content: 'The signature design looked amazing and really stood out. Great value for money and super fast delivery. A+ service!',
     rating: 5,
     is_active: true,
@@ -76,8 +76,6 @@ const fallbackReviews: Review[] = [
     updated_at: '',
   },
 ];
-
-const avatarEmojis = ['🧑‍💻', '👩‍🎨', '👨‍🎤', '👩‍💼', '🧑‍🔬', '👩‍🚀', '🎮', '🎧', '🖥️', '⚡'];
 
 export default function ReviewsSection() {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -171,11 +169,7 @@ export default function ReviewsSection() {
                   <div className="w-10 h-10 flex items-center justify-center bg-white/[0.03] border border-white/[0.06] text-lg"
                     style={{ clipPath: 'polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px)' }}
                   >
-                    {isImageUrl(review.customer_avatar) ? (
-                      <img src={review.customer_avatar!} alt={review.customer_name} loading="lazy" className="w-full h-full object-cover" />
-                    ) : (
-                      review.customer_avatar || avatarEmojis[review.id % avatarEmojis.length]
-                    )}
+                    <Monogram name={review.customer_name} src={review.customer_avatar} />
                   </div>
                   <div>
                     <h4 className="text-white font-semibold text-sm">{review.customer_name}</h4>

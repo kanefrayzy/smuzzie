@@ -4,7 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { adminApi } from '@/lib/api';
 import { Review } from '@/types';
-import { formatDate, getApiError, isImageUrl } from '@/lib/utils';
+import { formatDate, getApiError } from '@/lib/utils';
+import Monogram from '@/components/ui/Monogram';
+import { Star as PhStar } from '@phosphor-icons/react';
 import { Plus, Edit2, Trash2, Star, Save, X, Eye, EyeOff } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -107,7 +109,7 @@ export default function AdminReviewsPage() {
         />
         <input
           type="text"
-          placeholder="Avatar (emoji or URL)"
+          placeholder="Avatar image URL (optional)"
           value={form.customer_avatar}
           onChange={(e) => setForm({ ...form, customer_avatar: e.target.value })}
           className="bg-surface border border-white/5 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-accent-red/50"
@@ -197,11 +199,7 @@ export default function AdminReviewsPage() {
             ) : (
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center text-lg flex-shrink-0">
-                  {isImageUrl(review.customer_avatar) ? (
-                    <img src={review.customer_avatar!} alt="" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    review.customer_avatar || '👤'
-                  )}
+                  <Monogram name={review.customer_name} src={review.customer_avatar} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -234,7 +232,7 @@ export default function AdminReviewsPage() {
 
       {reviews.length === 0 && (
         <div className="text-center py-16">
-          <div className="text-4xl mb-4">⭐</div>
+          <PhStar size={44} weight="duotone" className="mx-auto mb-4 text-accent-red/60" />
           <p className="text-gray-400">No reviews yet. Add your first testimonial!</p>
         </div>
       )}

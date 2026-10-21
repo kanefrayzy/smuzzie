@@ -380,7 +380,7 @@ export default function GetStartedPage() {
               {[
                 { icon: Zap,    label: 'Fast Delivery',     value: '24-72h' },
                 { icon: Shield, label: 'Guaranteed',        value: '100%' },
-                { icon: Star,   label: 'Client Rating',     value: '5.0 ★' },
+                { icon: Star,   label: 'Client Rating',     value: '5.0/5' },
                 { icon: Clock,  label: 'Support',           value: '24/7' },
               ].map((stat) => (
                 <motion.div

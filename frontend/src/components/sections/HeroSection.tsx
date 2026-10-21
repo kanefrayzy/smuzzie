@@ -6,6 +6,7 @@ import GetStartedButton from '@/components/ui/GetStartedButton';
 import { SpartanHelmet } from '@/components/ui/Logo';
 import Link from 'next/link';
 import { Shield, Zap, Clock, MessageCircle, ChevronDown, Palette, Layers, Star, Sparkles } from 'lucide-react';
+import { GameController, Palette as PhPalette, FilmSlate, Lightning, Trophy, StarFour } from '@phosphor-icons/react';
 
 /* ─── animated counter hook ─────────────────────────────── */
 function useAnimatedCounter(target: number, duration = 2, delay = 1.5) {
@@ -190,7 +191,7 @@ const floatingTags = [
   { label: 'Logo Design', icon: Sparkles, x: '8%', y: '25%', delay: 1.8 },
   { label: 'Branding', icon: Layers, x: '85%', y: '30%', delay: 2.2 },
   { label: 'Illustrations', icon: Palette, x: '5%', y: '65%', delay: 2.5 },
-  { label: '5★ Rated', icon: Star, x: '88%', y: '68%', delay: 2.0 },
+  { label: '5.0 Rated', icon: Star, x: '88%', y: '68%', delay: 2.0 },
 ];
 
 function FloatingTags() {
@@ -488,15 +489,15 @@ export default function HeroSection() {
           className="flex flex-col items-center gap-3 mb-12"
         >
           <div className="flex items-center -space-x-2">
-            {['🎮', '🎨', '🎬', '⚡', '🏆'].map((emoji, i) => (
+            {[GameController, PhPalette, FilmSlate, Lightning, Trophy].map((Icon, i) => (
               <motion.div
                 key={i}
-                className="w-8 h-8 rounded-full bg-surface border-2 border-[#060608] flex items-center justify-center text-xs"
+                className="w-8 h-8 rounded-full bg-surface border-2 border-[#060608] flex items-center justify-center text-accent-red/90"
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 1.6 + i * 0.1 }}
               >
-                {emoji}
+                <Icon size={15} weight="duotone" aria-hidden="true" />
               </motion.div>
             ))}
             <motion.div
@@ -573,7 +574,7 @@ export default function HeroSection() {
               transition={{ delay: 2.3, duration: 0.6 }}
             >
               <div className="text-2xl sm:text-3xl md:text-4xl font-display font-black text-white tracking-tight group-hover:text-accent-red transition-colors duration-300">
-                ✦
+                <StarFour size="1em" weight="fill" className="inline-block" aria-hidden="true" />
               </div>
               <div className="text-[10px] sm:text-[11px] text-gray-600 mt-1 uppercase tracking-[0.2em] font-mono">Pro Design</div>
             </motion.div>

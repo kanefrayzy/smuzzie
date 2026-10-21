@@ -8,6 +8,7 @@ import ScrollReveal from '@/components/ui/ScrollReveal';
 import { PortfolioItem, Category } from '@/types';
 import { ArrowLeft, ChevronLeft, ChevronRight, Expand, Grid3X3, LayoutGrid, Minus, Plus, RotateCcw, X } from 'lucide-react';
 import { getItemMedia } from '@/lib/media';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 
 /* ─── Fullscreen Pan+Zoom Viewer ─── */
 const ZOOM_STEPS = [25, 50, 75, 100, 150, 200, 300, 400, 500];
@@ -454,7 +455,7 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
                 }`}
                 style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)' }}
               >
-                {cat.icon && <span className="text-xs">{cat.icon}</span>}
+                <CategoryIcon icon={cat.icon} slug={cat.slug} size={15} />
                 {cat.name.replace(' Design', '')}
                 <span className={`text-[10px] px-1.5 py-0.5 font-mono ${
                   activeCategory === cat.slug ? 'bg-white/20' : 'bg-white/5 text-gray-500'
@@ -532,7 +533,7 @@ export default function PortfolioGrid({ items, categories, initialCategory }: Po
           <div className="w-20 h-20 bg-surface border border-white/5 flex items-center justify-center mx-auto mb-5"
             style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)' }}
           >
-            <span className="text-4xl">🎨</span>
+            <CategoryIcon icon="palette" size={40} className="text-accent-red/60" />
           </div>
           <h3 className="text-xl font-semibold text-gray-300 mb-2">No projects found</h3>
           <p className="text-gray-500 text-xs font-mono uppercase tracking-wider">No portfolio items in this category yet.</p>

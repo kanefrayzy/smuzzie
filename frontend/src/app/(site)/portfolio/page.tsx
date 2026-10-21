@@ -51,14 +51,14 @@ export default function PortfolioPage() {
         console.error('Failed to fetch portfolio data:', error);
         // Use demo data if API is not available
         setCategories([
-          { id: 1, name: 'Logo Design', slug: 'logo-design', icon: '🎨', description: null, sort_order: 1, is_active: true, created_at: '', updated_at: '' },
-          { id: 2, name: 'Thread Design', slug: 'thread-design', icon: '🧵', description: null, sort_order: 2, is_active: true, created_at: '', updated_at: '' },
-          { id: 3, name: 'Signature Design', slug: 'signature-design', icon: '✍️', description: null, sort_order: 3, is_active: true, created_at: '', updated_at: '' },
-          { id: 4, name: 'Ads Design', slug: 'ads-design', icon: '📢', description: null, sort_order: 4, is_active: true, created_at: '', updated_at: '' },
-          { id: 5, name: 'Avatar Design', slug: 'avatar-design', icon: '👤', description: null, sort_order: 5, is_active: true, created_at: '', updated_at: '' },
-          { id: 6, name: 'Custom Design', slug: 'custom-design', icon: '🎯', description: null, sort_order: 6, is_active: true, created_at: '', updated_at: '' },
-          { id: 7, name: '3D Design', slug: '3d-design', icon: '🔮', description: null, sort_order: 7, is_active: true, created_at: '', updated_at: '' },
-          { id: 8, name: 'CSS/Font Design', slug: 'css-font-design', icon: '🔤', description: null, sort_order: 8, is_active: true, created_at: '', updated_at: '' },
+          { id: 1, name: 'Logo Design', slug: 'logo-design', icon: 'pen-nib', description: null, sort_order: 1, is_active: true, created_at: '', updated_at: '' },
+          { id: 2, name: 'Thread Design', slug: 'thread-design', icon: 'scroll', description: null, sort_order: 2, is_active: true, created_at: '', updated_at: '' },
+          { id: 3, name: 'Signature Design', slug: 'signature-design', icon: 'signature', description: null, sort_order: 3, is_active: true, created_at: '', updated_at: '' },
+          { id: 4, name: 'Ads Design', slug: 'ads-design', icon: 'megaphone', description: null, sort_order: 4, is_active: true, created_at: '', updated_at: '' },
+          { id: 5, name: 'Avatar Design', slug: 'avatar-design', icon: 'user-focus', description: null, sort_order: 5, is_active: true, created_at: '', updated_at: '' },
+          { id: 6, name: 'Custom Design', slug: 'custom-design', icon: 'shapes', description: null, sort_order: 6, is_active: true, created_at: '', updated_at: '' },
+          { id: 7, name: '3D Design', slug: '3d-design', icon: 'cube', description: null, sort_order: 7, is_active: true, created_at: '', updated_at: '' },
+          { id: 8, name: 'CSS/Font Design', slug: 'css-font-design', icon: 'text-aa', description: null, sort_order: 8, is_active: true, created_at: '', updated_at: '' },
         ]);
         setItems([]);
       } finally {

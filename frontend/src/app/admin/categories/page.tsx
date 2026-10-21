@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { adminApi } from '@/lib/api';
 import { Category } from '@/types';
 import { getApiError } from '@/lib/utils';
+import CategoryIcon, { CategoryIconPicker } from '@/components/ui/CategoryIcon';
 import { Plus, Edit2, Trash2, GripVertical, Save, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -108,7 +109,7 @@ export default function AdminCategoriesPage() {
           className="glass-card p-6 border border-white/5 mb-6"
         >
           <h3 className="text-lg font-semibold text-white mb-4">New Category</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <input
               type="text"
               placeholder="Name"
@@ -121,13 +122,6 @@ export default function AdminCategoriesPage() {
               placeholder="Slug (auto-generated)"
               value={form.slug}
               onChange={(e) => setForm({ ...form, slug: e.target.value })}
-              className="bg-surface border border-white/5 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-accent-red/50"
-            />
-            <input
-              type="text"
-              placeholder="Icon (emoji)"
-              value={form.icon}
-              onChange={(e) => setForm({ ...form, icon: e.target.value })}
               className="bg-surface border border-white/5 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-accent-red/50"
             />
             <input
@@ -145,6 +139,9 @@ export default function AdminCategoriesPage() {
             className="mt-4 w-full bg-surface border border-white/5 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-accent-red/50 resize-none"
             rows={2}
           />
+          <div className="mt-4">
+            <CategoryIconPicker value={form.icon} slug={form.slug} onChange={(icon) => setForm({ ...form, icon })} />
+          </div>
           <div className="flex items-center gap-4 mt-4">
             <button onClick={handleCreate} className="btn-primary text-sm">
               <Save size={14} /> Create
@@ -167,7 +164,7 @@ export default function AdminCategoriesPage() {
             {editingId === cat.id ? (
               /* Editing mode */
               <div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <input
                     type="text"
                     value={form.name}
@@ -181,17 +178,14 @@ export default function AdminCategoriesPage() {
                     className="bg-surface border border-white/5 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-accent-red/50"
                   />
                   <input
-                    type="text"
-                    value={form.icon}
-                    onChange={(e) => setForm({ ...form, icon: e.target.value })}
-                    className="bg-surface border border-white/5 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-accent-red/50"
-                  />
-                  <input
                     type="number"
                     value={form.sort_order}
                     onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value) || 0 })}
                     className="bg-surface border border-white/5 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-accent-red/50"
                   />
+                </div>
+                <div className="mt-4">
+                  <CategoryIconPicker value={form.icon} slug={form.slug} onChange={(icon) => setForm({ ...form, icon })} />
                 </div>
                 <div className="flex items-center gap-3 mt-4">
                   <label className="flex items-center gap-2 text-sm text-gray-400">
@@ -216,7 +210,9 @@ export default function AdminCategoriesPage() {
               /* Display mode */
               <div className="flex items-center gap-4">
                 <GripVertical size={16} className="text-gray-600 cursor-grab" />
-                <span className="text-2xl">{cat.icon}</span>
+                <span className="w-10 h-10 rounded-xl bg-accent-red/10 text-accent-red flex items-center justify-center">
+                  <CategoryIcon icon={cat.icon} slug={cat.slug} size={22} />
+                </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="text-white font-semibold text-sm">{cat.name}</h3>
@@ -251,7 +247,7 @@ export default function AdminCategoriesPage() {
 
       {categories.length === 0 && (
         <div className="text-center py-16">
-          <div className="text-4xl mb-4">📁</div>
+          <CategoryIcon icon="palette" size={44} className="mx-auto mb-4 text-accent-red/60" />
           <p className="text-gray-400">No categories yet. Create your first one!</p>
         </div>
       )}

@@ -6,6 +6,7 @@ import ScrollReveal from '@/components/ui/ScrollReveal';
 import { publicApi } from '@/lib/api';
 import { getImageUrl } from '@/lib/utils';
 import { getItemMedia } from '@/lib/media';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import { PortfolioItem } from '@/types';
 
 /* ─── Slider card — lightweight, no title bar ─── */
@@ -52,10 +53,11 @@ function SliderCard({ item }: { item: PortfolioItem }) {
           </div>
         )}
         {/* Category badge */}
-        <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 text-[9px] font-mono uppercase tracking-wider text-white/70 border border-white/[0.08]"
+        <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 text-[9px] font-mono uppercase tracking-wider text-white/70 border border-white/[0.08] flex items-center gap-1"
           style={{ clipPath: 'polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%)' }}
         >
-          {item.category?.icon} {item.category?.name}
+          <CategoryIcon icon={item.category?.icon} slug={item.category?.slug} size={11} className="text-accent-red" />
+          {item.category?.name}
         </div>
         {/* Hover overlay — no backdrop-blur for perf */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">

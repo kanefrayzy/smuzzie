@@ -9,6 +9,7 @@ import {
   FolderOpen, Image, Star, Mail, TrendingUp,
   Eye, Sparkles, Clock
 } from 'lucide-react';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import Link from 'next/link';
 
 export default function AdminDashboard() {
@@ -83,7 +84,7 @@ export default function AdminDashboard() {
             {stats?.categories_breakdown?.map((cat) => (
               <div key={cat.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                 <div className="flex items-center gap-3">
-                  <span className="text-lg">{cat.icon}</span>
+                  <CategoryIcon icon={cat.icon} slug={cat.slug} size={18} className="text-accent-red" />
                   <span className="text-sm text-gray-300">{cat.name}</span>
                 </div>
                 <span className="text-xs text-gray-500 bg-surface px-3 py-1 rounded-full">
