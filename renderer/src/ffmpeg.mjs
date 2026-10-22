@@ -34,7 +34,14 @@ export function mp4Args({ source, overlay, out, hue, threads = 3 }) {
   ];
 }
 
-/** GIF from the finished MP4 (prototype settings: diff palette, bayer dithering). */
+/**
+ * GIF from the finished MP4. One palette for the whole clip built from the pixels that change
+ * (stats_mode=diff), ordered bayer dithering (stable between frames, so unchanged areas stay
+ * identical and compress) and only the changed rectangle written per frame. palettegen keeps
+ * its default reserved transparent entry: the encoder marks unchanged pixels transparent with it,
+ * without it a 1000 px GIF of a typical banner came out 3.6x larger. Measured alternatives
+ * (bayer_scale 4/5, sierra, no dithering, denoising first) saved under 5% on a real banner.
+ */
 export function gifArgs({ mp4, out, width, fps, threads = 3 }) {
   return [
     '-nostdin', '-v', 'error', '-y', '-i', mp4,

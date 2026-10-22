@@ -329,7 +329,8 @@ export default function AdminBannerTemplatePage() {
               <>
                 <div>
                   <label className={label} htmlFor="t-gifw">GIF width, px</label>
-                  <input id="t-gifw" className={input} type="number" min={120} max={1080} value={form.gifWidth} onChange={(e) => set('gifWidth', Number(e.target.value) || 0)} />
+                  <input id="t-gifw" className={input} type="number" min={120} max={Math.min(1080, template.width || 1080)} value={form.gifWidth} onChange={(e) => set('gifWidth', Number(e.target.value) || 0)} />
+                  <p className="text-[11px] text-gray-500 mt-1">Up to {Math.min(1080, template.width || 1080)} px. At 1000 px and 15 fps a GIF is about 3 MB per second.</p>
                 </div>
                 <div>
                   <label className={label} htmlFor="t-giff">GIF fps</label>

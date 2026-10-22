@@ -46,7 +46,8 @@ return [
         ],
         'default_outputs' => [
             'mp4' => true,
-            'gif' => ['enabled' => false, 'width' => 600, 'fps' => 15],
+            // GIF width is capped by the template width (and 1080); about 3 MB per second at 1000 px / 15 fps
+            'gif' => ['enabled' => false, 'width' => 1000, 'fps' => 15],
         ],
     ],
 

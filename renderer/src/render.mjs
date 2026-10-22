@@ -127,7 +127,9 @@ async function main() {
   if (gifOut?.enabled) {
     gif = path.join(job.workDir, 'banner.gif');
     t = Date.now();
-    await run(ffmpeg, gifArgs({ mp4, out: gif, width: gifOut.width, fps: gifOut.fps, threads }), 4 * 60 * 1000);
+    // Never wider than the video itself
+    const width = Math.min(Number(gifOut.width) || job.width, job.width);
+    await run(ffmpeg, gifArgs({ mp4, out: gif, width, fps: gifOut.fps, threads }), 4 * 60 * 1000);
     timings.gif_ms = Date.now() - t;
   }
 

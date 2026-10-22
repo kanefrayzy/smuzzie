@@ -151,7 +151,8 @@ class BannerConfigValidator
             'mp4' => true, // always produced
             'gif' => [
                 'enabled' => $this->bool($gif['enabled'] ?? $defaults['gif']['enabled']),
-                'width' => (int) $this->number($gif['width'] ?? $defaults['gif']['width'], 'outputs.gif.width', 120, $maxWidth, 0),
+                // The default never exceeds a narrower template (no upscaling)
+                'width' => (int) $this->number($gif['width'] ?? min((int) $defaults['gif']['width'], $maxWidth), 'outputs.gif.width', 120, $maxWidth, 0),
                 'fps' => (int) $this->number($gif['fps'] ?? $defaults['gif']['fps'], 'outputs.gif.fps', 5, 30, 0),
             ],
         ];

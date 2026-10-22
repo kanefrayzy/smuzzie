@@ -59,6 +59,12 @@ class ProcessBannerTemplate implements ShouldQueue
             return;
         }
 
+        // A narrower new video lowers the GIF width with it (GIFs are never upscaled)
+        $gifWidth = $template->outputs['gif']['width'] ?? null;
+        if (isset($fields['width'], $gifWidth) && $gifWidth > $fields['width']) {
+            $fields['outputs'] = array_replace_recursive($template->outputs, ['gif' => ['width' => (int) $fields['width']]]);
+        }
+
         $template->update($fields + [
             'processing_status' => BannerTemplateStatus::Ready,
             'processing_error' => null,
