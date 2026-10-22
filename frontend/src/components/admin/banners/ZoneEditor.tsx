@@ -207,6 +207,35 @@ export default function ZoneEditor({
           <div className="text-sm text-red-300 bg-red-400/10 border border-red-400/20 rounded-lg p-3 mb-4">{generalErrors.join(' ')}</div>
         )}
 
+        {config.zones.length > 0 && (
+          <div className="glass-card p-5 border border-white/5 mb-4 space-y-2">
+            <label className="flex items-center gap-2 text-sm font-semibold text-white">
+              <input
+                type="checkbox"
+                checked={config.zones.every((z) => z.controls.position?.enabled)}
+                ref={(el) => {
+                  if (el) {
+                    const on = config.zones.filter((z) => z.controls.position?.enabled).length;
+                    el.indeterminate = on > 0 && on < config.zones.length;
+                  }
+                }}
+                onChange={(e) =>
+                  update(
+                    config.zones.map((z) => {
+                      const pos = z.controls.position ?? { enabled: false, resize: true, bounds: { x: 0, y: 0, w: 100, h: 100 } };
+                      return { ...z, controls: { ...z.controls, position: { ...pos, enabled: e.target.checked, resize: true } } } as Zone;
+                    }),
+                  )
+                }
+              />
+              Buyer can move and resize all zones
+            </label>
+            <p className="text-[11px] text-gray-500">
+              Per zone (and the area it may move in): select a zone, then &quot;Position&quot; under &quot;Buyer can change&quot;.
+            </p>
+          </div>
+        )}
+
         <div className="mb-4">
           <CustomLayersForm value={config.custom} fonts={fonts} errors={customErrors} onChange={setCustom} />
         </div>
