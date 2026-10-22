@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import { publicApi } from '@/lib/api';
 import type { PublicBannerTemplate } from '@/types/banners';
 import BannerEditor from '@/components/banners/editor/BannerEditor';
+import CheckoutPanel from '@/components/banners/editor/CheckoutPanel';
 
 export default function BannerEditorPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -38,7 +39,9 @@ export default function BannerEditorPage() {
         )}
         {state === 'missing' && <p className="text-center text-gray-400 py-24">This template doesn&apos;t exist or is no longer available.</p>}
         {state === 'error' && <p className="text-center text-gray-400 py-24">Could not load the template. Please try again later.</p>}
-        {state === 'ready' && template && <BannerEditor template={template} />}
+        {state === 'ready' && template && (
+          <BannerEditor template={template} footer={(editorState) => <CheckoutPanel template={template} state={editorState} />} />
+        )}
       </div>
     </div>
   );

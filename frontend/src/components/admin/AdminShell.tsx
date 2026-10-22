@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import {
   LayoutDashboard, FolderOpen, Image, Star, Mail,
-  LogOut, Menu, X, ChevronRight, Settings, Film, Type
+  LogOut, Menu, X, ChevronRight, Settings, Film, Type, ShoppingBag
 } from 'lucide-react';
 
 const sidebarLinks = [
@@ -17,6 +17,7 @@ const sidebarLinks = [
   { label: 'Contacts', href: '/admin/contacts', icon: Mail },
   { label: 'Banners', href: '/admin/banners', icon: Film },
   { label: 'Banner fonts', href: '/admin/banners/fonts', icon: Type },
+  { label: 'Banner orders', href: '/admin/banners/orders', icon: ShoppingBag },
 ];
 
 // The most specific link wins, so /admin/banners/fonts doesn't also light up /admin/banners

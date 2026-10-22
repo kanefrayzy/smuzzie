@@ -73,3 +73,60 @@ export interface PublicBannerTemplate extends PublicBannerTemplateCard {
   fps: number;
   frame_count: number;
 }
+
+export type BannerOrderStatus = 'pending_payment' | 'queued' | 'rendering' | 'ready' | 'failed';
+
+/** Buyer-facing order status (GET /banners/orders/{token}) */
+export interface PublicBannerOrder {
+  token: string;
+  status: BannerOrderStatus;
+  template: { name: string | null; slug: string | null };
+  formats: ('mp4' | 'gif')[];
+  email: string | null;
+  created_at: string;
+  paid_at: string | null;
+  ready_at: string | null;
+  files_expire_at: string | null;
+  files_expired: boolean;
+  downloads: Partial<Record<'mp4' | 'gif', string>> | null;
+}
+
+export interface AdminBannerOrder {
+  id: number;
+  token: string;
+  status: BannerOrderStatus;
+  is_test: boolean;
+  email: string | null;
+  template: { id: number | null; name: string | null; slug: string | null };
+  amount: string;
+  currency: string;
+  payment_provider: string | null;
+  attempts: number;
+  error: string | null;
+  created_at: string;
+  paid_at: string | null;
+  queued_at: string | null;
+  rendering_started_at: string | null;
+  ready_at: string | null;
+  failed_at: string | null;
+  notified_at: string | null;
+  result_purged_at: string | null;
+}
+
+export interface AdminBannerOrderDetails extends AdminBannerOrder {
+  params: import('@/lib/banner-overlay/types').BuyerParams;
+  snapshot: {
+    snapshotVersion: number;
+    template: { id: number; slug: string; name: string; price: string; currency: string };
+    config: TemplateConfig;
+    outputs: BannerOutputs;
+    media: { width: number; height: number; fps: number; duration: number; frame_count: number; source_rev: number };
+    fonts: BannerFontFace[];
+  };
+  preview_url: string | null;
+  images: Record<string, string>;
+  result: { timings: Record<string, number> | null; fit: Record<string, unknown> | null; mp4_size: number | null; gif_size: number | null } | null;
+  render_log: string | null;
+  downloads: Partial<Record<'mp4' | 'gif', string>> | null;
+  ip: string | null;
+}

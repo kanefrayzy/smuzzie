@@ -51,6 +51,9 @@ export const publicApi = {
   // Banner builder
   getBannerTemplates: () => api.get('/banners/templates'),
   getBannerTemplate: (slug: string) => api.get(`/banners/templates/${encodeURIComponent(slug)}`),
+  createBannerOrder: (data: FormData) =>
+    api.post('/banners/orders', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  getBannerOrder: (token: string) => api.get(`/banners/orders/${encodeURIComponent(token)}`),
 };
 
 // ─── Admin API ────────────────────────────────────────────────
@@ -124,4 +127,10 @@ export const adminApi = {
   reprocessBannerTemplate: (id: number) => api.post(`/admin/banner-templates/${id}/reprocess`),
   reorderBannerTemplates: (items: { id: number; sort_order: number }[]) =>
     api.post('/admin/banner-templates/reorder', { items }),
+
+  // Banner builder: orders
+  getBannerOrders: (params?: Record<string, any>) => api.get('/admin/banner-orders', { params }),
+  getBannerOrder: (id: number) => api.get(`/admin/banner-orders/${id}`),
+  markBannerOrderPaid: (id: number) => api.post(`/admin/banner-orders/${id}/mark-paid`),
+  rerenderBannerOrder: (id: number) => api.post(`/admin/banner-orders/${id}/rerender`),
 };

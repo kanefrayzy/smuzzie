@@ -191,6 +191,7 @@ class BannerTemplateController extends Controller
             'slug' => [
                 $template ? 'sometimes' : 'nullable',
                 'string', 'max:80', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
+                Rule::notIn(['order']), // /banners/order/<token> is the order status page
                 Rule::unique('banner_templates', 'slug')->ignore($template?->id),
             ],
             'description' => 'nullable|string|max:2000',
@@ -234,7 +235,7 @@ class BannerTemplateController extends Controller
     {
         $base = Str::slug($name) ?: 'banner';
         $slug = $base;
-        for ($i = 2; BannerTemplate::withTrashed()->where('slug', $slug)->exists(); $i++) {
+        for ($i = 2; $slug === 'order' || BannerTemplate::withTrashed()->where('slug', $slug)->exists(); $i++) {
             $slug = "{$base}-{$i}";
         }
         return $slug;

@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\Admin\BannerFontController;
 use App\Http\Controllers\Api\BannerCatalogController;
+use App\Http\Controllers\Api\BannerOrderController;
+use App\Http\Controllers\Api\Admin\BannerOrderController as AdminBannerOrderController;
 use App\Http\Controllers\Api\Admin\BannerTemplateController;
 
 /*
@@ -43,6 +45,19 @@ Route::prefix('v1')->group(function () {
     Route::get('/banners/templates', [BannerCatalogController::class, 'index']);
     Route::get('/banners/templates/{slug}', [BannerCatalogController::class, 'show'])
         ->where('slug', '[a-z0-9-]+');
+
+    // Banner orders: creation is rate limited per IP, status by the unguessable token,
+    // files only through temporary signed URLs
+    Route::post('/banners/orders', [BannerOrderController::class, 'store'])->middleware('throttle:banner-orders');
+    Route::middleware('throttle:banner-status')->group(function () {
+        Route::get('/banners/orders/{token}', [BannerOrderController::class, 'show'])->whereUuid('token');
+        Route::get('/banners/orders/{token}/download/{format}', [BannerOrderController::class, 'download'])
+            ->whereUuid('token')->whereIn('format', ['mp4', 'gif'])
+            ->middleware('signed')->name('banners.download');
+        Route::get('/banners/orders/{token}/image/{key}', [BannerOrderController::class, 'image'])
+            ->whereUuid('token')->where('key', '[a-z][a-z0-9_]{0,31}')
+            ->middleware('signed')->name('banners.image');
+    });
 
     // Admin routes (protected)
     Route::middleware(['auth:api', 'admin'])->prefix('admin')->group(function () {
@@ -87,5 +102,11 @@ Route::prefix('v1')->group(function () {
             ->parameters(['banner-templates' => 'bannerTemplate']);
         Route::post('/banner-templates/{bannerTemplate}/source', [BannerTemplateController::class, 'uploadSource']);
         Route::post('/banner-templates/{bannerTemplate}/reprocess', [BannerTemplateController::class, 'reprocess']);
+
+        // Banner orders
+        Route::get('/banner-orders', [AdminBannerOrderController::class, 'index']);
+        Route::get('/banner-orders/{bannerOrder}', [AdminBannerOrderController::class, 'show']);
+        Route::post('/banner-orders/{bannerOrder}/mark-paid', [AdminBannerOrderController::class, 'markPaid']);
+        Route::post('/banner-orders/{bannerOrder}/rerender', [AdminBannerOrderController::class, 'rerender']);
     });
 });
