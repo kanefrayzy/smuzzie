@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Film, Type, Palette, Download, Wallet, Sparkles } from 'lucide-react';
 import BannerCard from '@/components/banners/BannerCard';
 import BannerFaq, { faqJsonLd } from '@/components/banners/BannerFaq';
+import CustomBannerRequest from '@/components/banners/CustomBannerRequest';
 import { absoluteMedia, fetchBannerTemplates, jsonLd } from '@/lib/banners-server';
 import { SITE_NAME, SITE_URL } from '@/lib/site';
 
@@ -99,6 +100,8 @@ export default async function BannersCatalogPage() {
             ))}
           </section>
         )}
+
+        <CustomBannerRequest />
 
         <section aria-labelledby="how-it-works" className="mt-24">
           <h2 id="how-it-works" className="text-2xl md:text-3xl font-display font-bold text-white mb-8">
