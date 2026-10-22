@@ -24,7 +24,8 @@ export function loadFonts(
       const k = key(font, url);
       let p = loaded.get(k);
       if (!p) {
-        const face = new FontFace(font.family, `url(${JSON.stringify(url)}) format("woff2")`, {
+        // No format() hint: the browser detects woff2/ttf from the data itself
+        const face = new FontFace(font.family, `url(${JSON.stringify(url)})`, {
           weight: String(font.weight),
           style: font.style,
           display: 'block',

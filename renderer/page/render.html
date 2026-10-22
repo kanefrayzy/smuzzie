@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>banner overlay render</title>
+<style>html,body{margin:0;padding:0;background:transparent}</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="/overlay.js"></script>
+<script>
+// Called by src/render.mjs. Builds the same layer as the site preview, at the template's
+// native resolution, on a transparent background. Data arrives as an evaluate() argument;
+// it reaches the DOM only through the overlay module (textContent, style properties, img.src).
+window.renderOverlay = async function (input) {
+  const O = window.BannerOverlay;
+  const stage = document.getElementById('stage');
+  const overlay = new O.BannerOverlay(stage, input.width, input.height);
+
+  const faces = await O.loadFonts(input.fonts);
+  const failed = input.fonts.filter((f, i) => !faces[i]).map((f) => f.family);
+  if (failed.length) throw new Error('Font failed to load: ' + failed.join(', '));
+
+  overlay.setFonts(input.fonts);
+  await overlay.fontsReady(input.config);
+  const result = overlay.render({ config: input.config, params: input.params, images: input.images });
+  await overlay.imagesReady();
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  return { hue: result.hue, zones: result.zones };
+};
+</script>
+</body>
+</html>

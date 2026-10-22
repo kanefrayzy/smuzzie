@@ -7,6 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessBannerTemplate;
 use App\Models\BannerTemplate;
 use App\Services\Banners\BannerConfigValidator;
+use App\Services\Banners\BannerOrderPresenter;
+use App\Services\Banners\BannerOrderService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -160,6 +163,49 @@ class BannerTemplateController extends Controller
         return response()->json($this->present($bannerTemplate->fresh()), 202);
     }
 
+    /**
+     * "Test render": a hidden test order with the default texts and a sample logo, queued right
+     * away. Shown on the template page; never emailed; removed by the cleanup after 7 days.
+     */
+    public function testRender(Request $request, BannerTemplate $bannerTemplate, BannerOrderService $orders)
+    {
+        if (!$bannerTemplate->hasMedia()) {
+            return response()->json(['error' => 'Upload and process the video first'], 422);
+        }
+        if (!($bannerTemplate->config['zones'] ?? [])) {
+            return response()->json(['error' => 'Add at least one zone first'], 422);
+        }
+
+        $files = [];
+        $tmp = null;
+        foreach ($bannerTemplate->config['zones'] as $zone) {
+            if ($zone['type'] === 'image' && ($zone['controls']['upload']['enabled'] ?? false)) {
+                $tmp ??= $this->sampleLogo();
+                $files[$zone['key']] = new UploadedFile($tmp, 'sample-logo.png', 'image/png', null, true);
+            }
+        }
+
+        try {
+            $order = $orders->create($bannerTemplate, null, ['zones' => []], $files, $request->ip(), true);
+        } catch (ValidationException $e) {
+            return response()->json(['errors' => $e->errors()], 422);
+        } finally {
+            if ($tmp) {
+                @unlink($tmp);
+            }
+        }
+
+        return response()->json(BannerOrderPresenter::admin($order, true), 201);
+    }
+
+    /** The latest test render of the template, if any. */
+    public function latestTestRender(BannerTemplate $bannerTemplate)
+    {
+        $order = $bannerTemplate->orders()->where('is_test', true)->latest('id')->first();
+
+        return response()->json($order ? BannerOrderPresenter::admin($order, true) : null);
+    }
+
     public function reorder(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -239,6 +285,26 @@ class BannerTemplateController extends Controller
             $slug = "{$base}-{$i}";
         }
         return $slug;
+    }
+
+    /** A neutral "LOGO" mark (transparent PNG) for test renders. */
+    private function sampleLogo(): string
+    {
+        $img = imagecreatetruecolor(480, 120);
+        imagesavealpha($img, true);
+        imagealphablending($img, false);
+        imagefill($img, 0, 0, imagecolorallocatealpha($img, 0, 0, 0, 127));
+        imagealphablending($img, true);
+        $white = imagecolorallocate($img, 255, 255, 255);
+        imagefilledellipse($img, 60, 60, 88, 88, $white);
+        imagefilledellipse($img, 60, 60, 40, 40, imagecolorallocate($img, 17, 17, 17));
+        imagettftext($img, 48, 0, 124, 84, $white, resource_path('fonts/DejaVuSans-Bold.ttf'), 'LOGO');
+
+        $file = tempnam(sys_get_temp_dir(), 'bnsample');
+        imagepng($img, $file);
+        imagedestroy($img);
+
+        return $file;
     }
 
     private function present(BannerTemplate $template): array

@@ -22,6 +22,9 @@ use Illuminate\Support\Str;
 class TemplateMediaProcessor
 {
     private const BT709_TAGS = ['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv'];
+    // Newer ffmpeg takes color metadata from the frames; without this the -color_* options
+    // alone leave primaries/transfer "unknown" on encoded outputs
+    private const SETPARAMS = 'setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv';
 
     public function __construct(private Ffmpeg $ffmpeg, private WatermarkGenerator $watermark)
     {
@@ -117,7 +120,7 @@ class TemplateMediaProcessor
                 '-i', $this->private()->path($sourcePath), '-i', $wmFile,
                 '-filter_complex',
                 "[0:v]scale={$w}:{$h}:flags=lanczos:in_color_matrix=bt709:out_color_matrix=bt709:in_range=tv:out_range=tv[v];"
-                . '[v][1:v]overlay=0:0,format=yuv420p',
+                . '[v][1:v]overlay=0:0,format=yuv420p,' . self::SETPARAMS,
                 '-an', '-c:v', 'libx264', '-preset', 'medium', '-profile:v', 'high',
                 '-crf', (string) config('banners.template.preview_crf', 26),
             ], self::BT709_TAGS, ['-movflags', '+faststart', '-f', 'mp4']), $this->public()->path($previewPath));
@@ -175,7 +178,8 @@ class TemplateMediaProcessor
 
         // Odd sizes are cropped by one pixel instead of resampled
         return 'crop=trunc(iw/2)*2:trunc(ih/2)*2:0:0,'
-            . "scale=in_color_matrix={$matrix}:out_color_matrix=bt709:in_range={$range}:out_range=tv,format=yuv420p";
+            . "scale=in_color_matrix={$matrix}:out_color_matrix=bt709:in_range={$range}:out_range=tv,format=yuv420p,"
+            . self::SETPARAMS;
     }
 
     /** Preview width ≤ configured width (never upscaled), aspect ratio kept, even sides for H.264. */

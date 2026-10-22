@@ -1,0 +1,154 @@
+#!/usr/bin/env node
+// Banner render: node src/render.mjs <job.json>
+//
+// 1. headless Chromium draws the text/logo layer with the shared overlay module (the same code
+//    as the site preview) into a transparent PNG at the template's native resolution;
+// 2. ffmpeg shifts the background hue with the CSS hue-rotate matrix and lays the PNG on top;
+// 3. MP4 (always) and GIF (optional) are written to job.workDir.
+//
+// Prints ONE line of JSON to stdout: { ok: true, mp4, gif, timings, fit } or { ok: false, error }.
+// Diagnostics go to stderr. Exit code 0 on success, 1 on failure.
+//
+// The page can only reach the local static server (every other request is aborted), and the
+// buyer's logos are passed as data: URLs, so the page never touches the network or the disk.
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { chromium } from 'playwright-core';
+import { startServer } from './server.mjs';
+import { mp4Args, gifArgs } from './ffmpeg.mjs';
+import { resolveHue } from '../dist/overlay.mjs';
+
+function fail(message, extra = {}) {
+  process.stdout.write(JSON.stringify({ ok: false, error: message, ...extra }) + '\n');
+  process.exit(1);
+}
+
+function readJob(file) {
+  if (!file) fail('usage: render.mjs <job.json>');
+  const job = JSON.parse(fs.readFileSync(file, 'utf8'));
+  for (const key of ['width', 'height', 'config', 'params', 'source', 'fonts', 'workDir']) {
+    if (job[key] === undefined) fail(`job.json: missing "${key}"`);
+  }
+  if (!Number.isInteger(job.width) || !Number.isInteger(job.height) || job.width < 2 || job.height < 2 || job.width > 4096 || job.height > 4096) {
+    fail('job.json: bad size');
+  }
+  if (!fs.existsSync(job.source)) fail('Template source video not found');
+  for (const f of job.fonts) if (!fs.existsSync(f.file)) fail(`Font file not found (id ${f.id})`);
+  return job;
+}
+
+function dataUrl(file) {
+  return 'data:image/png;base64,' + fs.readFileSync(file).toString('base64');
+}
+
+function run(cmd, args, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+    child.stderr.on('data', (d) => (stderr = (stderr + d).slice(-8000)));
+    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
+    child.on('error', (e) => {
+      clearTimeout(timer);
+      reject(e);
+    });
+    child.on('close', (code, signal) => {
+      clearTimeout(timer);
+      if (code === 0) resolve();
+      else reject(new Error(`${path.basename(cmd)} failed (${signal || code}): ${stderr.trim().split('\n').slice(-5).join(' | ')}`));
+    });
+  });
+}
+
+async function drawOverlay(job, outFile) {
+  const server = await startServer(job.fonts);
+  const browser = await chromium.launch({
+    headless: true,
+    chromiumSandbox: job.sandbox !== false,
+    executablePath: process.env.BANNERS_CHROMIUM_PATH || undefined,
+    // Unhinted glyph metrics, so measurements don't depend on the host's font settings
+    args: ['--font-render-hinting=none', '--disable-lcd-text', '--force-color-profile=srgb'],
+  });
+  try {
+    const context = await browser.newContext({
+      viewport: { width: job.width, height: job.height },
+      deviceScaleFactor: 1,
+      javaScriptEnabled: true,
+      offline: false,
+    });
+    const page = await context.newPage();
+    // Only the local static server; data: URLs (logos) aren't routed
+    await page.route('**/*', (route) =>
+      route.request().url().startsWith(server.origin + '/') ? route.continue() : route.abort('blockedbyclient'),
+    );
+    page.on('console', (m) => m.type() === 'error' && process.stderr.write(`[page] ${m.text()}\n`));
+
+    await page.goto(`${server.origin}/render.html`, { waitUntil: 'load', timeout: 30000 });
+
+    const images = {};
+    for (const [key, file] of Object.entries(job.images || {})) images[key] = dataUrl(file);
+
+    const fonts = job.fonts.map((f) => ({
+      id: f.id, family: `bf-${Number(f.id)}`, name: '', weight: f.weight, style: f.style, url: `/fonts/${Number(f.id)}`,
+    }));
+
+    const result = await page.evaluate((input) => window.renderOverlay(input), {
+      width: job.width, height: job.height, config: job.config, params: job.params, images, fonts,
+    });
+
+    await page.locator('#stage').screenshot({ path: outFile, omitBackground: true, animations: 'disabled', timeout: 30000 });
+    return result;
+  } finally {
+    await browser.close();
+    await server.close();
+  }
+}
+
+async function main() {
+  const job = readJob(process.argv[2]);
+  fs.mkdirSync(job.workDir, { recursive: true });
+  const ffmpeg = job.ffmpeg || 'ffmpeg';
+  const threads = job.threads || 3;
+  const timings = {};
+
+  let t = Date.now();
+  const overlayPng = path.join(job.workDir, 'overlay.png');
+  const layout = await drawOverlay(job, overlayPng);
+  timings.overlay_ms = Date.now() - t;
+
+  const hue = resolveHue(job.config, job.params);
+  const mp4 = path.join(job.workDir, 'banner.mp4');
+  t = Date.now();
+  await run(ffmpeg, mp4Args({ source: job.source, overlay: overlayPng, out: mp4, hue, threads }), 6 * 60 * 1000);
+  timings.mp4_ms = Date.now() - t;
+
+  let gif = null;
+  const gifOut = job.outputs?.gif;
+  if (gifOut?.enabled) {
+    gif = path.join(job.workDir, 'banner.gif');
+    t = Date.now();
+    await run(ffmpeg, gifArgs({ mp4, out: gif, width: gifOut.width, fps: gifOut.fps, threads }), 4 * 60 * 1000);
+    timings.gif_ms = Date.now() - t;
+  }
+
+  const fit = {};
+  for (const [key, z] of Object.entries(layout.zones)) {
+    fit[key] = { requested: z.requested, used: Math.round(z.used * 1000) / 1000, shrunk: z.shrunk, overflow: z.overflow, lines: z.lines.length };
+  }
+
+  process.stdout.write(
+    JSON.stringify({
+      ok: true,
+      mp4: { path: mp4, size: fs.statSync(mp4).size },
+      gif: gif ? { path: gif, size: fs.statSync(gif).size } : null,
+      hue,
+      timings,
+      fit,
+    }) + '\n',
+  );
+}
+
+main().catch((e) => {
+  process.stderr.write(String(e?.stack || e) + '\n');
+  fail(String(e?.message || e).slice(0, 1000));
+});

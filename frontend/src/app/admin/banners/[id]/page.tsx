@@ -10,6 +10,7 @@ import { ArrowLeft, Upload, RefreshCw, Save, Film, ExternalLink, AlertTriangle }
 import toast, { Toaster } from 'react-hot-toast';
 import TemplateStatusBadge from '@/components/admin/banners/TemplateStatusBadge';
 import ZoneEditor from '@/components/admin/banners/ZoneEditor';
+import TestRenderPanel from '@/components/admin/banners/TestRenderPanel';
 
 const input =
   'w-full bg-surface border border-white/5 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-accent-red/50';
@@ -373,6 +374,12 @@ export default function AdminBannerTemplatePage() {
           Where the buyer&apos;s texts and logo go, how they look by default and what the buyer may change.
         </p>
         <ZoneEditor template={template} fonts={fonts} onSaved={(t) => setTemplate(t)} />
+      </section>
+
+      {/* Test render */}
+      <section className="glass-card p-6 border border-white/5 mt-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Test render</h3>
+        <TestRenderPanel template={template} />
       </section>
     </div>
   );

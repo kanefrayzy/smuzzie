@@ -104,8 +104,9 @@ class TemplateMediaProcessingTest extends TestCase
 
         $this->assertSame(BannerTemplateStatus::Ready, $template->processing_status, (string) $template->processing_error);
         $info = $this->probe(Storage::disk('banners')->path($template->source_path));
-        $this->assertSame(['h264', 'yuv420p', 320, 240, 'bt709'], [
-            $info['codec_name'], $info['pix_fmt'], $info['width'], $info['height'], $info['color_space'],
+        $this->assertSame(['h264', 'yuv420p', 320, 240, 'bt709', 'bt709', 'bt709', 'tv'], [
+            $info['codec_name'], $info['pix_fmt'], $info['width'], $info['height'],
+            $info['color_space'], $info['color_primaries'], $info['color_transfer'], $info['color_range'],
         ]);
     }
 
@@ -119,7 +120,10 @@ class TemplateMediaProcessingTest extends TestCase
 
         Storage::disk('public')->assertExists([$template->preview_path, $template->poster_path]);
         $preview = $this->probe(Storage::disk('public')->path($template->preview_path));
-        $this->assertSame([720, 842, 'bt709'], [$preview['width'], $preview['height'], $preview['color_space']]);
+        $this->assertSame([720, 842, 'bt709', 'bt709', 'bt709', 'tv'], [
+            $preview['width'], $preview['height'],
+            $preview['color_space'], $preview['color_primaries'], $preview['color_transfer'], $preview['color_range'],
+        ]);
         $this->assertStringStartsWith('banners/templates/', $template->preview_path);
         $this->assertStringStartsWith('templates/', $template->source_path); // master stays private
     }

@@ -1,0 +1,20 @@
+{
+  "name": "smuzzie-banner-renderer",
+  "private": true,
+  "description": "Renders banner orders: headless Chromium draws the shared overlay, ffmpeg composes MP4/GIF",
+  "type": "module",
+  "engines": {
+    "node": ">=18.18"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node build.mjs && node --test test/hue.test.mjs test/layout.test.mjs test/render.test.mjs",
+    "render": "node src/render.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "1.63.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

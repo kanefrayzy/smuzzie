@@ -125,6 +125,8 @@ export const adminApi = {
       onUploadProgress,
     }),
   reprocessBannerTemplate: (id: number) => api.post(`/admin/banner-templates/${id}/reprocess`),
+  testRenderBannerTemplate: (id: number) => api.post(`/admin/banner-templates/${id}/test-render`),
+  getLatestTestRender: (id: number) => api.get(`/admin/banner-templates/${id}/test-render`),
   reorderBannerTemplates: (items: { id: number; sort_order: number }[]) =>
     api.post('/admin/banner-templates/reorder', { items }),
 
