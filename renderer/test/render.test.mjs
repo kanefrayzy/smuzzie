@@ -190,6 +190,146 @@ test('renders a static (image) template to PNG and JPG', async (t) => {
   }
 });
 
+test('animated GIF icons move in the video and keep their z-order', async (t) => {
+  if (!hasFfmpeg) return t.skip('ffmpeg is not installed');
+  const probeBrowser = await launchBrowser();
+  if (!probeBrowser) return t.skip('no Chromium available');
+  await probeBrowser.close();
+
+  const dir = path.join(tmpDir, 'render-gif');
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+
+  const source = path.join(dir, 'source.mp4');
+  ffmpeg(['-f', 'lavfi', '-i', 'color=c=0x102040:s=640x360:r=25:d=2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', source]);
+  // Two frames, half a second each: red, then green; loops forever
+  const icon = path.join(dir, 'icon.gif');
+  ffmpeg([
+    '-f', 'lavfi', '-i', 'color=c=red:s=64x64:r=2:d=0.5', '-f', 'lavfi', '-i', 'color=c=lime:s=64x64:r=2:d=0.5',
+    '-filter_complex', '[0:v][1:v]concat=n=2:v=1[v]', '-map', '[v]', '-loop', '0', icon,
+  ]);
+  const badge = path.join(dir, 'badge.png');
+  ffmpeg(['-f', 'lavfi', '-i', 'color=c=white:s=40x40', '-frames:v', '1', badge]);
+
+  const imageZone = (key, x, y, w, h) => ({
+    key, type: 'image', label: key, x, y, w, h,
+    style: { scale: 100, alignX: 'center', alignY: 'center' },
+    controls: { upload: { enabled: true, maxBytes: 2097152 }, scale: { enabled: false, min: 30, max: 100 }, align: { enabled: false, x: ['center'], y: ['center'] } },
+  });
+  const job = {
+    width: 640, height: 360, duration: 2, workDir: path.join(dir, 'out'), source, threads: 2, sandbox: false,
+    fonts: [{ id: 7, weight: 700, style: 'normal', file: font }],
+    // icon box: 128x72 px at (64, 72); the 64x64 GIF is contained as 72x72 at (92, 72).
+    // The badge (drawn after the icon, so above it) covers the icon's top-left part.
+    images: { icon, badge },
+    outputs: { mp4: true, gif: { enabled: true, width: 320, fps: 10 } },
+    config: {
+      schemaVersion: 1, accent: '#1e9bff', hue: { enabled: true, default: 0, presets: [] },
+      zones: [
+        {
+          key: 'title', type: 'text', label: 'Title', x: 40, y: 60, w: 55, h: 30,
+          style: { text: 'BELOW', fontId: 7, size: 8, minSize: 4, case: 'upper', align: 'center', color: '#ffffff', glow: false, lineHeight: 1.1, letterSpacing: 0 },
+          controls: {
+            text: { enabled: false, maxLength: 20, multiline: false }, size: { enabled: false, min: 4, max: 8 },
+            color: { enabled: false, palette: [], custom: false }, align: { enabled: false, options: ['center'] }, visible: { enabled: false },
+          },
+        },
+        imageZone('icon', 10, 20, 20, 20),
+        imageZone('badge', 14, 20, 6, 10),
+      ],
+    },
+    params: { schemaVersion: 1, hue: 180, zones: {} },
+  };
+  const jobFile = path.join(dir, 'job.json');
+  fs.writeFileSync(jobFile, JSON.stringify(job));
+
+  const r = spawnSync(process.execPath, [path.join(root, 'src/render.mjs'), jobFile], { env: process.env, timeout: 180000 });
+  const out = JSON.parse(r.stdout.toString().trim().split('\n').pop());
+  assert.equal(r.status, 0, r.stderr.toString());
+  assert.equal(out.ok, true, out.error);
+  assert.equal(out.animated, 1);
+  assert.equal(out.timings.layers, 3); // title slice, the GIF, badge slice
+
+  const mp4 = probe(out.mp4.path);
+  assert.deepEqual(
+    [mp4.codec_name, mp4.width, mp4.height, mp4.pix_fmt, mp4.color_space, mp4.color_primaries, mp4.color_transfer],
+    ['h264', 640, 360, 'yuv420p', 'bt709', 'bt709', 'bt709'],
+  );
+  const dur = spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', out.mp4.path]).stdout.toString();
+  assert.ok(Math.abs(Number(dur) - 2) < 0.1, `duration ${dur}`);
+
+  const frame = (at) => {
+    const f = path.join(dir, `frame-${at}.png`);
+    ffmpeg(['-ss', String(at), '-i', out.mp4.path, '-frames:v', '1', f]);
+    return f;
+  };
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage();
+    const points = [[150, 130], [100, 85], [5, 5]];
+    const [iconA, badgeA, bgA] = await readPixels(page, frame(0.2), points);
+    const [iconB, badgeB] = await readPixels(page, frame(0.7), points);
+    const [iconC] = await readPixels(page, frame(1.2), points);
+
+    // The icon animates (red -> green -> red again: it loops) and isn't hue-shifted
+    assert.ok(iconA[0] > 200 && iconA[1] < 60, `icon at 0.2 s ${iconA} should be red`);
+    assert.ok(iconB[1] > 200 && iconB[0] < 60, `icon at 0.7 s ${iconB} should be green`);
+    assert.ok(iconC[0] > 200 && iconC[1] < 60, `icon at 1.2 s ${iconC} should be red again`);
+    // The badge stays on top of the GIF in every frame
+    assert.ok(badgeA.every((v) => v > 235) && badgeB.every((v) => v > 235), `badge ${badgeA} / ${badgeB}`);
+    // Only the background is hue-shifted
+    assert.ok(bgA[0] > bgA[2], `background ${bgA} should be hue-shifted`);
+  } finally {
+    await browser.close();
+  }
+  // The GIF output animates too
+  assert.equal(probe(out.gif.path).codec_name, 'gif');
+});
+
+test('a GIF on an image template is drawn as its first frame', async (t) => {
+  if (!hasFfmpeg) return t.skip('ffmpeg is not installed');
+  const browser = await launchBrowser();
+  if (!browser) return t.skip('no Chromium available');
+
+  const dir = path.join(tmpDir, 'render-image-gif');
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  const source = path.join(dir, 'source.png');
+  ffmpeg(['-f', 'lavfi', '-i', 'color=c=0x102040:s=320x180', '-frames:v', '1', '-pix_fmt', 'rgb24', source]);
+  const icon = path.join(dir, 'icon.gif');
+  ffmpeg([
+    '-f', 'lavfi', '-i', 'color=c=red:s=32x32:r=2:d=0.5', '-f', 'lavfi', '-i', 'color=c=lime:s=32x32:r=2:d=0.5',
+    '-filter_complex', '[0:v][1:v]concat=n=2:v=1[v]', '-map', '[v]', '-loop', '0', icon,
+  ]);
+  const job = {
+    kind: 'image', width: 320, height: 180, workDir: path.join(dir, 'out'), source, sandbox: false, fonts: [],
+    images: { icon }, outputs: { png: true, jpg: { enabled: false, quality: 92 } },
+    config: {
+      schemaVersion: 1, accent: '#1e9bff', hue: { enabled: false, default: 0, presets: [] },
+      zones: [{
+        key: 'icon', type: 'image', label: 'Icon', x: 40, y: 30, w: 20, h: 40,
+        style: { scale: 100, alignX: 'center', alignY: 'center' },
+        controls: { upload: { enabled: true, maxBytes: 2097152 }, scale: { enabled: false, min: 30, max: 100 }, align: { enabled: false, x: ['center'], y: ['center'] } },
+      }],
+    },
+    params: { schemaVersion: 1, hue: 0, zones: {} },
+  };
+  const jobFile = path.join(dir, 'job.json');
+  fs.writeFileSync(jobFile, JSON.stringify(job));
+
+  const r = spawnSync(process.execPath, [path.join(root, 'src/render.mjs'), jobFile], { env: process.env, timeout: 120000 });
+  const out = JSON.parse(r.stdout.toString().trim().split('\n').pop());
+  assert.equal(out.ok, true, out.error || r.stderr.toString());
+  assert.equal(out.jpg, null);
+  try {
+    const page = await browser.newPage();
+    const [px] = await readPixels(page, out.png.path, [[160, 90]]);
+    assert.ok(px[0] > 230 && px[1] < 40, `icon ${px} should be the first (red) frame`);
+  } finally {
+    await browser.close();
+  }
+});
+
 test('fails cleanly with a JSON error for a broken job', () => {
   const jobFile = path.join(tmpDir, 'broken.json');
   fs.writeFileSync(jobFile, JSON.stringify({ width: 10 }));

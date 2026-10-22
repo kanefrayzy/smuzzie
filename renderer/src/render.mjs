@@ -7,6 +7,12 @@
 // 3. video templates: MP4 (always) and GIF (optional); image templates (job.kind "image"):
 //    PNG (always) and JPG (optional). Files go to job.workDir.
 //
+// Animated GIF logos/icons can't live in a screenshot. On video templates the page leaves them out
+// and reports where each one is drawn; the overlay is then cut into slices by z-order (zones below
+// a GIF, the GIF, zones above it, ...) and ffmpeg stacks the slices and the GIFs, each GIF looped
+// for the length of the video. Usually that is one or two screenshots. On image templates GIFs are
+// drawn as their first frame.
+//
 // Prints ONE line of JSON to stdout: { ok: true, mp4, gif | png, jpg, timings, fit } or { ok: false, error }.
 // Diagnostics go to stderr. Exit code 0 on success, 1 on failure.
 //
@@ -17,7 +23,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import { startServer } from './server.mjs';
-import { mp4Args, gifArgs, pngArgs, jpgArgs } from './ffmpeg.mjs';
+import { mp4Args, gifArgs, pngArgs, jpgArgs, firstFrameArgs } from './ffmpeg.mjs';
 import { resolveHue } from '../dist/overlay.mjs';
 
 function fail(message, extra = {}) {
@@ -39,8 +45,10 @@ function readJob(file) {
   return job;
 }
 
+const isGif = (file) => path.extname(file).toLowerCase() === '.gif';
+
 function dataUrl(file) {
-  return 'data:image/png;base64,' + fs.readFileSync(file).toString('base64');
+  return `data:image/${isGif(file) ? 'gif' : 'png'};base64,` + fs.readFileSync(file).toString('base64');
 }
 
 function run(cmd, args, timeoutMs) {
@@ -61,7 +69,11 @@ function run(cmd, args, timeoutMs) {
   });
 }
 
-async function drawOverlay(job, outFile) {
+/**
+ * Draws the overlay and screenshots it. Without animated images: one full PNG. With them: the
+ * stack bottom to top as [{ file } | { file, animated: true, x, y, w, h, opacity }].
+ */
+async function drawOverlay(job, images, animatedKeys) {
   const server = await startServer(job.fonts);
   const browser = await chromium.launch({
     headless: true,
@@ -86,19 +98,37 @@ async function drawOverlay(job, outFile) {
 
     await page.goto(`${server.origin}/render.html`, { waitUntil: 'load', timeout: 30000 });
 
-    const images = {};
-    for (const [key, file] of Object.entries(job.images || {})) images[key] = dataUrl(file);
+    const urls = {};
+    for (const [key, file] of Object.entries(images)) urls[key] = dataUrl(file);
 
     const fonts = job.fonts.map((f) => ({
       id: f.id, family: `bf-${Number(f.id)}`, name: '', weight: f.weight, style: f.style, url: `/fonts/${Number(f.id)}`,
     }));
 
-    const result = await page.evaluate((input) => window.renderOverlay(input), {
-      width: job.width, height: job.height, config: job.config, params: job.params, images, fonts,
+    const layout = await page.evaluate((input) => window.renderOverlay(input), {
+      width: job.width, height: job.height, config: job.config, params: job.params, images: urls, fonts,
     });
 
-    await page.locator('#stage').screenshot({ path: outFile, omitBackground: true, animations: 'disabled', timeout: 30000 });
-    return result;
+    const shoot = (file) => page.locator('#stage').screenshot({ path: file, omitBackground: true, animations: 'disabled', timeout: 30000 });
+    const plan = animatedKeys.length ? await page.evaluate((keys) => window.planLayers(keys), animatedKeys) : [];
+    if (!plan.some((p) => p.type === 'animated')) {
+      const file = path.join(job.workDir, 'overlay.png');
+      await shoot(file);
+      return { layout, layers: [{ file }] };
+    }
+
+    const layers = [];
+    for (const [i, p] of plan.entries()) {
+      if (p.type === 'animated') {
+        layers.push({ file: images[p.key], animated: true, ...p.box });
+        continue;
+      }
+      const file = path.join(job.workDir, `overlay-${i}.png`);
+      await page.evaluate((keys) => window.showOnly(keys), p.keys);
+      await shoot(file);
+      layers.push({ file });
+    }
+    return { layout, layers };
   } finally {
     await browser.close();
     await server.close();
@@ -113,9 +143,19 @@ async function main() {
   const timings = {};
 
   let t = Date.now();
-  const overlayPng = path.join(job.workDir, 'overlay.png');
-  const layout = await drawOverlay(job, overlayPng);
+  const images = { ...(job.images || {}) };
+  const gifKeys = Object.keys(images).filter((k) => isGif(images[k]));
+  if (job.kind === 'image') {
+    // A still can't move: animated logos are drawn as their first frame
+    for (const key of gifKeys) {
+      const png = path.join(job.workDir, `first-frame-${gifKeys.indexOf(key)}.png`);
+      await run(ffmpeg, firstFrameArgs({ gif: images[key], out: png }), 30 * 1000);
+      images[key] = png;
+    }
+  }
+  const { layout, layers } = await drawOverlay(job, images, job.kind === 'image' ? [] : gifKeys);
   timings.overlay_ms = Date.now() - t;
+  const overlayPng = layers[0].file;
 
   const hue = resolveHue(job.config, job.params);
   const fit = {};
@@ -143,8 +183,9 @@ async function main() {
 
   const mp4 = path.join(job.workDir, 'banner.mp4');
   t = Date.now();
-  await run(ffmpeg, mp4Args({ source: job.source, overlay: overlayPng, out: mp4, hue, threads }), 6 * 60 * 1000);
+  await run(ffmpeg, mp4Args({ source: job.source, layers, out: mp4, hue, threads }), 6 * 60 * 1000);
   timings.mp4_ms = Date.now() - t;
+  timings.layers = layers.length;
 
   let gif = null;
   const gifOut = job.outputs?.gif;
@@ -157,7 +198,8 @@ async function main() {
     timings.gif_ms = Date.now() - t;
   }
 
-  process.stdout.write(JSON.stringify({ ok: true, mp4: file(mp4), gif: file(gif), hue, timings, fit }) + '\n');
+  const animated = layers.filter((l) => l.animated).length;
+  process.stdout.write(JSON.stringify({ ok: true, mp4: file(mp4), gif: file(gif), hue, animated, timings, fit }) + '\n');
 }
 
 main().catch((e) => {

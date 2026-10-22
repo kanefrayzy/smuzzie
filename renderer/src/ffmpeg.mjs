@@ -13,20 +13,38 @@ export function mixerFilter(deg) {
   return `colorchannelmixer=rr=${m[0]}:rg=${m[1]}:rb=${m[2]}:gr=${m[3]}:gg=${m[4]}:gb=${m[5]}:br=${m[6]}:bg=${m[7]}:bb=${m[8]}`;
 }
 
-/** Final MP4: shifted background + transparent overlay PNG, H.264 CRF 18, bt709 tagged. */
-export function mp4Args({ source, overlay, out, hue, threads = 3 }) {
+/**
+ * Final MP4: shifted background, then the overlay layers bottom to top, H.264 CRF 18, bt709 tagged.
+ * A layer is a full-frame transparent PNG ({ file }) or an animated GIF placed at its drawn box
+ * ({ file, animated: true, x, y, w, h, opacity }), looped for the length of the video. Only the
+ * background gets the hue shift. `overlay` alone is the usual case: one PNG with everything.
+ */
+export function mp4Args({ source, overlay, layers = [{ file: overlay }], out, hue, threads = 3 }) {
   const mixer = mixerFilter(hue);
-  const graph = [
-    `[0:v]scale=in_color_matrix=bt709:in_range=tv,format=gbrp${mixer ? ',' + mixer : ''}[bg]`,
-    '[bg][1:v]overlay=0:0:format=rgb[mix]',
-    // setparams tags the frames: newer ffmpeg takes color metadata from frames, so the
-    // -color_* options alone leave primaries/transfer "unknown"
-    '[mix]scale=out_color_matrix=bt709:out_range=tv,format=yuv420p,' + SETPARAMS + '[v]',
-  ].join(';');
+  const inputs = ['-i', source];
+  const graph = [`[0:v]scale=in_color_matrix=bt709:in_range=tv,format=gbrp${mixer ? ',' + mixer : ''}[l0]`];
+  layers.forEach((layer, i) => {
+    const n = i + 1;
+    if (layer.animated) {
+      const px = (v) => Math.max(0, Math.round(v));
+      const alpha = layer.opacity < 1 ? `,colorchannelmixer=aa=${Math.max(0, layer.opacity).toFixed(4)}` : '';
+      // -ignore_loop 0 plays the GIF's own loop (re-encoded GIFs loop forever); the overlay
+      // stops with the video (shortest)
+      inputs.push('-ignore_loop', '0', '-i', layer.file);
+      graph.push(`[${n}:v]scale=${Math.max(1, px(layer.w))}:${Math.max(1, px(layer.h))}:flags=lanczos,format=rgba${alpha}[a${n}]`);
+      graph.push(`[l${i}][a${n}]overlay=${px(layer.x)}:${px(layer.y)}:format=rgb:shortest=1[l${n}]`);
+    } else {
+      inputs.push('-i', layer.file);
+      graph.push(`[l${i}][${n}:v]overlay=0:0:format=rgb[l${n}]`);
+    }
+  });
+  // setparams tags the frames: newer ffmpeg takes color metadata from frames, so the
+  // -color_* options alone leave primaries/transfer "unknown"
+  graph.push(`[l${layers.length}]scale=out_color_matrix=bt709:out_range=tv,format=yuv420p,${SETPARAMS}[v]`);
   return [
     '-nostdin', '-v', 'error', '-y',
-    '-i', source, '-i', overlay,
-    '-filter_complex', graph, '-map', '[v]', '-an',
+    ...inputs,
+    '-filter_complex', graph.join(';'), '-map', '[v]', '-an',
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p',
     '-threads', String(threads),
     ...BT709_TAGS,
@@ -51,6 +69,11 @@ export function pngArgs({ source, overlay, out, hue }) {
     '-filter_complex', graph, '-map', '[v]',
     '-frames:v', '1', '-c:v', 'png', '-pred', 'mixed', '-update', '1', '-f', 'image2', out,
   ];
+}
+
+/** First frame of a GIF as a PNG (animated logos on image templates). */
+export function firstFrameArgs({ gif, out }) {
+  return ['-nostdin', '-v', 'error', '-y', '-f', 'gif', '-i', gif, '-frames:v', '1', '-update', '1', '-f', 'image2', out];
 }
 
 /** JPEG quality 60..100 -> mjpeg qscale (2 is about 92, 1 the best). */
