@@ -5,7 +5,7 @@
 abi <abi/4.0>,
 include <tunables/global>
 
-profile smuzzie-chromium /opt/ms-playwright/chromium_headless_shell-*/chrome-*/headless_shell flags=(unconfined) {
+profile smuzzie-chromium /opt/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell flags=(unconfined) {
   userns,
 
   include if exists <local/smuzzie-chromium>
