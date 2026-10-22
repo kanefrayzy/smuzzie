@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Move, RotateCcw } from 'lucide-react';
+import { Check, Move, RotateCcw } from 'lucide-react';
 import BannerPreview from '@/components/banners/BannerPreview';
 import ZoneHandles, { type HandleItem } from '@/components/banners/ZoneHandles';
 import {
@@ -215,7 +215,7 @@ export default function BannerEditor({
           className="mx-auto w-[min(100%,calc(40vh*var(--ar)))] lg:w-[min(100%,calc((100vh_-_9rem)*var(--ar)))]"
           style={{ ['--ar' as string]: template.width / template.height }}
         >
-          <div>
+          <div className="relative">
             <BannerPreview
               width={template.width}
               height={template.height}
@@ -245,6 +245,24 @@ export default function BannerEditor({
                 />
               )}
             </BannerPreview>
+            {/* While moving blocks: an always-visible way out, on top of the preview */}
+            {layoutMode && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-black/80 backdrop-blur border border-white/15 pl-3 pr-1 py-1 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.9)]">
+                <span className="flex items-center gap-1.5 text-[11px] text-gray-200 whitespace-nowrap">
+                  <Move size={12} className="text-accent-red" /> Moving blocks
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLayoutMode(false);
+                    setSelectedZone(null);
+                  }}
+                  className="flex items-center gap-1 rounded-full bg-accent-red hover:bg-accent-red/90 px-3 py-1 text-xs font-semibold text-white"
+                >
+                  <Check size={13} /> Done
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-2 lg:mt-3 text-[11px] lg:text-xs text-gray-500">
             <span>Preview with a watermark. The file you buy has none.</span>
