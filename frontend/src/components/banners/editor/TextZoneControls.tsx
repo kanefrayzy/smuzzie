@@ -47,7 +47,7 @@ function LabeledSlider({
 
 /** Controls for one text zone; only what the template allows is shown. */
 export default function TextZoneControls({
-  zone, params, fit, fonts, videoWidth, onChange, onReset,
+  zone, params, fit, fonts, videoWidth, onChange, onReset, hideLabel = false,
 }: {
   zone: TextZone;
   params: TextZoneParams | undefined;
@@ -56,6 +56,8 @@ export default function TextZoneControls({
   fonts: BannerFontFace[];
   /** Template width in px, to show and type the font size in pixels */
   videoWidth: number;
+  /** The name is already shown by a surrounding card */
+  hideLabel?: boolean;
   onChange: (patch: TextZoneParams) => void;
   onReset: () => void;
 }) {
@@ -69,10 +71,10 @@ export default function TextZoneControls({
   return (
     <div className={`space-y-3 ${r.visible ? '' : 'opacity-60'}`}>
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={c.text.enabled ? id : undefined} className="text-sm text-white font-medium truncate">
+        <label htmlFor={c.text.enabled ? id : undefined} className={hideLabel ? 'sr-only' : 'text-sm text-white font-medium truncate'}>
           {zone.label}
         </label>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 ml-auto">
           {c.text.enabled && (
             <span className={`text-xs font-mono tabular-nums ${charLength(raw) >= c.text.maxLength ? 'text-accent-red' : 'text-gray-500'}`}>
               {charLength(raw)}/{c.text.maxLength}

@@ -9,10 +9,12 @@ import type {
 import TextZoneControls from './TextZoneControls';
 import ImageZoneControls from './ImageZoneControls';
 import type { DraftImage } from './draft';
+import { LayerCard } from './ui';
 
 /** Texts and images the buyer adds on top of the template, drawn in list order. */
 export default function LayersPanel({
   config, params, images, fonts, videoWidth, fits, onAdd, onPatch, onRemove, onMove, onReset, onImage, position, still = false,
+  openKey, onToggle,
 }: {
   config: TemplateConfig;
   params: BuyerParams;
@@ -30,6 +32,9 @@ export default function LayersPanel({
   position: (zone: Zone, rect: Rect | undefined) => React.ReactNode;
   /** Image template: animated GIFs are used as their first frame */
   still?: boolean;
+  /** Which card is open (shared with the template's texts and images) */
+  openKey: string | null;
+  onToggle: (key: string) => void;
 }) {
   const custom = customConfig(config);
   if (!custom) return null;
@@ -60,11 +65,19 @@ export default function LayersPanel({
       {layers.map(({ layer, zone }, i) => {
         const p = layerParams(layer);
         return (
-          <div key={layer.id} className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-3 space-y-3">
-            <div className="flex items-center gap-1">
-              <span className="text-xs font-mono uppercase tracking-wider text-gray-400 mr-auto flex items-center gap-1.5">
-                {layer.type === 'text' ? <Type size={12} /> : <ImageIcon size={12} />} {zone.label}
-              </span>
+          <LayerCard
+            key={layer.id}
+            icon={layer.type === 'text' ? <Type size={15} /> : <ImageIcon size={15} />}
+            title={zone.label}
+            subtitle={
+              layer.type === 'text'
+                ? String((p as TextZoneParams).text ?? '').replace(/\s*\n\s*/g, ' ') || 'Empty'
+                : images[layer.id]?.name ?? 'No image yet'
+            }
+            open={openKey === layer.id}
+            onToggle={() => onToggle(layer.id)}
+            actions={
+              <>
               <button type="button" onClick={() => onMove(layer.id, -1)} disabled={i === 0} className="p-1.5 text-gray-500 hover:text-white disabled:opacity-30" aria-label={`Move ${zone.label} below`} title="Lower">
                 <ArrowDown size={13} />
               </button>
@@ -74,7 +87,9 @@ export default function LayersPanel({
               <button type="button" onClick={() => onRemove(layer.id)} className="p-1.5 text-gray-500 hover:text-red-400" aria-label={`Delete ${zone.label}`} title="Delete">
                 <Trash2 size={13} />
               </button>
-            </div>
+              </>
+            }
+          >
             {zone.type === 'text' ? (
               <TextZoneControls
                 zone={zone}
@@ -82,6 +97,7 @@ export default function LayersPanel({
                 fit={fits?.[layer.id]}
                 fonts={fonts}
                 videoWidth={videoWidth}
+                hideLabel
                 onChange={(patch) => onPatch(layer.id, patch)}
                 onReset={() => onReset(zone)}
               />
@@ -96,7 +112,7 @@ export default function LayersPanel({
               />
             )}
             {(zone.type === 'text' || images[layer.id]) && position(zone, p.rect)}
-          </div>
+          </LayerCard>
         );
       })}
     </div>

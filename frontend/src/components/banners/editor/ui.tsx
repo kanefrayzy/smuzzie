@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { ChevronDown } from 'lucide-react';
 
 // Small form primitives for the buyer editor, in the site's dark/red style.
 
@@ -96,3 +97,46 @@ export function Swatch({ color, selected, onClick, label }: { color: string; sel
 // scroll-margin keeps a focused field below the sticky preview on phones
 export const fieldInput =
   'w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-accent-red/50 transition-colors scroll-mt-[50vh] lg:scroll-mt-28';
+
+/**
+ * A collapsible row for one text, image or layer: the header shows its name and a short
+ * preview; the controls open below. `actions` sit on the right and don't toggle the row.
+ */
+export function LayerCard({
+  icon, title, subtitle, open, onToggle, actions, children, dim = false,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  open: boolean;
+  onToggle: () => void;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+  dim?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl border transition-colors ${
+        open ? 'border-accent-red/30 bg-white/[0.025]' : 'border-white/[0.06] bg-white/[0.012] hover:border-white/[0.12]'
+      }`}
+    >
+      <div className="flex items-center gap-1 pr-1.5">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className={`flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2.5 text-left ${dim ? 'opacity-50' : ''}`}
+        >
+          <span className={`shrink-0 ${open ? 'text-accent-red' : 'text-gray-500'}`}>{icon}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm text-white font-medium truncate">{title}</span>
+            {subtitle && !open && <span className="block text-xs text-gray-500 truncate">{subtitle}</span>}
+          </span>
+          <ChevronDown size={15} className={`shrink-0 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {actions}
+      </div>
+      {open && <div className="px-3 pb-3.5 pt-1 space-y-3">{children}</div>}
+    </div>
+  );
+}

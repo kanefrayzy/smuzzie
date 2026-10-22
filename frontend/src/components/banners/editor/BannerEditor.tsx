@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Move, RotateCcw } from 'lucide-react';
+import { Check, Image as ImageIcon, Move, RotateCcw, Type } from 'lucide-react';
 import BannerPreview from '@/components/banners/BannerPreview';
 import ZoneHandles, { type HandleItem } from '@/components/banners/ZoneHandles';
 import {
@@ -13,7 +13,7 @@ import PositionControls from './PositionControls';
 import LayersPanel from './LayersPanel';
 import type { PublicBannerTemplate } from '@/types/banners';
 import { FORMAT_LABEL, isImageTemplate, templateFormats } from '@/lib/banner-formats';
-import { Section } from './ui';
+import { LayerCard, Section } from './ui';
 import { clearDraft, loadDraft, saveDraft, type DraftImage } from './draft';
 import TextZoneControls, { hasTextControls } from './TextZoneControls';
 import ImageZoneControls from './ImageZoneControls';
@@ -149,6 +149,10 @@ export default function BannerEditor({
     });
   }, []);
 
+  // Accordion: only one text / image / layer shows its controls at a time
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const toggle = useCallback((key: string) => setOpenKey((k) => (k === key ? null : key)), []);
+
   // Moving zones: "layout mode" shows the draggable frames over the preview
   const [layoutMode, setLayoutMode] = useState(false);
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
@@ -162,6 +166,12 @@ export default function BannerEditor({
   const activateZone = useCallback((key: string) => {
     setLayoutMode(true);
     setSelectedZone(key);
+  }, []);
+
+  // Picking a block on the preview opens its controls
+  const selectOnPreview = useCallback((key: string | null) => {
+    setSelectedZone(key);
+    if (key) setOpenKey(key);
   }, []);
 
   // Zones that can be moved right now (shown, and for logos: uploaded), the buyer's layers included
@@ -233,7 +243,7 @@ export default function BannerEditor({
                 <ZoneHandles
                   items={handleItems}
                   selected={selectedZone}
-                  onSelect={setSelectedZone}
+                  onSelect={selectOnPreview}
                   onRect={(key, rect) => {
                     const zone = expanded.config.zones.find((z) => z.key === key);
                     if (zone) setRect(zone, rect);
@@ -309,7 +319,12 @@ export default function BannerEditor({
               fonts={template.fonts}
               videoWidth={template.width}
               fits={result?.zones}
-              onAdd={addLayer}
+              onAdd={(type) => {
+                // Open the new layer right away
+                const id = nextLayerId(params);
+                addLayer(type);
+                setOpenKey(id);
+              }}
               onPatch={patchLayer}
               onRemove={removeLayer}
               onMove={moveLayer}
@@ -317,43 +332,70 @@ export default function BannerEditor({
               onImage={setImage}
               position={positionFor}
               still={still}
+              openKey={openKey}
+              onToggle={toggle}
             />
           </Section>
         )}
 
-        {imageZones.map((zone) =>
-          zone.type === 'image' ? (
-            <Section key={zone.key} title={zone.label}>
-              <ImageZoneControls
-                zone={zone}
-                params={params.zones[zone.key] as ImageZoneParams | undefined}
-                image={images[zone.key]}
-                still={still}
-                onChange={(patch) => patchZone(zone.key, patch)}
-                onImage={(img) => setImage(zone.key, img)}
-              />
-              {images[zone.key] && positionFor(zone)}
-            </Section>
-          ) : null,
+        {imageZones.length > 0 && (
+          <Section title={imageZones.length > 1 ? 'Logo & images' : imageZones[0].label}>
+            <div className="space-y-2">
+              {imageZones.map((zone) =>
+                zone.type === 'image' ? (
+                  <LayerCard
+                    key={zone.key}
+                    icon={<ImageIcon size={15} />}
+                    title={zone.label}
+                    subtitle={images[zone.key] ? images[zone.key].name : 'No image yet'}
+                    open={openKey === zone.key}
+                    onToggle={() => toggle(zone.key)}
+                  >
+                    <ImageZoneControls
+                      zone={zone}
+                      params={params.zones[zone.key] as ImageZoneParams | undefined}
+                      image={images[zone.key]}
+                      still={still}
+                      onChange={(patch) => patchZone(zone.key, patch)}
+                      onImage={(img) => setImage(zone.key, img)}
+                    />
+                    {images[zone.key] && positionFor(zone)}
+                  </LayerCard>
+                ) : null,
+              )}
+            </div>
+          </Section>
         )}
 
         {textZones.length > 0 && (
           <Section title="Texts">
-            <div className="space-y-6">
-              {textZones.map((zone) => (
-                <div key={zone.key} className="space-y-3">
-                  <TextZoneControls
-                    zone={zone}
-                    params={params.zones[zone.key] as TextZoneParams | undefined}
-                    fit={result?.zones[zone.key]}
-                    fonts={template.fonts}
-                    videoWidth={template.width}
-                    onChange={(patch) => patchZone(zone.key, patch)}
-                    onReset={() => resetZone(zone)}
-                  />
-                  {resolveText(zone, params.zones[zone.key] as TextZoneParams | undefined).visible && positionFor(zone)}
-                </div>
-              ))}
+            <div className="space-y-2">
+              {textZones.map((zone) => {
+                const r = resolveText(zone, params.zones[zone.key] as TextZoneParams | undefined);
+                return (
+                  <LayerCard
+                    key={zone.key}
+                    icon={<Type size={15} />}
+                    title={zone.label}
+                    subtitle={r.visible ? r.text.replace(/\s*\n\s*/g, ' ') || 'Empty' : 'Hidden'}
+                    dim={!r.visible}
+                    open={openKey === zone.key}
+                    onToggle={() => toggle(zone.key)}
+                  >
+                    <TextZoneControls
+                      zone={zone}
+                      params={params.zones[zone.key] as TextZoneParams | undefined}
+                      fit={result?.zones[zone.key]}
+                      fonts={template.fonts}
+                      videoWidth={template.width}
+                      hideLabel
+                      onChange={(patch) => patchZone(zone.key, patch)}
+                      onReset={() => resetZone(zone)}
+                    />
+                    {r.visible && positionFor(zone)}
+                  </LayerCard>
+                );
+              })}
             </div>
           </Section>
         )}
