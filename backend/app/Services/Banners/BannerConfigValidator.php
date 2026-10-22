@@ -213,18 +213,13 @@ class BannerConfigValidator
             $this->fail("{$path}.style.fontId", 'Pick a font');
         }
 
+        // Sizes: the limits are put in order instead of rejected (auto-fit floor ≤ slider min ≤
+        // base ≤ slider max), so making a text small never trips over the other three numbers
         $size = $this->number($style['size'] ?? 4, "{$path}.style.size", 0.2, 30);
-        $minSize = $this->number($style['minSize'] ?? $size / 2, "{$path}.style.minSize", 0.2, 30);
-        if ($minSize > $size) {
-            $this->fail("{$path}.style.minSize", 'Minimum size must not exceed the base size');
-        }
-
         $sizeCtl = $this->controlBlock($controls, 'size');
-        $sizeMin = $this->number($sizeCtl['min'] ?? $minSize, "{$path}.controls.size.min", 0.2, 30);
-        $sizeMax = $this->number($sizeCtl['max'] ?? $size, "{$path}.controls.size.max", 0.2, 30);
-        if ($sizeMin < $minSize || $sizeMin > $size || $sizeMax < $size) {
-            $this->fail("{$path}.controls.size", 'Size limits must satisfy: min size ≤ slider min ≤ base size ≤ slider max');
-        }
+        $sizeMin = min($size, $this->number($sizeCtl['min'] ?? $size, "{$path}.controls.size.min", 0.2, 30));
+        $sizeMax = max($size, $this->number($sizeCtl['max'] ?? $size, "{$path}.controls.size.max", 0.2, 30));
+        $minSize = min($sizeMin, $this->number($style['minSize'] ?? $size / 2, "{$path}.style.minSize", 0.2, 30));
 
         $colorCtl = $this->controlBlock($controls, 'color');
         $palette = [];
@@ -282,6 +277,7 @@ class BannerConfigValidator
                 'lineHeight' => $lineHeight,
                 'letterSpacing' => $letterSpacing,
                 'opacity' => $opacity,
+                'gradient' => $this->gradient($style['gradient'] ?? null, "{$path}.style.gradient"),
             ],
             'controls' => [
                 'text' => ['enabled' => $this->bool($textCtl['enabled'] ?? false), 'maxLength' => $maxLength, 'multiline' => $multiline],
@@ -300,7 +296,20 @@ class BannerConfigValidator
                 'glow' => ['enabled' => $this->bool($this->controlBlock($controls, 'glow')['enabled'] ?? false)],
                 'opacity' => $this->range($controls, 'opacity', $opacity, $path, 10, 100, 0),
                 'position' => $this->position($controls, $base, $path),
+                'gradient' => ['enabled' => $this->bool($this->controlBlock($controls, 'gradient')['enabled'] ?? false)],
             ],
+        ];
+    }
+
+    /** Gradient fill of a text: on/off, two colors and the CSS angle. */
+    private function gradient(mixed $g, string $path): array
+    {
+        $g = is_array($g) ? $g : [];
+        return [
+            'enabled' => $this->bool($g['enabled'] ?? false),
+            'from' => $this->hex($g['from'] ?? '#ffffff', "{$path}.from"),
+            'to' => $this->hex($g['to'] ?? '#ff2d8a', "{$path}.to"),
+            'angle' => (int) $this->number($g['angle'] ?? 90, "{$path}.angle", 0, 359, 0),
         ];
     }
 

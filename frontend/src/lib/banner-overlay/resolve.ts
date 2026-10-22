@@ -1,7 +1,7 @@
 import { isHex } from './color';
 import { customConfig, layerParams, layerZones } from './custom';
 import type {
-  Align, AlignY, BuyerLayer, BuyerParams, ImageZone, ImageZoneParams, RangeControl, Rect, TemplateConfig, TextCase, TextZone,
+  Align, AlignY, BuyerLayer, BuyerParams, ImageZone, ImageZoneParams, RangeControl, Rect, TemplateConfig, TextCase, TextGradient, TextZone,
   TextZoneParams, Zone,
 } from './types';
 
@@ -24,6 +24,8 @@ export interface ResolvedText {
   glow: boolean;
   /** Percent */
   opacity: number;
+  /** Gradient fill, or null for the flat color */
+  gradient: TextGradient | null;
 }
 
 export interface ResolvedImage {
@@ -96,7 +98,19 @@ export function resolveText(zone: TextZone, p: TextZoneParams | undefined): Reso
     letterSpacing: range(controls.letterSpacing, p.letterSpacing, style.letterSpacing, 1000),
     lineHeight: range(controls.lineHeight, p.lineHeight, style.lineHeight, 100),
     opacity: range(controls.opacity, p.opacity, style.opacity ?? 100, 1),
+    gradient: resolveGradient(style.gradient, controls.gradient?.enabled ? p.gradient : undefined),
   };
+}
+
+/** The template's gradient, or the buyer's when the template lets them change it. */
+function resolveGradient(base: TextGradient | undefined, chosen: TextGradient | undefined): TextGradient | null {
+  const own = base?.enabled && isHex(base.from) && isHex(base.to) ? base : null;
+  if (!chosen || typeof chosen !== 'object') return own;
+  if (chosen.enabled !== true) return null;
+  if (!isHex(chosen.from) || !isHex(chosen.to)) return own;
+  const a = Number(chosen.angle);
+  const angle = Number.isFinite(a) ? ((Math.round(a) % 360) + 360) % 360 : own?.angle ?? 90;
+  return { enabled: true, from: chosen.from.toLowerCase(), to: chosen.to.toLowerCase(), angle };
 }
 
 /** A buyer number inside an enabled range control, rounded like the server stores it. */
@@ -186,6 +200,7 @@ export function defaultZoneParams(zone: Zone): TextZoneParams | ImageZoneParams 
       text: s.text, size: s.size, color: s.color, align: s.align, visible: true,
       fontId: s.fontId, case: s.case, letterSpacing: s.letterSpacing, lineHeight: s.lineHeight, glow: s.glow,
       opacity: s.opacity ?? 100, rect,
+      gradient: s.gradient ? { ...s.gradient } : { enabled: false, from: s.color, to: '#ff2d8a', angle: 90 },
     };
   }
   return { scale: zone.style.scale, alignX: zone.style.alignX, alignY: zone.style.alignY, rect };
@@ -208,6 +223,7 @@ function exportZone(zone: Zone, raw: TextZoneParams | ImageZoneParams | undefine
     if (c.lineHeight?.enabled) out.lineHeight = r.lineHeight;
     if (c.glow?.enabled) out.glow = r.glow;
     if (c.opacity?.enabled) out.opacity = r.opacity;
+    if (c.gradient?.enabled) out.gradient = r.gradient ? { ...r.gradient } : { enabled: false, from: r.color, to: r.color, angle: 90 };
     if (c.position?.enabled) out.rect = resolveRect(zone, raw);
     return out;
   }

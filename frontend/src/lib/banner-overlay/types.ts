@@ -44,6 +44,16 @@ export interface TextStyle {
   letterSpacing: number;
   /** Percent, 10..100. Missing in configs saved before it existed: treat as 100 */
   opacity?: number;
+  /** Gradient fill instead of the flat color. Missing = off */
+  gradient?: TextGradient;
+}
+
+export interface TextGradient {
+  enabled: boolean;
+  from: string;
+  to: string;
+  /** CSS linear-gradient angle, 0..359 (90 = left to right) */
+  angle: number;
 }
 
 export interface RangeControl {
@@ -70,6 +80,8 @@ export interface TextControls {
   /** Percent */
   opacity?: RangeControl;
   position?: PositionControl;
+  /** Buyer may switch the gradient on/off and pick its colors and direction */
+  gradient?: { enabled: boolean };
 }
 
 export interface TextZone extends ZoneRect {
@@ -142,6 +154,7 @@ export interface TextZoneParams {
   glow?: boolean;
   opacity?: number;
   rect?: Rect;
+  gradient?: TextGradient;
 }
 
 export interface ImageZoneParams {

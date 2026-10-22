@@ -12,12 +12,13 @@ import type { DraftImage } from './draft';
 
 /** Texts and images the buyer adds on top of the template, drawn in list order. */
 export default function LayersPanel({
-  config, params, images, fonts, fits, onAdd, onPatch, onRemove, onMove, onReset, onImage, position,
+  config, params, images, fonts, videoWidth, fits, onAdd, onPatch, onRemove, onMove, onReset, onImage, position,
 }: {
   config: TemplateConfig;
   params: BuyerParams;
   images: Record<string, DraftImage>;
   fonts: BannerFontFace[];
+  videoWidth: number;
   fits: Record<string, ZoneFit> | undefined;
   onAdd: (type: 'text' | 'image') => void;
   onPatch: (id: string, patch: TextZoneParams | ImageZoneParams) => void;
@@ -78,6 +79,7 @@ export default function LayersPanel({
                 params={p as TextZoneParams}
                 fit={fits?.[layer.id]}
                 fonts={fonts}
+                videoWidth={videoWidth}
                 onChange={(patch) => onPatch(layer.id, patch)}
                 onReset={() => onReset(zone)}
               />

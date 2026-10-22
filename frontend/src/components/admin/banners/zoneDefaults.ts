@@ -21,6 +21,7 @@ export function newTextZone(config: TemplateConfig, fontId: number): TextZone {
     style: {
       text: 'Your text', fontId, size: 4, minSize: 2, case: 'none', align: 'center',
       color: '#ffffff', glow: true, lineHeight: 1.14, letterSpacing: -0.01, opacity: 100,
+      gradient: { enabled: false, from: '#ffffff', to: config.accent, angle: 90 },
     },
     controls: {
       text: { enabled: true, maxLength: 40, multiline: false },
@@ -35,6 +36,7 @@ export function newTextZone(config: TemplateConfig, fontId: number): TextZone {
       glow: { enabled: true },
       opacity: { enabled: false, min: 40, max: 100 },
       position: POSITION_OFF,
+      gradient: { enabled: true },
     },
   };
 }
@@ -56,8 +58,10 @@ export function withStyleControls(zone: TextZone): TextZone {
     glow: c.glow ?? { enabled: false },
     opacity: c.opacity ?? range(s.opacity ?? 100),
     position: c.position ?? POSITION_OFF,
+    gradient: c.gradient ?? { enabled: false },
   };
-  return { ...zone, style: { ...s, opacity: s.opacity ?? 100 }, controls };
+  const gradient = s.gradient ?? { enabled: false, from: s.color, to: '#ff2d8a', angle: 90 };
+  return { ...zone, style: { ...s, opacity: s.opacity ?? 100, gradient }, controls };
 }
 
 export function newImageZone(config: TemplateConfig): ImageZone {

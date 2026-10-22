@@ -234,6 +234,9 @@ export default function BannerEditor({
                     if (zone) setRect(zone, rect);
                   }}
                   large
+                  snapTo={expanded.config.zones
+                    .filter((z) => !handleItems.some((h) => h.id === z.key))
+                    .map((z) => resolveRect(z, expanded.params.zones[z.key]))}
                 />
               )}
             </BannerPreview>
@@ -302,6 +305,7 @@ export default function BannerEditor({
                     params={params.zones[zone.key] as TextZoneParams | undefined}
                     fit={result?.zones[zone.key]}
                     fonts={template.fonts}
+                    videoWidth={template.width}
                     onChange={(patch) => patchZone(zone.key, patch)}
                     onReset={() => resetZone(zone)}
                   />
@@ -319,6 +323,7 @@ export default function BannerEditor({
               params={params}
               images={images}
               fonts={template.fonts}
+              videoWidth={template.width}
               fits={result?.zones}
               onAdd={addLayer}
               onPatch={patchLayer}

@@ -77,7 +77,7 @@ test('disabled controls fall back to the template, enabled ones are clamped', ()
   // Old configs have no style control blocks: everything comes from the template
   assert.deepEqual(r, {
     visible: true, text: 'Hello', size: 5, color: '#ffffff', align: 'center',
-    fontId: 1, case: 'none', letterSpacing: 0, lineHeight: 1.1, glow: true, opacity: 100,
+    fontId: 1, case: 'none', letterSpacing: 0, lineHeight: 1.1, glow: true, opacity: 100, gradient: null,
   });
 
   const config = { schemaVersion: 1, accent: '#000000', hue: { enabled: false, default: 20, presets: [] }, zones: [zone] };
@@ -178,4 +178,27 @@ test('buyer layers become zones on top, within the template limits', () => {
 
   // Switched off: no layers at all
   assert.equal(exportParams({ ...config, custom: { ...config.custom, enabled: false } }, params).layers, undefined);
+});
+
+test('gradient: template default, buyer choice, switched off, invalid colors ignored', () => {
+  const zone = {
+    key: 't', type: 'text', label: 'T', x: 0, y: 0, w: 50, h: 10,
+    style: {
+      text: 'Hi', fontId: 1, size: 4, minSize: 2, case: 'none', align: 'center', color: '#ffffff', glow: false, lineHeight: 1.1, letterSpacing: 0,
+      gradient: { enabled: true, from: '#ffd23f', to: '#ff2d8a', angle: 90 },
+    },
+    controls: {
+      text: { enabled: false, maxLength: 5, multiline: false }, size: { enabled: false, min: 4, max: 4 },
+      color: { enabled: false, palette: [], custom: false }, align: { enabled: false, options: ['center'] }, visible: { enabled: false },
+      gradient: { enabled: true },
+    },
+  };
+  assert.deepEqual(resolveText(zone, {}).gradient, { enabled: true, from: '#ffd23f', to: '#ff2d8a', angle: 90 });
+  assert.deepEqual(resolveText(zone, { gradient: { enabled: true, from: '#00FF88', to: '#0088ff', angle: 405 } }).gradient,
+    { enabled: true, from: '#00ff88', to: '#0088ff', angle: 45 });
+  assert.equal(resolveText(zone, { gradient: { enabled: false } }).gradient, null);
+  assert.deepEqual(resolveText(zone, { gradient: { enabled: true, from: 'red', to: '#0088ff', angle: 0 } }).gradient.from, '#ffd23f');
+  // Control off: the buyer's choice is ignored
+  const locked = { ...zone, controls: { ...zone.controls, gradient: { enabled: false } } };
+  assert.equal(resolveText(locked, { gradient: { enabled: false } }).gradient.from, '#ffd23f');
 });

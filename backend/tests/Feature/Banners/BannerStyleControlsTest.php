@@ -42,6 +42,7 @@ class BannerStyleControlsTest extends TestCase
             'lineHeight' => ['enabled' => true, 'min' => 0.9, 'max' => 1.6],
             'glow' => ['enabled' => true],
             'opacity' => ['enabled' => true, 'min' => 40, 'max' => 100],
+            'gradient' => ['enabled' => true],
         ], $titleControls);
         return $config;
     }
@@ -178,5 +179,26 @@ class BannerStyleControlsTest extends TestCase
         ], ['Accept' => 'application/json'])->assertCreated();
 
         $this->assertSame(['text' => 'Go'], BannerOrder::firstOrFail()->params['zones']['button']);
+    }
+
+    public function test_gradient_is_normalized_and_buyer_gradients_are_validated(): void
+    {
+        $config = $this->config();
+        $config['zones'][1]['style']['gradient'] = ['enabled' => true, 'from' => '#FFD23F', 'to' => '#ff2d8a', 'angle' => 135];
+        $title = (new BannerConfigValidator())->validate($config)['zones'][1];
+        $this->assertSame(['enabled' => true, 'from' => '#ffd23f', 'to' => '#ff2d8a', 'angle' => 135], $title['style']['gradient']);
+        $this->assertSame(['enabled' => true], $title['controls']['gradient']);
+
+        $this->order(['gradient' => ['enabled' => true, 'from' => '#00FF88', 'to' => '#0088ff', 'angle' => 45]])->assertCreated();
+        $this->assertSame(
+            ['enabled' => true, 'from' => '#00ff88', 'to' => '#0088ff', 'angle' => 45],
+            BannerOrder::firstOrFail()->params['zones']['title']['gradient']
+        );
+    }
+
+    public function test_bad_gradients_are_rejected(): void
+    {
+        $this->order(['gradient' => ['enabled' => true, 'from' => 'red', 'to' => '#0088ff', 'angle' => 45]])
+            ->assertStatus(422)->assertJsonValidationErrors('params.zones.title.gradient');
     }
 }

@@ -12,8 +12,8 @@ class BannerCustomLayers
     public const ID_PATTERN = '/^layer_[0-9]{1,3}$/';
 
     public const TEXT_MAX_LENGTH = 100;
-    public const SIZE = [0.5, 20, 4];           // min, max, default (percent of the width)
-    public const MIN_SIZE = 0.5;
+    public const SIZE = [0.2, 20, 4];           // min, max, default (percent of the width)
+    public const MIN_SIZE = 0.2;
     public const LETTER_SPACING = [-0.1, 0.5];
     public const LINE_HEIGHT = [0.7, 2.5, 1.15];
     public const OPACITY = [10, 100];
@@ -52,6 +52,7 @@ class BannerCustomLayers
                 'text' => 'Your text', 'fontId' => (int) ($custom['fonts'][0] ?? 0), 'size' => self::SIZE[2], 'minSize' => self::MIN_SIZE,
                 'case' => 'none', 'align' => 'center', 'color' => '#ffffff', 'glow' => false,
                 'lineHeight' => self::LINE_HEIGHT[2], 'letterSpacing' => 0, 'opacity' => 100,
+                'gradient' => ['enabled' => false, 'from' => '#ffffff', 'to' => '#ff2d8a', 'angle' => 90],
             ],
             'controls' => [
                 'text' => ['enabled' => true, 'maxLength' => self::TEXT_MAX_LENGTH, 'multiline' => true],
@@ -66,6 +67,7 @@ class BannerCustomLayers
                 'glow' => ['enabled' => true],
                 'opacity' => ['enabled' => true, 'min' => self::OPACITY[0], 'max' => self::OPACITY[1]],
                 'position' => ['enabled' => true, 'resize' => true, 'bounds' => $custom['bounds']],
+                'gradient' => ['enabled' => true],
             ],
         ];
     }

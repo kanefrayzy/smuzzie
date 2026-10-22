@@ -171,11 +171,13 @@ function PositionForm({
 export type ZoneErrors = Record<string, string>;
 
 export default function ZoneForm({
-  zone, fonts, errors, onChange,
+  zone, fonts, errors, videoWidth, onChange,
 }: {
   zone: Zone;
   fonts: AdminBannerFont[];
   errors: ZoneErrors;
+  /** Template width, to show sizes in px */
+  videoWidth?: number;
   onChange: (zone: Zone) => void;
 }) {
   const err = (path: string) => errors[path];
@@ -199,15 +201,16 @@ export default function ZoneForm({
   );
 
   if (zone.type === 'image') return <ImageForm zone={zone} common={common} err={err} onChange={onChange} />;
-  return <TextForm zone={zone} fonts={fonts} common={common} err={err} onChange={onChange} />;
+  return <TextForm zone={zone} fonts={fonts} common={common} err={err} videoWidth={videoWidth} onChange={onChange} />;
 }
 
 function TextForm({
-  zone: rawZone, fonts, common, err, onChange,
+  zone: rawZone, fonts, common, err, videoWidth, onChange,
 }: {
   zone: TextZone;
   fonts: AdminBannerFont[];
   common: React.ReactNode;
+  videoWidth?: number;
   err: (p: string) => string | undefined;
   onChange: (z: Zone) => void;
 }) {
@@ -217,6 +220,8 @@ function TextForm({
   const setStyle = (patch: Partial<TextZone['style']>) => onChange({ ...zone, style: { ...s, ...patch } });
   const setCtl = <K extends keyof TextControls>(k: K, patch: Partial<Required<TextControls>[K]>) =>
     onChange({ ...zone, controls: { ...c, [k]: { ...c[k], ...patch } } });
+  const gradient = s.gradient ?? { enabled: false, from: s.color, to: '#ff2d8a', angle: 90 };
+  const px = (pct: number) => (videoWidth && Number.isFinite(pct) ? ` (≈${Math.round((pct / 100) * videoWidth)} px)` : '');
   const fontErrors = Array.from({ length: MAX_FONT_OPTIONS }, (_, j) => err(`controls.font.options.${j}`)).filter(Boolean);
 
   return (
@@ -243,10 +248,10 @@ function TextForm({
               ))}
             </select>
           </Field>
-          <Field label="Base size, % of width" error={err('style.size')}>
+          <Field label={`Base size, % of width${px(s.size)}`} error={err('style.size')}>
             <Num value={s.size} step={0.05} onChange={(size) => setStyle({ size })} />
           </Field>
-          <Field label="Auto-fit minimum, %" error={err('style.minSize')}>
+          <Field label={`Auto-fit minimum, %${px(s.minSize)}`} error={err('style.minSize')}>
             <Num value={s.minSize} step={0.05} onChange={(minSize) => setStyle({ minSize })} />
           </Field>
           <Field label="Case" error={err('style.case')}>
@@ -271,6 +276,21 @@ function TextForm({
           </Field>
           <div className="flex items-end pb-2">
             <Check label="Glow (accent color)" checked={s.glow} onChange={(glow) => setStyle({ glow })} />
+          </div>
+          <div className="col-span-2 space-y-2">
+            <Check label="Gradient fill" checked={gradient.enabled} onChange={(enabled) => setStyle({ gradient: { ...gradient, enabled } })} />
+            {gradient.enabled && (
+              <div className="pl-6 grid grid-cols-3 gap-3">
+                {(['from', 'to'] as const).map((k) => (
+                  <Field key={k} label={k === 'from' ? 'Start color' : 'End color'} error={err(`style.gradient.${k}`)}>
+                    <input type="color" value={gradient[k]} onChange={(e) => setStyle({ gradient: { ...gradient, [k]: e.target.value.toLowerCase() } })} className="w-full h-[38px] rounded-lg bg-surface border border-white/5 p-1" />
+                  </Field>
+                ))}
+                <Field label="Angle, °" error={err('style.gradient.angle')}>
+                  <Num value={gradient.angle} step={15} min={0} max={359} onChange={(angle) => setStyle({ gradient: { ...gradient, angle } })} />
+                </Field>
+              </div>
+            )}
           </div>
           <Field label="Line height" error={err('style.lineHeight')}>
             <Num value={s.lineHeight} step={0.01} onChange={(lineHeight) => setStyle({ lineHeight })} />
@@ -364,6 +384,7 @@ function TextForm({
           )}
         </div>
         <Check label="Glow on / off" checked={c.glow.enabled} onChange={(enabled) => setCtl('glow', { enabled })} />
+        <Check label="Gradient (on / off, colors, direction)" checked={c.gradient.enabled} onChange={(enabled) => setCtl('gradient', { enabled })} />
         <RangeRow label="Letter spacing (slider)" unit=", em" ctl={c.letterSpacing} step={0.005} err={err} errKey="letterSpacing" onChange={(p) => setCtl('letterSpacing', p)} />
         <RangeRow label="Line height (slider)" unit="" ctl={c.lineHeight} step={0.01} err={err} errKey="lineHeight" onChange={(p) => setCtl('lineHeight', p)} />
         <RangeRow label="Opacity (slider)" unit=", %" ctl={c.opacity} step={1} err={err} errKey="opacity" onChange={(p) => setCtl('opacity', p)} />

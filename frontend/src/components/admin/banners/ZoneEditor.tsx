@@ -277,7 +277,7 @@ export default function ZoneEditor({
                 <Trash2 size={14} />
               </button>
             </div>
-            <ZoneForm zone={zone} fonts={fonts} errors={zoneErrors[selected] || {}} onChange={(z) => setZone(selected, z)} />
+            <ZoneForm zone={zone} fonts={fonts} errors={zoneErrors[selected] || {}} videoWidth={template.width ?? undefined} onChange={(z) => setZone(selected, z)} />
           </div>
         )}
 

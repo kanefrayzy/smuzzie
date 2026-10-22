@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Rect } from '@/lib/banner-overlay';
 
 // Draggable zone rectangles over a banner preview, shared by the admin zone editor and the
@@ -63,8 +63,100 @@ export function dragRect(start: Rect, mode: Mode, dx: number, dy: number, b: Rec
   return { x: r(x), y: r(y), w: r(w), h: r(h) };
 }
 
+// ─── Snapping ───────────────────────────────────────────────
+// While dragging, an edge or the center of the zone sticks to the frame's edges and center
+// and to the edges and centers of the other zones, and a guide line shows what it lined up
+// with. Hold Alt to place freely.
+
+const SNAP_PX = 6;
+
+export interface Guides {
+  x: number[];
+  y: number[];
+}
+
+function lines(rects: Rect[], axis: 'x' | 'y'): number[] {
+  const out = [0, 50, 100];
+  for (const r of rects) {
+    const a = axis === 'x' ? r.x : r.y;
+    const size = axis === 'x' ? r.w : r.h;
+    out.push(a, a + size / 2, a + size);
+  }
+  return out;
+}
+
+/** The target nearest to any of the candidates, within the threshold. */
+function nearest(candidates: number[], targets: number[], threshold: number): { delta: number; at: number; index: number } | null {
+  let best: { delta: number; at: number; index: number } | null = null;
+  candidates.forEach((c, index) => {
+    for (const t of targets) {
+      const d = t - c;
+      if (Math.abs(d) <= threshold && (!best || Math.abs(d) < Math.abs(best.delta))) best = { delta: d, at: t, index };
+    }
+  });
+  return best;
+}
+
+/** Snap a dragged rect (after dragRect) to the target lines, then keep it in bounds. */
+export function snapRect(
+  rect: Rect, mode: Mode, others: Rect[], threshold: { x: number; y: number }, b: Rect, min: { w: number; h: number },
+): { rect: Rect; guides: Guides } {
+  const r = { ...rect };
+  const guides: Guides = { x: [], y: [] };
+  const tx = lines(others, 'x');
+  const ty = lines(others, 'y');
+  const right = b.x + b.w;
+  const bottom = b.y + b.h;
+
+  if (mode === 'move') {
+    const sx = nearest([r.x, r.x + r.w / 2, r.x + r.w], tx, threshold.x);
+    if (sx) {
+      r.x = Math.min(right - r.w, Math.max(b.x, r.x + sx.delta));
+      guides.x.push(sx.at);
+    }
+    const sy = nearest([r.y, r.y + r.h / 2, r.y + r.h], ty, threshold.y);
+    if (sy) {
+      r.y = Math.min(bottom - r.h, Math.max(b.y, r.y + sy.delta));
+      guides.y.push(sy.at);
+    }
+  } else {
+    if (mode.includes('w')) {
+      const s = nearest([r.x], tx, threshold.x);
+      if (s && s.at >= b.x && r.x + r.w - s.at >= min.w) {
+        r.w = r.x + r.w - s.at;
+        r.x = s.at;
+        guides.x.push(s.at);
+      }
+    }
+    if (mode.includes('e')) {
+      const s = nearest([r.x + r.w], tx, threshold.x);
+      if (s && s.at <= right && s.at - r.x >= min.w) {
+        r.w = s.at - r.x;
+        guides.x.push(s.at);
+      }
+    }
+    if (mode.includes('n')) {
+      const s = nearest([r.y], ty, threshold.y);
+      if (s && s.at >= b.y && r.y + r.h - s.at >= min.h) {
+        r.h = r.y + r.h - s.at;
+        r.y = s.at;
+        guides.y.push(s.at);
+      }
+    }
+    if (mode.includes('s')) {
+      const s = nearest([r.y + r.h], ty, threshold.y);
+      if (s && s.at <= bottom && s.at - r.y >= min.h) {
+        r.h = s.at - r.y;
+        guides.y.push(s.at);
+      }
+    }
+  }
+  const q = (v: number) => Math.round(v * 1000) / 1000;
+  return { rect: { x: q(r.x), y: q(r.y), w: q(r.w), h: q(r.h) }, guides };
+}
+
 export default function ZoneHandles({
-  items, selected, onSelect, onRect, labels = 'selected', large = false,
+  items, selected, onSelect, onRect, labels = 'selected', large = false, snapTo = [],
 }: {
   items: HandleItem[];
   selected: string | null;
@@ -73,7 +165,10 @@ export default function ZoneHandles({
   labels?: 'all' | 'selected';
   /** Bigger hit areas for the handles (touch screens) */
   large?: boolean;
+  /** Extra rectangles to line up with (e.g. zones that can't be moved) */
+  snapTo?: Rect[];
 }) {
+  const [guides, setGuides] = useState<Guides>({ x: [], y: [] });
   const boxRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ item: HandleItem; mode: Mode; x: number; y: number; w: number; h: number } | null>(null);
 
@@ -92,11 +187,21 @@ export default function ZoneHandles({
     if (!d) return;
     const dx = ((e.clientX - d.x) / d.w) * 100;
     const dy = ((e.clientY - d.y) / d.h) * 100;
-    onRect(d.item.id, dragRect(d.item.rect, d.mode, dx, dy, d.item.bounds, d.item.min));
+    let rect = dragRect(d.item.rect, d.mode, dx, dy, d.item.bounds, d.item.min);
+    if (e.altKey) {
+      setGuides({ x: [], y: [] });
+    } else {
+      const others = [...items.filter((i) => i.id !== d.item.id).map((i) => i.rect), ...snapTo];
+      const snapped = snapRect(rect, d.mode, others, { x: (SNAP_PX / d.w) * 100, y: (SNAP_PX / d.h) * 100 }, d.item.bounds, d.item.min);
+      rect = snapped.rect;
+      setGuides(snapped.guides);
+    }
+    onRect(d.item.id, rect);
   };
 
   const endDrag = () => {
     drag.current = null;
+    setGuides({ x: [], y: [] });
   };
 
   const onKey = useCallback(
@@ -126,6 +231,12 @@ export default function ZoneHandles({
 
   return (
     <div ref={boxRef} className="absolute inset-0" onPointerDown={() => onSelect(null)}>
+      {guides.x.map((x) => (
+        <div key={`gx-${x}`} className="absolute top-0 bottom-0 w-px bg-[#ff4fd8] pointer-events-none z-[3]" style={{ left: `${x}%` }} aria-hidden="true" />
+      ))}
+      {guides.y.map((y) => (
+        <div key={`gy-${y}`} className="absolute left-0 right-0 h-px bg-[#ff4fd8] pointer-events-none z-[3]" style={{ top: `${y}%` }} aria-hidden="true" />
+      ))}
       {items.map((item) => {
         const isSel = item.id === selected;
         const { color, rect } = item;

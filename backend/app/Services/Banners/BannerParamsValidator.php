@@ -219,6 +219,26 @@ class BannerParamsValidator
             }
         }
 
+        if (($c['gradient']['enabled'] ?? false) && array_key_exists('gradient', $p)) {
+            $g = $p['gradient'];
+            if (!is_array($g) || !is_bool($g['enabled'] ?? null)) {
+                $this->fail("{$path}.gradient", 'Invalid gradient');
+            } elseif (!$g['enabled']) {
+                $out['gradient'] = ['enabled' => false];
+            } else {
+                $from = is_string($g['from'] ?? null) ? strtolower($g['from']) : '';
+                $to = is_string($g['to'] ?? null) ? strtolower($g['to']) : '';
+                $angle = $g['angle'] ?? 90;
+                if (!preg_match('/^#[0-9a-f]{6}$/', $from) || !preg_match('/^#[0-9a-f]{6}$/', $to)) {
+                    $this->fail("{$path}.gradient", 'Gradient colors must look like #rrggbb');
+                } elseif (!is_int($angle) || $angle < 0 || $angle > 359) {
+                    $this->fail("{$path}.gradient", 'Gradient angle must be a whole number from 0 to 359');
+                } else {
+                    $out['gradient'] = ['enabled' => true, 'from' => $from, 'to' => $to, 'angle' => $angle];
+                }
+            }
+        }
+
         if (($c['glow']['enabled'] ?? false) && array_key_exists('glow', $p)) {
             if (!is_bool($p['glow'])) {
                 $this->fail("{$path}.glow", 'Glow must be true or false');

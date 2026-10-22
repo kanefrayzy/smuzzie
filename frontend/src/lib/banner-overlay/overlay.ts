@@ -192,6 +192,21 @@ export class BannerOverlay {
         : '0 0.04em 0.12em rgba(0,0,0,.35)',
     });
 
+    // Gradient fill: the box shrinks to the text (so the gradient spans the words, not the whole
+    // zone) and the zone aligns it instead. A text-shadow would paint over a clipped background,
+    // so the glow/shadow moves to a drop-shadow filter.
+    const g = r.gradient;
+    const set = (prop: string, value: string) => (value ? box.style.setProperty(prop, value) : box.style.removeProperty(prop));
+    set('width', g ? 'fit-content' : '');
+    set('max-width', g ? '100%' : '');
+    set('background-image', g ? `linear-gradient(${g.angle}deg, ${g.from}, ${g.to})` : '');
+    set('-webkit-background-clip', g ? 'text' : '');
+    set('background-clip', g ? 'text' : '');
+    set('-webkit-text-fill-color', g ? 'transparent' : '');
+    set('filter', g ? (r.glow ? `drop-shadow(0 0 0.3em ${accent}) drop-shadow(0 0.04em 0.08em rgba(0,0,0,.5))` : 'drop-shadow(0 0.04em 0.1em rgba(0,0,0,.35))') : '');
+    if (g) box.style.textShadow = 'none';
+    els.zone.style.justifyContent = g ? JUSTIFY[r.align] : '';
+
     // One element per line; reuse existing ones to keep typing in the editor cheap
     const doc = this.stage.ownerDocument;
     while (box.children.length > layout.lines.length) box.lastElementChild!.remove();

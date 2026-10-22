@@ -47,7 +47,7 @@ class BannerConfigValidatorTest extends TestCase
         $this->assertCount(3, $out['zones']);
         $title = $out['zones'][1];
         $this->assertSame(
-            ['text', 'size', 'color', 'align', 'visible', 'font', 'case', 'letterSpacing', 'lineHeight', 'glow', 'opacity', 'position'],
+            ['text', 'size', 'color', 'align', 'visible', 'font', 'case', 'letterSpacing', 'lineHeight', 'glow', 'opacity', 'position', 'gradient'],
             array_keys($title['controls'])
         );
         $this->assertSame(32, $title['controls']['text']['maxLength']);
@@ -98,12 +98,22 @@ class BannerConfigValidatorTest extends TestCase
         $this->assertArrayHasKey('config.zones.1.style.fontId', $this->errorsFor($this->config()));
     }
 
-    public function test_size_limits_must_be_ordered(): void
+    public function test_size_limits_are_put_in_order_instead_of_rejected(): void
     {
         $config = $this->config();
-        $config['zones'][1]['controls']['size'] = ['enabled' => true, 'min' => 5, 'max' => 6]; // min > base 4.4
+        $config['zones'][1]['style']['size'] = 0.3;     // a tiny text, below the old floor and slider
+        $config['zones'][1]['style']['minSize'] = 2.2;
+        $config['zones'][1]['controls']['size'] = ['enabled' => true, 'min' => 2.2, 'max' => 6];
 
-        $this->assertArrayHasKey('config.zones.1.controls.size', $this->errorsFor($config));
+        $title = (new BannerConfigValidator())->validate($config)['zones'][1];
+
+        $this->assertSame(0.3, $title['style']['size']);
+        $this->assertSame(0.3, $title['style']['minSize']);
+        $this->assertSame(['enabled' => true, 'min' => 0.3, 'max' => 6.0], $title['controls']['size']);
+
+        // Below the absolute floor is still an error
+        $config['zones'][1]['style']['size'] = 0.1;
+        $this->assertArrayHasKey('config.zones.1.style.size', $this->errorsFor($config));
     }
 
     public function test_zone_must_stay_inside_the_video(): void

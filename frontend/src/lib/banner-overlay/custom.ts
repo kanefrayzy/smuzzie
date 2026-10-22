@@ -11,8 +11,8 @@ export const LAYER_ID = /^layer_[0-9]{1,3}$/;
 
 export const CUSTOM_LIMITS = {
   textMaxLength: 100,
-  size: { min: 0.5, max: 20, default: 4 },
-  minSize: 0.5,
+  size: { min: 0.2, max: 20, default: 4 },
+  minSize: 0.2,
   letterSpacing: { min: -0.1, max: 0.5 },
   lineHeight: { min: 0.7, max: 2.5, default: 1.15 },
   opacity: { min: 10, max: 100 },
@@ -40,6 +40,7 @@ export function layerTextZone(config: TemplateConfig, id: string, label: string)
     style: {
       text: 'Your text', fontId: c.fonts[0] ?? 0, size: L.size.default, minSize: L.minSize, case: 'none', align: 'center',
       color: '#ffffff', glow: false, lineHeight: L.lineHeight.default, letterSpacing: 0, opacity: 100,
+      gradient: { enabled: false, from: '#ffffff', to: config.accent, angle: 90 },
     },
     controls: {
       text: { enabled: true, maxLength: L.textMaxLength, multiline: true },
@@ -54,6 +55,7 @@ export function layerTextZone(config: TemplateConfig, id: string, label: string)
       glow: { enabled: true },
       opacity: { enabled: true, ...L.opacity },
       position: { enabled: true, resize: true, bounds: c.bounds },
+      gradient: { enabled: true },
     },
   };
 }
