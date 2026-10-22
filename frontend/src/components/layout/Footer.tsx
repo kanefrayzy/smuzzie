@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { MessageCircle, Mail, Heart } from 'lucide-react';
 import Logo from '@/components/ui/Logo';
+import { openConsentSettings } from '@/lib/consent';
 
 const footerLinks = {
   'Quick Links': [
@@ -91,10 +92,13 @@ export default function Footer() {
             © {new Date().getFullYear()} SMUZZIE SERVICES
             <Heart size={10} className="text-accent-red/40 fill-accent-red/40" />
           </p>
-          <div className="flex items-center gap-6 text-gray-600 text-xs font-mono tracking-wider">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-gray-600 text-xs font-mono tracking-wider">
             <Link href="/terms" className="hover:text-gray-300 transition-colors">TERMS</Link>
             <Link href="/privacy" className="hover:text-gray-300 transition-colors">PRIVACY</Link>
             <Link href="/contact" className="hover:text-gray-300 transition-colors">CONTACT</Link>
+            <button type="button" onClick={openConsentSettings} className="hover:text-gray-300 transition-colors">
+              COOKIE SETTINGS
+            </button>
           </div>
         </div>
       </div>
