@@ -106,6 +106,8 @@ Buyers customize video templates (After Effects render without text + zones JSON
 - **Storage.** Private disk `banners` (`storage/app/banners`): template masters, buyer logos, results, temp folders. Public disk: watermarked previews, posters, fonts. Files are never overwritten (new names per upload), so snapshots stay valid. Downloads only via `temporarySignedRoute` (7 days).
 - **Queue.** Banner jobs use their own `banners` database connection (`retry_after` 900) with one supervisor worker; the default `QUEUE_CONNECTION` stays `sync` (`OptimizePortfolioMedia` runs in-process anyway). After deploying, run `php artisan queue:restart`.
 - **Mail.** `BannerReadyMail` is sent once when an order is ready; mail errors are logged and never fail the order.
+- **Payments.** WestWallet crypto on the order page (no redirect): a deposit address per order + coin, IPN at `/api/v1/payments/westwallet/ipn` (IP + secret checked, every transaction re-verified through their API) and `banners:payments-sync` every minute as a safety net; the only way to "paid" is still `markPaid()`. Keys and rules are env vars (`WESTWALLET_*`, `BANNERS_PAYMENT_*`), see `docs/banners/DEPLOY.md`; `php artisan payments:westwallet-check` tests the setup read-only. The API key only works from the prod server IP.
+- **Buyer freedom per template** (all opt-in in the admin zone editor): style controls per text zone (font, case, spacing, line height, glow, opacity), moving/resizing zones inside an area (`controls.position`), and own text/image layers (`config.custom`, `params.layers`, synthetic zones built in `banner-overlay/custom.ts` and `BannerCustomLayers.php`, keep both in sync).
 
 ### Frontend layout
 
