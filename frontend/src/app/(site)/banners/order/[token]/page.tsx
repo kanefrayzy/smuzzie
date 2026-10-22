@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Check, Download, Loader2, AlertTriangle, Clock } from 'lucide-react';
 import { publicApi } from '@/lib/api';
-import type { BannerOrderStatus, PublicBannerOrder } from '@/types/banners';
+import type { BannerOrderStatus, PublicBannerOrder, PublicBannerPayment } from '@/types/banners';
+import PaymentPanel from '@/components/banners/payment/PaymentPanel';
 
 const STEPS: { key: string; label: string; done: (s: BannerOrderStatus) => boolean; active: (s: BannerOrderStatus) => boolean }[] = [
   { key: 'placed', label: 'Order placed', done: () => true, active: () => false },
@@ -15,7 +16,7 @@ const STEPS: { key: string; label: string; done: (s: BannerOrderStatus) => boole
 ];
 
 const MESSAGES: Record<BannerOrderStatus, string> = {
-  pending_payment: 'We received your order and are waiting for the payment confirmation. This page updates by itself.',
+  pending_payment: 'Your order is saved. Pay below; this page updates by itself once the payment arrives.',
   queued: 'Payment confirmed. Your banner is in the render queue.',
   rendering: 'Your banner is being rendered right now. It usually takes under a minute.',
   ready: 'Your banner is ready. The links below are personal; we also emailed you this page.',
@@ -31,12 +32,25 @@ export default function BannerOrderPage() {
   const { token } = useParams<{ token: string }>();
   const [order, setOrder] = useState<PublicBannerOrder | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'missing' | 'error'>('loading');
+  // Server clock minus browser clock, for the price-lock countdown
+  const [clockOffset, setClockOffset] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout>>();
+
+  const syncClock = (serverTime?: string) => {
+    const t = serverTime ? Date.parse(serverTime) : NaN;
+    if (!Number.isNaN(t)) setClockOffset(t - Date.now());
+  };
+
+  const onPayment = useCallback((payment: PublicBannerPayment, serverTime?: string) => {
+    setOrder((o) => (o ? { ...o, payment } : o));
+    syncClock(serverTime);
+  }, []);
 
   const load = useCallback(async () => {
     try {
       const res = await publicApi.getBannerOrder(token);
       setOrder(res.data);
+      syncClock(res.data?.server_time);
       setState('ok');
       return res.data as PublicBannerOrder;
     } catch (err: any) {
@@ -73,7 +87,7 @@ export default function BannerOrderPage() {
     <div className="pt-24 pb-20 relative min-h-screen">
       <div className="absolute inset-0 bg-[#060608]" />
       <div className="absolute inset-0 bg-grid-pattern" />
-      <div className="relative max-w-xl mx-auto px-4 sm:px-6 py-14">
+      <div className="relative max-w-2xl mx-auto px-4 sm:px-6 py-14">
         {state === 'loading' && (
           <div className="flex justify-center py-24">
             <div className="w-10 h-10 border border-accent-red/30 border-t-accent-red animate-spin" />
@@ -126,6 +140,13 @@ export default function BannerOrderPage() {
                 ? 'The download period for this order has ended. Contact us and we will render the files again.'
                 : MESSAGES[order.status]}
             </p>
+
+            {order.status === 'pending_payment' && <PaymentPanel order={order} clockOffset={clockOffset} onPayment={onPayment} />}
+            {order.status !== 'pending_payment' && order.payment?.status === 'paid' && (
+              <p className="text-xs text-gray-500 mt-2">
+                Paid {order.payment.received} {order.payment.coin} on {order.payment.network_name}.
+              </p>
+            )}
 
             {order.downloads && (
               <div className="flex flex-wrap gap-3 mt-6">

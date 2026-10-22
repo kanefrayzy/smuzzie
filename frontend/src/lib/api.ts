@@ -54,6 +54,10 @@ export const publicApi = {
   createBannerOrder: (data: FormData) =>
     api.post('/banners/orders', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
   getBannerOrder: (token: string) => api.get(`/banners/orders/${encodeURIComponent(token)}`),
+  getPaymentAvailability: () => api.get('/banners/payments/availability'),
+  getPaymentMethods: (token: string) => api.get(`/banners/orders/${encodeURIComponent(token)}/payment-methods`),
+  selectPaymentMethod: (token: string, method: string) =>
+    api.post(`/banners/orders/${encodeURIComponent(token)}/payment`, { method }),
 };
 
 // ─── Admin API ────────────────────────────────────────────────
