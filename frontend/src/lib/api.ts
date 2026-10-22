@@ -47,6 +47,10 @@ export const publicApi = {
   getReviews: () => api.get('/reviews'),
   submitContact: (data: { name: string; email: string; subject: string; message: string }) =>
     api.post('/contact', data),
+
+  // Banner builder
+  getBannerTemplates: () => api.get('/banners/templates'),
+  getBannerTemplate: (slug: string) => api.get(`/banners/templates/${encodeURIComponent(slug)}`),
 };
 
 // ─── Admin API ────────────────────────────────────────────────

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\Admin\BannerFontController;
+use App\Http\Controllers\Api\BannerCatalogController;
 use App\Http\Controllers\Api\Admin\BannerTemplateController;
 
 /*
@@ -37,6 +38,11 @@ Route::prefix('v1')->group(function () {
     Route::middleware('throttle:3,1')->group(function () {
         Route::post('/contact', [ContactController::class, 'store']);
     });
+
+    // Banner builder catalog (no auth; only published templates)
+    Route::get('/banners/templates', [BannerCatalogController::class, 'index']);
+    Route::get('/banners/templates/{slug}', [BannerCatalogController::class, 'show'])
+        ->where('slug', '[a-z0-9-]+');
 
     // Admin routes (protected)
     Route::middleware(['auth:api', 'admin'])->prefix('admin')->group(function () {

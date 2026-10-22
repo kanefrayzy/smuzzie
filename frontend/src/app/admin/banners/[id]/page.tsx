@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { adminApi } from '@/lib/api';
 import { formatFileSize, getApiError, getImageUrl } from '@/lib/utils';
-import type { AdminBannerTemplate } from '@/types/banners';
+import type { AdminBannerFont, AdminBannerTemplate } from '@/types/banners';
 import { ArrowLeft, Upload, RefreshCw, Save, Film, ExternalLink, AlertTriangle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import TemplateStatusBadge from '@/components/admin/banners/TemplateStatusBadge';
+import ZoneEditor from '@/components/admin/banners/ZoneEditor';
 
 const input =
   'w-full bg-surface border border-white/5 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-accent-red/50';
@@ -58,6 +59,7 @@ export default function AdminBannerTemplatePage() {
   const templateId = Number(id);
   const [template, setTemplate] = useState<AdminBannerTemplate | null>(null);
   const [form, setForm] = useState<SettingsForm | null>(null);
+  const [fonts, setFonts] = useState<AdminBannerFont[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -79,6 +81,7 @@ export default function AdminBannerTemplatePage() {
 
   useEffect(() => {
     fetchTemplate(true);
+    adminApi.getBannerFonts().then((res) => setFonts(res.data)).catch(() => toast.error('Failed to load fonts'));
     return () => clearTimeout(pollRef.current);
   }, [fetchTemplate]);
 
@@ -363,12 +366,13 @@ export default function AdminBannerTemplatePage() {
         </section>
       </div>
 
-      {/* Zones: the visual editor is added in the next stage */}
+      {/* Zones */}
       <section className="glass-card p-6 border border-white/5 mt-6">
         <h3 className="text-lg font-semibold text-white mb-1">Zones</h3>
-        <p className="text-sm text-gray-500">
-          {template.config.zones.length} zones: {template.config.zones.map((z) => z.label).join(', ') || 'none yet'}.
+        <p className="text-sm text-gray-500 mb-5">
+          Where the buyer&apos;s texts and logo go, how they look by default and what the buyer may change.
         </p>
+        <ZoneEditor template={template} fonts={fonts} onSaved={(t) => setTemplate(t)} />
       </section>
     </div>
   );

@@ -50,3 +50,26 @@ export interface AdminBannerTemplate {
   created_at: string;
   updated_at: string;
 }
+
+/** Catalog card (GET /banners/templates) */
+export interface PublicBannerTemplateCard {
+  slug: string;
+  name: string;
+  description: string | null;
+  price: string;
+  currency: string;
+  width: number;
+  height: number;
+  duration: number;
+  preview_url: string;
+  poster_url: string | null;
+  outputs: BannerOutputs;
+}
+
+/** Everything the buyer editor needs (GET /banners/templates/{slug}) */
+export interface PublicBannerTemplate extends PublicBannerTemplateCard {
+  config: TemplateConfig;
+  fonts: BannerFontFace[];
+  fps: number;
+  frame_count: number;
+}
