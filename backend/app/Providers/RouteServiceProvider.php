@@ -40,6 +40,16 @@ class RouteServiceProvider extends ServiceProvider
         RateLimiter::for('banner-status', function (Request $request) {
             return Limit::perMinute(config('banners.rate_limits.status_per_minute'))->by($request->ip());
         });
+        RateLimiter::for('banner-payments', function (Request $request) {
+            $limits = config('banners.rate_limits');
+            return [
+                Limit::perMinute($limits['payment_per_minute'])->by('pay-minute:' . $request->ip()),
+                Limit::perDay($limits['payment_per_day'])->by('pay-day:' . $request->ip()),
+            ];
+        });
+        RateLimiter::for('payment-ipn', function (Request $request) {
+            return Limit::perMinute(config('banners.rate_limits.ipn_per_minute'))->by('ipn:' . $request->ip());
+        });
 
         $this->routes(function () {
             Route::middleware('api')

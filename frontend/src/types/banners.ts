@@ -89,6 +89,99 @@ export interface PublicBannerOrder {
   files_expire_at: string | null;
   files_expired: boolean;
   downloads: Partial<Record<'mp4' | 'gif', string>> | null;
+  /** Crypto payment the buyer picked last (or the one that paid); null before a coin is chosen */
+  payment: PublicBannerPayment | null;
+  server_time: string;
+}
+
+// ─── Crypto payments ──────────────────────────────────────────
+
+export type BannerPaymentStatus = 'awaiting' | 'confirming' | 'underpaid' | 'paid' | 'review';
+
+/** GET /banners/payments/availability */
+export interface PaymentAvailability {
+  payments_available: boolean;
+  auto_approve: boolean;
+  price_lock_minutes: number;
+}
+
+/** One entry of the coin/network picker (GET /banners/orders/{token}/payment-methods) */
+export interface PaymentMethod {
+  key: string;
+  coin: string;
+  coin_name: string;
+  network: string;
+  network_name: string;
+  /** File name in /public/crypto (without .svg) */
+  icon: string;
+  /** File name in /public/crypto/networks, null = use the coin icon */
+  network_icon: string | null;
+  decimals: number;
+  requires_tag: boolean;
+  approx_amount: string | null;
+  available: boolean;
+  unavailable_reason: string | null;
+}
+
+export interface PaymentMethodsResponse {
+  available: boolean;
+  reason: 'not_configured' | 'unavailable' | 'not_pending' | null;
+  methods: PaymentMethod[];
+  price_lock_minutes?: number;
+}
+
+/** Deposit address and quote (POST /banners/orders/{token}/payment, and `payment` in the order) */
+export interface PublicBannerPayment {
+  method: string;
+  coin: string;
+  coin_name: string;
+  network: string;
+  network_name: string;
+  icon: string;
+  network_icon: string | null;
+  address: string;
+  dest_tag: string | null;
+  /** Coin amounts are decimal strings */
+  amount: string;
+  amount_usd: string;
+  received: string;
+  pending: string;
+  remaining: string;
+  confirmations: number;
+  status: BannerPaymentStatus;
+  expires_at: string | null;
+  /** The price lock ran out and nothing has arrived: ask for a new quote */
+  expired: boolean;
+  paid_at: string | null;
+}
+
+export interface AdminBannerPaymentTransaction {
+  provider_id: string;
+  currency: string;
+  amount: string;
+  status: 'pending' | 'completed' | 'failed';
+  provider_status: string | null;
+  confirmations: number;
+  hash: string | null;
+  first_seen_at: string | null;
+  completed_at: string | null;
+}
+
+export interface AdminBannerPayment extends PublicBannerPayment {
+  id: number;
+  provider: string;
+  currency: string;
+  label: string;
+  rate: string;
+  quoted_at: string | null;
+  selected_at: string | null;
+  detected_at: string | null;
+  last_checked_at: string | null;
+  overpaid: string | null;
+  review_reason: 'late' | 'late_short' | null;
+  late_value_usd: number | null;
+  order_already_paid: boolean;
+  transactions: AdminBannerPaymentTransaction[];
 }
 
 export interface AdminBannerOrder {
@@ -101,6 +194,7 @@ export interface AdminBannerOrder {
   amount: string;
   currency: string;
   payment_provider: string | null;
+  payment_reference: string | null;
   attempts: number;
   error: string | null;
   created_at: string;
@@ -129,4 +223,5 @@ export interface AdminBannerOrderDetails extends AdminBannerOrder {
   render_log: string | null;
   downloads: Partial<Record<'mp4' | 'gif', string>> | null;
   ip: string | null;
+  payments: AdminBannerPayment[];
 }

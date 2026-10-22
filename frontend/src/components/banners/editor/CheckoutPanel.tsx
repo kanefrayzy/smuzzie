@@ -2,10 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, WifiOff } from 'lucide-react';
 import { publicApi } from '@/lib/api';
 import { exportParams } from '@/lib/banner-overlay';
-import type { PublicBannerTemplate } from '@/types/banners';
+import type { PaymentAvailability, PublicBannerTemplate } from '@/types/banners';
 import type { EditorState } from './BannerEditor';
 import { fieldInput } from './ui';
 
@@ -38,22 +38,39 @@ function describeErrors(errors: Record<string, string[]>, template: PublicBanner
 }
 
 /**
- * Checkout: email + order button. Payment isn't connected yet, so the order waits for a
- * manual confirmation; the endpoint and the order page are already the final ones.
+ * Checkout: email + order button. The order is created here; the buyer then pays in crypto
+ * on the order page (/banners/order/<token>), which also resumes the payment after a reload.
+ * Without a configured gateway (and without BANNERS_AUTO_APPROVE) ordering is switched off.
  */
 export default function CheckoutPanel({ template, state }: { template: PublicBannerTemplate; state: EditorState }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [availability, setAvailability] = useState<PaymentAvailability | null>(null);
 
   useEffect(() => setEmail(readEmail()), []);
+  useEffect(() => {
+    let cancelled = false;
+    publicApi
+      .getPaymentAvailability()
+      .then((res) => !cancelled && setAvailability(res.data))
+      // Can't tell: let the order through, the order page explains if paying is impossible
+      .catch(() => !cancelled && setAvailability(null));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const autoApprove = !!availability?.auto_approve;
+  const unavailable = !!availability && !availability.payments_available && !autoApprove;
 
   const price = Number(template.price);
   const formats = template.outputs.gif.enabled ? 'MP4 + GIF' : 'MP4';
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (unavailable) return;
     setError('');
     const value = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
@@ -109,11 +126,23 @@ export default function CheckoutPanel({ template, state }: { template: PublicBan
           {error}
         </p>
       )}
-      <button type="submit" disabled={busy} className="btn-primary w-full justify-center text-sm disabled:opacity-60">
-        <ShoppingBag size={16} /> {busy ? 'Placing the order…' : 'Place order'}
+      {unavailable && (
+        <p className="text-sm text-gray-300 flex gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] p-3" role="status">
+          <WifiOff size={16} className="shrink-0 mt-0.5 text-gray-500" />
+          <span>Payments are unavailable right now, so ordering is paused. Your design is saved in this browser; please come back later.</span>
+        </p>
+      )}
+      <button
+        type="submit"
+        disabled={busy || unavailable}
+        className="btn-primary w-full justify-center text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <ShoppingBag size={16} /> {busy ? 'Placing the order…' : autoApprove ? 'Place order' : 'Continue to payment'}
       </button>
       <p className="text-xs text-gray-500">
-        After the payment is confirmed we render your files without the watermark and email you a download link.
+        {autoApprove
+          ? 'Test mode: orders skip payment and go straight to the render.'
+          : 'Next you pay in crypto (USDT, USDC, BTC, ETH and more) right on the order page. After the payment is confirmed we render your files without the watermark and email you a download link.'}
       </p>
     </form>
   );

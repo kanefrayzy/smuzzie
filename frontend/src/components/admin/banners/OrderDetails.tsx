@@ -8,6 +8,7 @@ import { formatFileSize, getApiError } from '@/lib/utils';
 import type { AdminBannerOrderDetails } from '@/types/banners';
 import BannerPreview from '@/components/banners/BannerPreview';
 import OrderStatusBadge from './OrderStatusBadge';
+import PaymentInfo from './PaymentInfo';
 
 function when(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' }) : '—';
@@ -131,6 +132,8 @@ export default function OrderDetails({ id, onClose, onChanged }: { id: number; o
               </div>
             )}
 
+            <PaymentInfo payments={order.payments || []} />
+
             <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
               <div>
                 <h3 className="text-xs uppercase tracking-wider text-gray-500 mb-2">What the buyer composed</h3>
@@ -175,7 +178,10 @@ export default function OrderDetails({ id, onClose, onChanged }: { id: number; o
                     <dt className="text-gray-500">Attempts</dt>
                     <dd className="text-gray-200 font-mono">{order.attempts}</dd>
                     <dt className="text-gray-500">Payment</dt>
-                    <dd className="text-gray-200 font-mono">{order.payment_provider || '—'}</dd>
+                    <dd className="text-gray-200 font-mono break-all">
+                      {order.payment_provider || '—'}
+                      {order.payment_reference ? ` · ${order.payment_reference}` : ''}
+                    </dd>
                     <dt className="text-gray-500">IP</dt>
                     <dd className="text-gray-200 font-mono">{order.ip || '—'}</dd>
                   </dl>

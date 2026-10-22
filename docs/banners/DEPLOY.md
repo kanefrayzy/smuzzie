@@ -125,6 +125,83 @@ MAIL_FROM_ADDRESS=noreply@smuzzie.com
 MAIL_FROM_NAME="Smuzzie"
 ```
 
+## Payments (WestWallet)
+
+Покупатель платит криптой прямо на странице заказа `/banners/order/<token>`, без перехода на сайт WestWallet:
+1. выбирает монету и сеть;
+2. получает адрес (один на заказ и монету, при повторном выборе тот же), сумму в монете, QR и, если сеть требует, memo/tag;
+3. цена держится `BANNERS_PAYMENT_LOCK_MINUTES` минут.
+
+WestWallet присылает IPN, мы проверяем транзакцию через их API (`POST /wallet/transaction` по id) и только после этого вызываем `BannerOrderService::markPaid()`.
+
+### Переменные `.env`
+
+| переменная | по умолчанию | что делает |
+|---|---|---|
+| `WESTWALLET_PUBLIC_KEY` | — | публичный ключ API (профиль WestWallet → API) |
+| `WESTWALLET_PRIVATE_KEY` | — | приватный ключ. Без обоих ключей оформление заказа показывает «payments unavailable» |
+| `WESTWALLET_IPN_SECRET` | — | рекомендуется: случайная строка (`openssl rand -hex 24`), добавляется к IPN URL как `?secret=...`, IPN без неё отклоняется |
+| `WESTWALLET_IPN_URL` | `APP_URL` + `/api/v1/payments/westwallet/ipn` | менять, только если API доступен по другому адресу |
+| `WESTWALLET_IPN_IPS` | `45.155.121.88` | с каких IP принимать IPN (из документации WestWallet). Пустая строка отключает проверку |
+| `BANNERS_PAYMENT_LOCK_MINUTES` | 30 | сколько держится цена в монете |
+| `BANNERS_PAYMENT_GRACE_MINUTES` | 15 | транзакция, замеченная в эти минуты после конца фиксации, ещё считается вовремя |
+| `BANNERS_PAYMENT_UNDERPAY_TOLERANCE` | 0.5 | на сколько процентов можно недоплатить, чтобы заказ всё равно считался оплаченным |
+| `BANNERS_PAYMENT_LATE_POLICY` | `requote` | опоздавший платёж в нестабильной монете: `requote` — принять, если по текущему курсу он покрывает цену, иначе на проверку админу; `accept` — всегда по старой цене; `review` — всегда админу |
+
+После правки `.env`: `sudo -u www-data php artisan config:cache`, если кэш конфигурации включён.
+
+### IPN URL
+
+В кабинете WestWallet его вводить не нужно. Мы передаём `ipn_url` при создании каждого адреса (`POST /address/generate`), и WestWallet шлёт уведомления по этому адресу:
+
+```
+https://smuzzie.com/api/v1/payments/westwallet/ipn?secret=<WESTWALLET_IPN_SECRET>
+```
+
+Адрес запоминает свой `ipn_url` навсегда. Поэтому смена `APP_URL` или `WESTWALLET_IPN_SECRET` ломает IPN у уже выданных адресов. Такие платежи всё равно подхватит синхронизация (см. ниже), но только в первые 24 часа.
+
+В настройках ключа API в WestWallet должен быть разрешён IP сервера (`66.29.152.178`). С других IP API отвечает `ip_not_allowed`.
+
+Сайт отдаётся nginx напрямую, без CDN, поэтому Laravel видит настоящий IP отправителя IPN. Если перед сайтом когда-нибудь появится Cloudflare или другой прокси, надо настроить `TrustProxies` или поставить `WESTWALLET_IPN_IPS=` и полагаться на секрет. Подделать оплату всё равно нельзя: каждая транзакция перепроверяется через API.
+
+### Синхронизация
+
+Если IPN потерялся, платёж всё равно найдётся. Планировщик (cron из §4) каждую минуту запускает `banners:payments-sync`. Команда проверяет через API открытые платежи за последние 24 часа, каждый не чаще раза в 2 минуты. Ручной запуск: `sudo -u www-data php artisan banners:payments-sync --all`.
+
+### Проверка
+
+```bash
+cd /var/www/smuzzie/backend
+sudo -u www-data php artisan migrate --force                 # таблицы banner_payments, banner_payment_transactions
+sudo -u www-data php artisan payments:westwallet-check       # только чтение: ключи, подпись, IP, курсы, IPN URL
+curl -s https://smuzzie.com/api/v1/banners/payments/availability   # {"payments_available":true,...}
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://smuzzie.com/api/v1/payments/westwallet/ipn -d id=1   # 403: чужой IP
+```
+
+`payments:westwallet-check` должен показать «Signed request: OK» и курс у каждой монеты из таблицы. `wrong_hmac` означает неверный приватный ключ, `ip_not_allowed` — IP сервера не добавлен к ключу.
+
+Сквозная проверка с реальными деньгами:
+1. оформить заказ на шаблоне за $1–2;
+2. выбрать USDT TRC20 или TON. Минимальный депозит WestWallet: USDT TRC20 — 10, USDT BEP20/TON/SOL — 1. Если сумма меньше минимума, монета показывается неактивной;
+3. отправить сумму;
+4. на странице заказа статус пройдёт «Waiting» → «Payment detected» → «Payment confirmed», заказ уйдёт в рендер;
+5. в «Banner orders» у заказа видны монета, адрес, tx id и суммы.
+
+Все IPN и результаты их проверки пишутся в `backend/storage/logs/payments-YYYY-MM-DD.log`.
+
+### Правила
+
+- **Недоплата** больше допуска: статус «underpaid», покупатель видит, сколько доплатить на тот же адрес.
+- **Переплата:** принимается, лишнее показано админу. Автоматического возврата нет.
+- **Платёж после конца фиксации цены:**
+  - для USDT и USDC цена не меняется;
+  - для остальных монет действует `BANNERS_PAYMENT_LATE_POLICY`;
+  - статус «Needs review» решает админ: кнопка «Confirm payment» или возврат вручную.
+- **Повторный IPN** ничего не меняет.
+- **Ещё одна оплата** заказа, который уже оплачен (другой монетой или вручную), помечается для админа.
+
+Кнопка «Confirm payment» в админке работает как раньше. `BANNERS_AUTO_APPROVE=true` по-прежнему пропускает оплату.
+
 ## 6. Фронтенд
 
 Обычная сборка без простоя из `CLAUDE.md`: `NEXT_DIST_DIR=.next-new npm run build`, проверка на порту 3001, переключение папок и `pm2 restart smuzzie-frontend`.
@@ -161,4 +238,5 @@ MAIL_FROM_NAME="Smuzzie"
 
 - **Код:** `git checkout <предыдущий коммит>` и вернуть предыдущую сборку фронта (`.next.prev-*`).
 - **Воркер:** `supervisorctl stop smuzzie-banners-worker`.
+- **Оплата:** удалить `WESTWALLET_*` из `.env`, и оформление заказа покажет «payments unavailable». Таблицы платежей откатываются через `php artisan migrate:rollback --step=1`, это последняя миграция.
 - **Таблицы баннеров** ни от чего не зависят. При полном откате можно сделать `php artisan migrate:rollback --step=4`. Порядок миграций: `jobs`, шрифты, шаблоны, заказы.

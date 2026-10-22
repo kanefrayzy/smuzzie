@@ -62,6 +62,22 @@ class BannerOrder extends Model
         return $this->belongsTo(BannerTemplate::class, 'template_id')->withTrashed();
     }
 
+    /** Crypto deposit addresses, one per payment method the buyer picked. */
+    public function payments()
+    {
+        return $this->hasMany(BannerPayment::class, 'order_id');
+    }
+
+    /** What the order page shows: the paid address if there is one, else the buyer's latest choice. */
+    public function currentPayment(): ?BannerPayment
+    {
+        return $this->payments()
+            ->orderByRaw("case when status = 'paid' then 0 else 1 end")
+            ->orderByDesc('selected_at')
+            ->orderByDesc('id')
+            ->first();
+    }
+
     /** Buyer orders, without admin test renders. */
     public function scopeReal(Builder $query): Builder
     {

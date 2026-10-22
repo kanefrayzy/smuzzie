@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\Admin\BannerFontController;
 use App\Http\Controllers\Api\BannerCatalogController;
 use App\Http\Controllers\Api\BannerOrderController;
+use App\Http\Controllers\Api\BannerPaymentController;
+use App\Http\Controllers\Api\PaymentWebhookController;
 use App\Http\Controllers\Api\Admin\BannerOrderController as AdminBannerOrderController;
 use App\Http\Controllers\Api\Admin\BannerTemplateController;
 
@@ -57,7 +59,18 @@ Route::prefix('v1')->group(function () {
         Route::get('/banners/orders/{token}/image/{key}', [BannerOrderController::class, 'image'])
             ->whereUuid('token')->where('key', '[a-z][a-z0-9_]{0,31}')
             ->middleware('signed')->name('banners.image');
+        Route::get('/banners/orders/{token}/payment-methods', [BannerPaymentController::class, 'methods'])->whereUuid('token');
     });
+
+    // Crypto checkout: choosing a coin may create a deposit address, so it has its own limit
+    Route::get('/banners/payments/availability', [BannerPaymentController::class, 'availability']);
+    Route::post('/banners/orders/{token}/payment', [BannerPaymentController::class, 'select'])
+        ->whereUuid('token')->middleware('throttle:banner-payments');
+
+    // Payment notifications from the gateway: no auth (the transaction is re-verified through
+    // the gateway's API), no CSRF on API routes
+    Route::post('/payments/westwallet/ipn', [PaymentWebhookController::class, 'westwallet'])
+        ->middleware('throttle:payment-ipn')->name('payments.westwallet.ipn');
 
     // Admin routes (protected)
     Route::middleware(['auth:api', 'admin'])->prefix('admin')->group(function () {

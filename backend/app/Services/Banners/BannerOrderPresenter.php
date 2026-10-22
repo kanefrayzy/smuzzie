@@ -4,6 +4,7 @@ namespace App\Services\Banners;
 
 use App\Enums\BannerOrderStatus;
 use App\Models\BannerOrder;
+use App\Services\Payments\BannerPaymentPresenter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
@@ -32,6 +33,9 @@ class BannerOrderPresenter
             'files_expire_at' => $ready && $order->ready_at ? $order->ready_at->copy()->addDays($days)->toIso8601String() : null,
             'files_expired' => $ready && $order->result_purged_at !== null,
             'downloads' => self::downloads($order),
+            // Crypto payment the order page shows (resumed after a reload); null before one is picked
+            'payment' => ($payment = $order->currentPayment()) ? BannerPaymentPresenter::public($payment) : null,
+            'server_time' => now()->toIso8601String(),
         ];
     }
 
@@ -52,6 +56,7 @@ class BannerOrderPresenter
             'amount' => $order->amount,
             'currency' => $order->currency,
             'payment_provider' => $order->payment_provider,
+            'payment_reference' => $order->payment_reference,
             'attempts' => $order->attempts,
             'error' => $order->error,
             'created_at' => $order->created_at?->toIso8601String(),
@@ -93,6 +98,8 @@ class BannerOrderPresenter
                 'render_log' => $order->render_log,
                 'downloads' => self::downloads($order),
                 'ip' => $order->ip,
+                'payments' => $order->payments()->with('transactions')->orderBy('id')->get()
+                    ->map(fn ($p) => BannerPaymentPresenter::admin($p))->all(),
             ];
         }
 
