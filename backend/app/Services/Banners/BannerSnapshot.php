@@ -34,6 +34,8 @@ class BannerSnapshot
                 'price' => (string) $template->price,
                 'currency' => $template->currency,
             ],
+            // video (MP4/GIF results) or image (PNG/JPG); older snapshots without it are videos
+            'kind' => $template->kind ?? BannerMedia::VIDEO,
             'config' => $template->config,
             'outputs' => $template->outputs,
             'watermark' => $template->watermark,

@@ -6,6 +6,7 @@ use App\Enums\BannerOrderStatus;
 use App\Models\BannerFont;
 use App\Models\BannerOrder;
 use App\Models\BannerTemplate;
+use App\Services\Banners\BannerMedia;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Storage;
  *  - unpaid orders older than 7 days, with their logos (not those that received crypto:
  *    an underpaid or late payment is the admin's to resolve);
  *  - test renders older than 7 days;
- *  - rendered MP4/GIF files 30 days after they were ready (the order and its settings stay;
+ *  - rendered MP4/GIF (PNG/JPG) files 30 days after they were ready (the order and its settings stay;
  *    "Render again" rebuilds them);
  *  - temp render folders older than a day;
  *  - template masters/uploads/previews that nothing refers to any more;
@@ -78,7 +79,7 @@ class BannersCleanupCommand extends Command
             ->chunkById(200, function ($orders) use (&$n) {
                 foreach ($orders as $order) {
                     if (!$this->dry) {
-                        foreach (['mp4', 'gif'] as $format) {
+                        foreach (BannerMedia::FORMATS as $format) {
                             if ($path = $order->result[$format]['path'] ?? null) {
                                 $this->private()->delete($path);
                             }

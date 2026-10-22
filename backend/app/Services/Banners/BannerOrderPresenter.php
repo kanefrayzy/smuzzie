@@ -25,6 +25,7 @@ class BannerOrderPresenter
                 'name' => $snapshot['template']['name'] ?? null,
                 'slug' => $snapshot['template']['slug'] ?? null,
             ],
+            'kind' => BannerMedia::kindOf($snapshot),
             'formats' => self::formats($snapshot),
             'email' => self::maskEmail($order->email),
             'created_at' => $order->created_at?->toIso8601String(),
@@ -74,6 +75,7 @@ class BannerOrderPresenter
                 'params' => $order->params,
                 'snapshot' => [
                     'snapshotVersion' => $snapshot['snapshotVersion'] ?? null,
+                    'kind' => BannerMedia::kindOf($snapshot),
                     'template' => $snapshot['template'] ?? null,
                     'config' => $snapshot['config'] ?? null,
                     'outputs' => $snapshot['outputs'] ?? null,
@@ -94,6 +96,8 @@ class BannerOrderPresenter
                     'fit' => $order->result['fit'] ?? null,
                     'mp4_size' => $order->result['mp4']['size'] ?? null,
                     'gif_size' => $order->result['gif']['size'] ?? null,
+                    'png_size' => $order->result['png']['size'] ?? null,
+                    'jpg_size' => $order->result['jpg']['size'] ?? null,
                 ] : null,
                 'render_log' => $order->render_log,
                 'downloads' => self::downloads($order),
@@ -121,13 +125,9 @@ class BannerOrderPresenter
         return $links;
     }
 
-    private static function formats(array $snapshot): array
+    public static function formats(array $snapshot): array
     {
-        $formats = ['mp4'];
-        if ($snapshot['outputs']['gif']['enabled'] ?? false) {
-            $formats[] = 'gif';
-        }
-        return $formats;
+        return BannerMedia::formats(BannerMedia::kindOf($snapshot), $snapshot['outputs'] ?? []);
     }
 
     private static function maskEmail(?string $email): ?string

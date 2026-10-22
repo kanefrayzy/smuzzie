@@ -54,7 +54,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware('throttle:banner-status')->group(function () {
         Route::get('/banners/orders/{token}', [BannerOrderController::class, 'show'])->whereUuid('token');
         Route::get('/banners/orders/{token}/download/{format}', [BannerOrderController::class, 'download'])
-            ->whereUuid('token')->whereIn('format', ['mp4', 'gif'])
+            ->whereUuid('token')->whereIn('format', ['mp4', 'gif', 'png', 'jpg'])
             ->middleware('signed')->name('banners.download');
         Route::get('/banners/orders/{token}/image/{key}', [BannerOrderController::class, 'image'])
             ->whereUuid('token')->where('key', '[a-z][a-z0-9_]{0,31}')

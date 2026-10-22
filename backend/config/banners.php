@@ -33,7 +33,11 @@ return [
     'template' => [
         'max_upload_mb' => 500,
         'max_duration' => 60,      // seconds
-        'max_side' => 4096,        // px
+        'max_side' => 4096,        // px, videos and images
+        // Static templates: a PNG/JPG/WebP background instead of a video (sRGB or untagged)
+        'max_image_upload_mb' => 50,
+        'max_image_pixels' => 16_777_216, // 4096x4096
+        'image_mimes' => ['image/png', 'image/jpeg', 'image/webp'],
         'max_fps' => 60,
         'max_zones' => 20,
         'max_image_zones' => 3,
@@ -48,6 +52,11 @@ return [
             'mp4' => true,
             // GIF width is capped by the template width (and 1080); about 3 MB per second at 1000 px / 15 fps
             'gif' => ['enabled' => false, 'width' => 1000, 'fps' => 15],
+        ],
+        // Image templates: PNG always, JPG optional (quality 60-100)
+        'default_image_outputs' => [
+            'png' => true,
+            'jpg' => ['enabled' => true, 'quality' => 92],
         ],
     ],
 

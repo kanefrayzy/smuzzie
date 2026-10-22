@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BannerTemplateStatus;
+use App\Services\Banners\BannerMedia;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,15 +12,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * A banner template: AE video without text + zones config (docs/banners/PLAN.md §2).
- * Source files are private; only the watermarked preview and the poster are public.
+ * A banner template: AE video (or, for `kind` image, a still PNG/JPG) without text + zones config
+ * (docs/banners/PLAN.md §2). Source files are private; only the watermarked preview and the
+ * poster are public.
  */
 class BannerTemplate extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
 
     protected $fillable = [
-        'slug', 'name', 'description', 'price', 'currency', 'is_active', 'sort_order',
+        'slug', 'name', 'description', 'price', 'currency', 'kind', 'is_active', 'sort_order',
         'config', 'outputs', 'watermark',
         'source_rev', 'upload_path', 'source_path', 'preview_path', 'poster_path',
         'width', 'height', 'frame_count', 'duration', 'fps',
@@ -49,6 +51,7 @@ class BannerTemplate extends Model
         'sort_order' => 0,
         'source_rev' => 0,
         'currency' => 'USD',
+        'kind' => 'video',
     ];
 
     // File locations never leave the backend; the public URLs are appended instead
@@ -86,6 +89,17 @@ class BannerTemplate extends Model
     public function hasMedia(): bool
     {
         return $this->source_path !== null && $this->preview_path !== null;
+    }
+
+    public function isImage(): bool
+    {
+        return $this->kind === BannerMedia::IMAGE;
+    }
+
+    /** @return string[] result formats an order of this template gets (mp4/gif or png/jpg) */
+    public function formats(): array
+    {
+        return BannerMedia::formats($this->kind, $this->outputs);
     }
 
     public function getPreviewUrlAttribute(): ?string

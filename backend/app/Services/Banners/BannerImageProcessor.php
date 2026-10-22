@@ -65,7 +65,7 @@ class BannerImageProcessor
         }
 
         if ($info[2] === IMAGETYPE_JPEG) {
-            $img = $this->applyExifOrientation($img, $source);
+            $img = self::applyExifOrientation($img, $source);
         }
         if (!imageistruecolor($img)) {
             imagepalettetotruecolor($img);
@@ -118,7 +118,7 @@ class BannerImageProcessor
     }
 
     /** Browsers show JPEGs rotated by their EXIF orientation; bake it in so the render matches. */
-    private function applyExifOrientation(\GdImage $img, string $file): \GdImage
+    public static function applyExifOrientation(\GdImage $img, string $file): \GdImage
     {
         if (!function_exists('exif_read_data')) {
             return $img;

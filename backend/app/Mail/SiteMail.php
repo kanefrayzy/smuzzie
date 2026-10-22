@@ -3,6 +3,8 @@
 namespace App\Mail;
 
 use App\Models\BannerOrder;
+use App\Services\Banners\BannerMedia;
+use App\Services\Banners\BannerOrderPresenter;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
@@ -109,7 +111,7 @@ abstract class SiteMail extends Mailable
     {
         $name = trim((string) ($order->snapshot['template']['name'] ?? ''));
 
-        return $name !== '' ? $name : 'Video banner';
+        return $name !== '' ? $name : ($order->kind() === BannerMedia::IMAGE ? 'Banner' : 'Video banner');
     }
 
     public static function price(BannerOrder $order): string
@@ -120,9 +122,10 @@ abstract class SiteMail extends Mailable
         return $currency === 'USD' ? '$' . $amount : $amount . ' ' . $currency;
     }
 
+    /** "MP4 and GIF", "PNG and JPG", ... from the order snapshot */
     public static function formats(BannerOrder $order): string
     {
-        return ($order->snapshot['outputs']['gif']['enabled'] ?? false) ? 'MP4 and GIF' : 'MP4';
+        return BannerMedia::label(BannerOrderPresenter::formats($order->snapshot ?? []));
     }
 
     /** Header-safe text (subjects): one line, trimmed. */

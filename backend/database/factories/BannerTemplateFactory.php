@@ -53,6 +53,26 @@ class BannerTemplateFactory extends Factory
         });
     }
 
+    /** A published static template: PNG master, WebP preview and poster, PNG + JPG results. */
+    public function image(): static
+    {
+        return $this->published()->state(function () {
+            $uuid = (string) Str::uuid();
+            return [
+                'kind' => 'image',
+                'source_path' => "templates/{$uuid}/source-1.png",
+                'preview_path' => "banners/templates/{$uuid}/preview-1.webp",
+                'poster_path' => "banners/templates/{$uuid}/poster-1.webp",
+                'width' => 1200,
+                'height' => 628,
+                'frame_count' => null,
+                'duration' => null,
+                'fps' => null,
+                'outputs' => config('banners.template.default_image_outputs'),
+            ];
+        });
+    }
+
     /**
      * Schema v1 config modelled on the prototype (docs/banners/prototype/public/template/template.json):
      * a logo zone, a heading with every control on, and a fixed button label with controls off.
