@@ -29,6 +29,7 @@ php vendor/bin/phpunit --filter=AdminRoutesAccessTest
 php artisan portfolio:video-thumbnails [--force]   # backfill video poster JPGs (needs ffmpeg)
 php artisan queue:work banners --queue=banners     # banner worker (template videos + renders)
 php artisan banners:cleanup [--dry-run]            # daily via the scheduler
+php artisan mail:preview [type] [--to=addr]        # emails -> storage/app/mail-previews, or send them
 ```
 
 Renderer (run from `renderer/`):
@@ -105,7 +106,7 @@ Buyers customize video templates (After Effects render without text + zones JSON
 - **Orders** store a full template snapshot; the renderer reads only the snapshot. Status changes go through `BannerOrderService`; `markPaid()` is the single, idempotent way into the paid state (admin button now, payment webhook later). `BANNERS_AUTO_APPROVE=true` skips payment in development.
 - **Storage.** Private disk `banners` (`storage/app/banners`): template masters, buyer logos, results, temp folders. Public disk: watermarked previews, posters, fonts. Files are never overwritten (new names per upload), so snapshots stay valid. Downloads only via `temporarySignedRoute` (7 days).
 - **Queue.** Banner jobs use their own `banners` database connection (`retry_after` 900) with one supervisor worker; the default `QUEUE_CONNECTION` stays `sync` (`OptimizePortfolioMedia` runs in-process anyway). After deploying, run `php artisan queue:restart`.
-- **Mail.** `BannerReadyMail` is sent once when an order is ready; mail errors are logged and never fail the order.
+- **Mail.** All site email goes through `App\Services\Mail\MailSender`: never throws (errors are logged), sends after the HTTP response (the global `SendMailAfterResponse` middleware flushes in `terminate()`) or, outside a request, right after the DB commit. No queued mail: the single banner worker is busy with renders. Who gets what is in `BannerNotifications` (order received / paid / ready, admin: paid, payment review, render failed) and `ContactNotifications`; each order email is sent once via an atomically claimed `*_notified_at` column. Never for test orders or `BANNERS_AUTO_APPROVE`. Mailables extend `App\Mail\SiteMail` (one layout `resources/views/mail/layout.blade.php`, text versions in `mail/text/`; HTML views use `{{ }}`, text views `{!! !!}`). `php artisan mail:preview [type] [--to=]` renders or sends every email with sample data. SMTP is Resend; settings in `docs/banners/DEPLOY.md`.
 - **Payments.** WestWallet crypto on the order page (no redirect): a deposit address per order + coin, IPN at `/api/v1/payments/westwallet/ipn` (IP + secret checked, every transaction re-verified through their API) and `banners:payments-sync` every minute as a safety net; the only way to "paid" is still `markPaid()`. Keys and rules are env vars (`WESTWALLET_*`, `BANNERS_PAYMENT_*`), see `docs/banners/DEPLOY.md`; `php artisan payments:westwallet-check` tests the setup read-only. The API key only works from the prod server IP.
 - **Buyer freedom per template** (all opt-in in the admin zone editor): style controls per text zone (font, case, spacing, line height, glow, opacity), moving/resizing zones inside an area (`controls.position`), and own text/image layers (`config.custom`, `params.layers`, synthetic zones built in `banner-overlay/custom.ts` and `BannerCustomLayers.php`, keep both in sync).
 

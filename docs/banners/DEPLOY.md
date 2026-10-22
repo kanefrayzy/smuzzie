@@ -106,24 +106,99 @@ Supervisor поднимет воркер заново, текущее задан
 | `BANNERS_FFMPEG_THREADS` | 3 | потоки ffmpeg на один рендер (на сервере 4 ядра) |
 | `BANNERS_CHROMIUM_SANDBOX` | true | false: запасной режим `--no-sandbox` |
 | `PLAYWRIGHT_BROWSERS_PATH` | (задан в конфиге supervisor) | где лежит Chromium |
-| `MAIL_*` | (не заданы) | SMTP для письма «заказ готов», см. ниже |
+| `MAIL_*` | (не заданы) | почта через Resend, см. «Почта (Resend)» ниже |
 
 Если на сервере включён кэш конфигурации (`php artisan config:cache`), после правки `.env` его надо пересобрать.
 
-### Почта
+### Почта (Resend)
 
-Сейчас в `.env` на сервере нет ни одной переменной `MAIL_*`. Пока почта не настроена, письмо «заказ готов» не уходит: ошибка пишется в лог, а сам заказ не страдает. Покупатель всё равно видит ссылку на странице заказа сразу после оформления. Для отправки нужны данные SMTP:
+Все письма сайта уходят через SMTP Resend. Пакет `resend/resend-laravel` не нужен: в Laravel 10 нет встроенного транспорта `resend`, а обычный SMTP-мейлер с ним работает без новых зависимостей.
+
+Пока ключа нет, письма не уходят: ошибка пишется в `storage/logs/laravel.log` (`Email not sent: ...`), а заказ, оплата и форма контактов работают как обычно.
+
+#### Какие письма и когда
+
+| письмо | кому | когда |
+|---|---|---|
+| Order received | покупателю | заказ создан и ждёт оплаты: сводка, кнопка «Complete payment» на `/banners/order/<token>`, фиксация цены на `BANNERS_PAYMENT_LOCK_MINUTES` минут, удаление неоплаченных через 7 дней |
+| Payment received | покупателю | заказ стал оплаченным (`markPaid`): монета, сумма, tx, «рендерим, пришлём письмо» |
+| New paid order | админу | то же событие; не шлётся, когда оплату подтвердил сам админ кнопкой |
+| Your banner is ready | покупателю | рендер готов |
+| Payment needs review | админу | недоплата, опоздавший платёж на проверку, вторая оплата уже оплаченного заказа |
+| Render failed | админу | рендер упал после последней попытки |
+| Contact form | админу | сообщение из формы, `Reply-To` = отправитель |
+| We got your message | отправителю формы | автоответ с цитатой (до 600 символов), не больше 2 в сутки на один адрес |
+
+- Тестовые рендеры и `BANNERS_AUTO_APPROVE` писем об оплате не получают.
+- Каждое письмо по заказу уходит один раз. Гарантию дают колонки `*_notified_at` в `banner_orders` (миграция `2026_10_23_000001`). Повторный IPN, повторный рендер и ретрай второй копии не пришлют.
+- Письма, вызванные запросом (оформление, IPN, форма, кнопка в админке), отправляются после того, как ответ ушёл браузеру (`terminate()` после `fastcgi_finish_request`). SMTP не замедляет страницу. Письма из воркера и планировщика уходят сразу.
+- В очередь письма не ставятся. Единственный воркер занят рендерами, и письмо ждало бы за ними минуты.
+- Если письмо не ушло, ошибка только логируется. Повторной отправки нет.
+
+#### Домен в Resend
+
+1. Resend → Domains → Add domain → `smuzzie.com`. Регион оставить по умолчанию (`us-east-1`) или выбрать ближайший, от этого зависит значение MX.
+2. Добавить у DNS-провайдера записи, которые покажет Resend. Значения копировать из панели, ниже только их вид:
+
+   | тип | имя | значение | приоритет |
+   |---|---|---|---|
+   | MX | `send` | `feedback-smtp.us-east-1.amazonses.com` (регион из панели) | 10 |
+   | TXT | `send` | `v=spf1 include:amazonses.com ~all` | |
+   | TXT | `resend._domainkey` | `p=MIGfMA0GCSq...` (длинный ключ DKIM из панели) | |
+
+   Записи стоят на поддомене `send.smuzzie.com`: это адрес возврата (Return-Path) Resend. Существующие MX и SPF самого `smuzzie.com` не трогаются и почте домена не мешают. Имена вводятся без домена: `send`, а не `send.smuzzie.com`.
+3. DMARC, отдельная запись (Resend её не требует, но Gmail и Yahoo ждут её от отправителей):
+
+   | тип | имя | значение |
+   |---|---|---|
+   | TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:<ваш ящик>` |
+
+   Если `_dmarc` уже есть, новую не добавлять: достаточно одной. Через пару недель без проблем в отчётах можно перейти на `p=quarantine`.
+4. Нажать «Verify DNS Records». Обычно это занимает минуты, иногда несколько часов.
+5. Resend → API Keys → Create API key, права «Sending access», домен `smuzzie.com`. Ключ показывается один раз.
+
+`MAIL_FROM_ADDRESS` должен быть на проверенном домене (`...@smuzzie.com`), иначе Resend отклонит письмо. Почтовый ящик для этого адреса не нужен.
+
+#### `.env`
 
 ```
 MAIL_MAILER=smtp
-MAIL_HOST=...
-MAIL_PORT=587
-MAIL_USERNAME=...
-MAIL_PASSWORD=...
-MAIL_ENCRYPTION=tls
-MAIL_FROM_ADDRESS=noreply@smuzzie.com
-MAIL_FROM_NAME="Smuzzie"
+MAIL_HOST=smtp.resend.com
+MAIL_PORT=465
+MAIL_ENCRYPTION=ssl
+MAIL_USERNAME=resend
+MAIL_PASSWORD=re_xxxxxxxxxxxxxxxxxxxxxxxx
+MAIL_FROM_ADDRESS=hello@smuzzie.com
+MAIL_FROM_NAME=Smuzzie
+MAIL_ADMIN_ADDRESS=you@example.com
+MAIL_REPLY_TO_ADDRESS=you@example.com
 ```
+
+- **Порт 465** (TLS с первого байта) вместо 587 из примера Resend. На 587 Symfony Mailer включает STARTTLS, только если сервер его предложил. Если кто-то вырежет STARTTLS по пути, ключ уйдёт открытым текстом. На 465 такого нет. Если хостинг закрывает исходящий 465, ставить `MAIL_PORT=587` и `MAIL_ENCRYPTION=tls` (или 2465, тоже SMTPS).
+- `MAIL_ADMIN_ADDRESS`: куда идут уведомления админу. Можно несколько через запятую. Пусто: админские письма не отправляются.
+- `MAIL_REPLY_TO_ADDRESS`: необязательный. Это `Reply-To` писем покупателям и автоответа. Нужен, если `MAIL_FROM_ADDRESS` не настоящий ящик: тогда ответы покупателей придут сюда. В письме админу о форме `Reply-To` всегда равен отправителю.
+- `MAIL_TIMEOUT`: необязательный, по умолчанию 10 секунд на SMTP-команду.
+- Ссылки в письмах строятся от `BANNERS_FRONTEND_URL` (по умолчанию `APP_URL`). На проде это должно быть `https://smuzzie.com`.
+
+После правки: `sudo -u www-data php artisan config:cache`, если кэш конфигурации включён, и `sudo -u www-data php artisan queue:restart`, чтобы воркер (письма «готово» и «рендер упал») прочитал новые настройки.
+
+#### Проверка
+
+```bash
+cd /var/www/smuzzie/backend
+openssl s_client -connect smtp.resend.com:465 -quiet </dev/null 2>/dev/null | head -1   # 220 ...: порт открыт
+sudo -u www-data php artisan mail:preview                         # все письма в storage/app/mail-previews/*.html и *.txt, без отправки
+sudo -u www-data php artisan mail:preview all --to=you@example.com  # отправить все 8 писем с тестовыми данными
+sudo -u www-data php artisan mail:preview banner-ready --to=you@example.com
+```
+
+Типы: `order-received`, `payment-confirmed`, `banner-ready`, `admin-order-paid`, `admin-payment-review`, `admin-render-failed`, `contact-message`, `contact-auto-reply`. Команда шлёт напрямую и печатает ошибку SMTP, если она есть:
+- `535` значит неверный ключ;
+- `domain is not verified` значит DNS ещё не проверен или `MAIL_FROM_ADDRESS` не на `smuzzie.com`.
+
+Отправленные письма видны в Resend → Emails, со статусом доставки (delivered, bounced, complained).
+
+Сквозная проверка: отправить форму на `/contact`, оформить заказ на `/banners`. Если письмо не пришло, искать `Email not sent` в `storage/logs/laravel.log`.
 
 ## Payments (WestWallet)
 
@@ -238,5 +313,6 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://smuzzie.com/api/v1/paym
 
 - **Код:** `git checkout <предыдущий коммит>` и вернуть предыдущую сборку фронта (`.next.prev-*`).
 - **Воркер:** `supervisorctl stop smuzzie-banners-worker`.
-- **Оплата:** удалить `WESTWALLET_*` из `.env`, и оформление заказа покажет «payments unavailable». Таблицы платежей откатываются через `php artisan migrate:rollback --step=1`, это последняя миграция.
-- **Таблицы баннеров** ни от чего не зависят. При полном откате можно сделать `php artisan migrate:rollback --step=4`. Порядок миграций: `jobs`, шрифты, шаблоны, заказы.
+- **Оплата:** удалить `WESTWALLET_*` из `.env`, и оформление заказа покажет «payments unavailable». Таблицы платежей откатываются через `php artisan migrate:rollback --step=2`: последняя миграция `2026_10_23_000001` (колонки `*_notified_at` для писем), перед ней платежи.
+- **Почта:** убрать `MAIL_PASSWORD` из `.env`, и письма перестанут уходить (ошибки только в логе). Колонки `*_notified_at` ничему не мешают.
+- **Таблицы баннеров** ни от чего не зависят. При полном откате можно сделать `php artisan migrate:rollback --step=6`: сначала откатятся колонки писем и платежи, потом заказы, шаблоны, шрифты и `jobs`.
