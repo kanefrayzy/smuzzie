@@ -122,7 +122,8 @@ test('renders a static (image) template to PNG and JPG', async (t) => {
 
   // Odd size on purpose: stills have no even-size requirement
   const source = path.join(dir, 'source.png');
-  ffmpeg(['-f', 'lavfi', '-i', 'color=c=0x102040:s=641x361', '-frames:v', '1', '-pix_fmt', 'rgb24', source]);
+  // format=rgb24 inside the source: ffmpeg 6 otherwise generates yuv420p and rounds odd sizes down
+  ffmpeg(['-f', 'lavfi', '-i', 'color=c=0x102040:s=641x361,format=rgb24', '-frames:v', '1', '-pix_fmt', 'rgb24', source]);
   const logo = path.join(dir, 'logo.png');
   ffmpeg(['-f', 'lavfi', '-i', 'color=c=white:s=100x100', '-frames:v', '1', logo]);
 
