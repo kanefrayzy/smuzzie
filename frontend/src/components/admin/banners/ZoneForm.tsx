@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react';
 import { X, Plus } from 'lucide-react';
-import type { Align, AlignY, ImageZone, RangeControl, TextCase, TextControls, TextZone, Zone } from '@/lib/banner-overlay';
+import type {
+  Align, AlignY, ImageControls, ImageZone, PositionControl, RangeControl, TextCase, TextControls, TextZone, Zone,
+} from '@/lib/banner-overlay';
 import type { AdminBannerFont } from '@/types/banners';
-import { withStyleControls } from './zoneDefaults';
+import { withImageControls, withStyleControls } from './zoneDefaults';
 
 const input =
   'w-full bg-surface border border-white/5 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-accent-red/50';
@@ -122,6 +124,44 @@ function RangeRow({
           </div>
           {err(`controls.${errKey}`) && <p className="text-[11px] text-red-400 pl-6">{err(`controls.${errKey}`)}</p>}
         </>
+      )}
+    </div>
+  );
+}
+
+/** "Buyer can move it": on/off, resizing, and the area it can't leave. */
+function PositionForm({
+  pos, err, onChange,
+}: {
+  pos: PositionControl;
+  err: (p: string) => string | undefined;
+  onChange: (patch: Partial<PositionControl>) => void;
+}) {
+  const b = pos.bounds;
+  const whole = b.x === 0 && b.y === 0 && b.w === 100 && b.h === 100;
+  return (
+    <div className="space-y-2">
+      <Check label="Position (drag in the preview)" checked={pos.enabled} onChange={(enabled) => onChange({ enabled })} />
+      {pos.enabled && (
+        <div className="pl-6 space-y-2">
+          <Check label="Resize too" checked={pos.resize} onChange={(resize) => onChange({ resize })} />
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-gray-500">Allowed area, % of the video (dotted on the preview)</span>
+            {!whole && (
+              <button type="button" onClick={() => onChange({ bounds: { x: 0, y: 0, w: 100, h: 100 } })} className="text-[11px] text-gray-400 hover:text-white">
+                Whole frame
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {(['x', 'y', 'w', 'h'] as const).map((k) => (
+              <Field key={k} label={k.toUpperCase()} error={err(`controls.position.bounds.${k}`)}>
+                <Num value={b[k]} min={0} max={100} onChange={(v) => onChange({ bounds: { ...b, [k]: v } })} />
+              </Field>
+            ))}
+          </div>
+          {err('controls.position.bounds') && <p className="text-[11px] text-red-400">{err('controls.position.bounds')}</p>}
+        </div>
       )}
     </div>
   );
@@ -327,23 +367,25 @@ function TextForm({
         <RangeRow label="Letter spacing (slider)" unit=", em" ctl={c.letterSpacing} step={0.005} err={err} errKey="letterSpacing" onChange={(p) => setCtl('letterSpacing', p)} />
         <RangeRow label="Line height (slider)" unit="" ctl={c.lineHeight} step={0.01} err={err} errKey="lineHeight" onChange={(p) => setCtl('lineHeight', p)} />
         <RangeRow label="Opacity (slider)" unit=", %" ctl={c.opacity} step={1} err={err} errKey="opacity" onChange={(p) => setCtl('opacity', p)} />
+        <PositionForm pos={c.position} err={err} onChange={(p) => setCtl('position', p)} />
       </Group>
     </div>
   );
 }
 
 function ImageForm({
-  zone, common, err, onChange,
+  zone: rawZone, common, err, onChange,
 }: {
   zone: ImageZone;
   common: React.ReactNode;
   err: (p: string) => string | undefined;
   onChange: (z: Zone) => void;
 }) {
+  const zone = withImageControls(rawZone);
   const s = zone.style;
-  const c = zone.controls;
+  const c = zone.controls as Required<ImageControls>;
   const setStyle = (patch: Partial<ImageZone['style']>) => onChange({ ...zone, style: { ...s, ...patch } });
-  const setCtl = <K extends keyof ImageZone['controls']>(k: K, patch: Partial<ImageZone['controls'][K]>) =>
+  const setCtl = <K extends keyof ImageControls>(k: K, patch: Partial<Required<ImageControls>[K]>) =>
     onChange({ ...zone, controls: { ...c, [k]: { ...c[k], ...patch } } });
 
   return (
@@ -400,6 +442,7 @@ function ImageForm({
             <OptionChecks all={ALIGNS_Y} value={c.align.y} onChange={(y) => setCtl('align', { y })} />
           </div>
         </div>
+        <PositionForm pos={c.position} err={err} onChange={(p) => setCtl('position', p)} />
       </Group>
     </div>
   );

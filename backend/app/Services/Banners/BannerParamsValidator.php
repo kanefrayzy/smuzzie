@@ -17,6 +17,10 @@ use Illuminate\Validation\ValidationException;
 class BannerParamsValidator
 {
     private const EPS = 1e-6;
+    /** Zone rectangles are stored with 3 decimals; allow for that rounding at the edges */
+    private const RECT_EPS = 0.001;
+    /** Smallest zone a buyer can resize to (MIN_BUYER_ZONE in banner-overlay/resolve.ts) */
+    private const MIN_ZONE = 2;
 
     /** @var array<string, string[]> */
     private array $errors = [];
@@ -171,7 +175,7 @@ class BannerParamsValidator
             }
         }
 
-        return $out;
+        return $out + $this->rect($zone, $p, $path);
     }
 
     private function rangeValue(array $ctl, mixed $value, string $path): ?float
@@ -216,7 +220,45 @@ class BannerParamsValidator
             }
         }
 
-        return $out;
+        return $out + $this->rect($zone, $p, $path);
+    }
+
+    /**
+     * The buyer's zone rectangle, when the template lets them move it: inside the allowed area,
+     * not smaller than the minimum; without resizing the template's size is kept.
+     */
+    private function rect(array $zone, array $p, string $path): array
+    {
+        $pos = $zone['controls']['position'] ?? null;
+        if (!($pos['enabled'] ?? false) || !array_key_exists('rect', $p)) {
+            return [];
+        }
+        $r = $p['rect'];
+        foreach (['x', 'y', 'w', 'h'] as $k) {
+            $v = is_array($r) ? ($r[$k] ?? null) : null;
+            if (!is_int($v) && !is_float($v) || !is_finite((float) $v)) {
+                $this->fail("{$path}.rect", 'Invalid zone position');
+                return [];
+            }
+        }
+
+        $b = $pos['bounds'];
+        $e = self::RECT_EPS;
+        $w = $pos['resize'] ? round((float) $r['w'], 3) : (float) $zone['w'];
+        $h = $pos['resize'] ? round((float) $r['h'], 3) : (float) $zone['h'];
+        $x = round((float) $r['x'], 3);
+        $y = round((float) $r['y'], 3);
+        $minW = min(self::MIN_ZONE, (float) $zone['w']);
+        $minH = min(self::MIN_ZONE, (float) $zone['h']);
+
+        if ($w < $minW - $e || $h < $minH - $e) {
+            $this->fail("{$path}.rect", 'The zone is too small');
+        } elseif ($x < $b['x'] - $e || $y < $b['y'] - $e || $x + $w > $b['x'] + $b['w'] + $e || $y + $h > $b['y'] + $b['h'] + $e) {
+            $this->fail("{$path}.rect", 'The zone must stay inside the allowed area');
+        } else {
+            return ['rect' => ['x' => $x, 'y' => $y, 'w' => $w, 'h' => $h]];
+        }
+        return [];
     }
 
     private function fail(string $path, string $message): void

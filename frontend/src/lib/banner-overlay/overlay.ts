@@ -1,8 +1,8 @@
 import { shiftColor } from './color';
 import { ensureStyles } from './css';
 import { canvasMeasure, layoutText, type Measure, type TextLayout } from './layout';
-import { configFontIds, resolveHue, resolveImage, resolveText } from './resolve';
-import type { BannerFontFace, BuyerParams, ImageZone, ImageZoneParams, TemplateConfig, TextZone, TextZoneParams } from './types';
+import { configFontIds, resolveHue, resolveImage, resolveRect, resolveText } from './resolve';
+import type { BannerFontFace, BuyerParams, ImageZone, ImageZoneParams, Rect, TemplateConfig, TextZone, TextZoneParams } from './types';
 
 // The text + logo layer, drawn in the template's native resolution. The site preview scales
 // the stage down with a CSS transform; the renderer screenshots it 1:1 with a transparent
@@ -99,9 +99,10 @@ export class BannerOverlay {
 
     config.zones.forEach((zone, i) => {
       const els = this.els[i];
-      Object.assign(els.zone.style, { left: `${zone.x}%`, top: `${zone.y}%`, width: `${zone.w}%`, height: `${zone.h}%` });
+      const rect = resolveRect(zone, params.zones[zone.key]);
+      Object.assign(els.zone.style, { left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.w}%`, height: `${rect.h}%` });
       if (zone.type === 'text') {
-        result.zones[zone.key] = this.renderText(els, zone, params.zones[zone.key] as TextZoneParams | undefined, accent);
+        result.zones[zone.key] = this.renderText(els, zone, rect, params.zones[zone.key] as TextZoneParams | undefined, accent);
       } else {
         this.renderImage(els, zone, params.zones[zone.key] as ImageZoneParams | undefined, state.images?.[zone.key]);
       }
@@ -146,7 +147,7 @@ export class BannerOverlay {
     });
   }
 
-  private renderText(els: ZoneEls, zone: TextZone, p: TextZoneParams | undefined, accent: string): ZoneFit {
+  private renderText(els: ZoneEls, zone: TextZone, rect: Rect, p: TextZoneParams | undefined, accent: string): ZoneFit {
     const r = resolveText(zone, p);
     const box = els.inner as HTMLDivElement;
     // A chosen font that isn't available falls back to the template's own
@@ -154,7 +155,7 @@ export class BannerOverlay {
     const requested = r.size;
 
     els.zone.hidden = !r.visible;
-    const sane = [r.size, zone.style.minSize, r.lineHeight, zone.w, zone.h].every((n) => Number.isFinite(n) && n > 0);
+    const sane = [r.size, zone.style.minSize, r.lineHeight, rect.w, rect.h].every((n) => Number.isFinite(n) && n > 0);
     if (!r.visible || r.text.trim() === '' || !font || !sane) {
       box.replaceChildren();
       return { requested, used: requested, shrunk: false, overflow: false, lines: [] };
@@ -164,8 +165,8 @@ export class BannerOverlay {
     const layout: TextLayout = layoutText(
       {
         text,
-        boxW: (zone.w / 100) * this.width,
-        boxH: (zone.h / 100) * this.height,
+        boxW: (rect.w / 100) * this.width,
+        boxH: (rect.h / 100) * this.height,
         sizePx: (r.size / 100) * this.width,
         minPx: (zone.style.minSize / 100) * this.width,
         lineHeight: r.lineHeight,

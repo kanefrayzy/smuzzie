@@ -2,7 +2,7 @@
 // so the expectations can be worked out by hand.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutText, cleanText, truncateChars, charLength, resolveText, exportParams } from '../dist/overlay.mjs';
+import { layoutText, cleanText, truncateChars, charLength, resolveText, resolveRect, exportParams } from '../dist/overlay.mjs';
 
 const measure = (s) => Array.from(s).length * 60;
 const base = { boxW: 600, boxH: 300, lineHeight: 1, letterSpacing: 0 };
@@ -120,5 +120,33 @@ test('style controls: font, case, spacing, line height, glow and opacity', () =>
   const config = { schemaVersion: 1, accent: '#000000', hue: { enabled: false, default: 0, presets: [] }, zones: [zone] };
   assert.deepEqual(exportParams(config, { schemaVersion: 1, hue: 0, zones: { t: { fontId: 2, glow: false, opacity: 20 } } }).zones.t, {
     fontId: 2, case: 'upper', letterSpacing: 0, lineHeight: 1.1, glow: false,
+  });
+});
+
+test('zone position: inside the allowed area, fixed size without resizing', () => {
+  const zone = {
+    key: 'l', type: 'image', label: 'L', x: 30, y: 10, w: 40, h: 10,
+    style: { scale: 100, alignX: 'center', alignY: 'center' },
+    controls: {
+      upload: { enabled: true, maxBytes: 1 }, scale: { enabled: false, min: 100, max: 100 },
+      align: { enabled: false, x: ['center'], y: ['center'] },
+      position: { enabled: true, resize: false, bounds: { x: 0, y: 0, w: 100, h: 50 } },
+    },
+  };
+  // Clamped to the area, size kept
+  assert.deepEqual(resolveRect(zone, { rect: { x: 80, y: 70, w: 5, h: 5 } }), { x: 60, y: 40, w: 40, h: 10 });
+  assert.deepEqual(resolveRect(zone, { rect: { x: 1.23456, y: 2, w: 40, h: 10 } }), { x: 1.235, y: 2, w: 40, h: 10 });
+  // Junk or no position: the template's place
+  assert.deepEqual(resolveRect(zone, { rect: { x: 'a', y: 0, w: 1, h: 1 } }), { x: 30, y: 10, w: 40, h: 10 });
+
+  const resizable = { ...zone, controls: { ...zone.controls, position: { ...zone.controls.position, resize: true } } };
+  assert.deepEqual(resolveRect(resizable, { rect: { x: 0, y: 0, w: 0.5, h: 80 } }), { x: 0, y: 0, w: 2, h: 50 });
+
+  const off = { ...zone, controls: { ...zone.controls, position: undefined } };
+  assert.deepEqual(resolveRect(off, { rect: { x: 0, y: 0, w: 40, h: 10 } }), { x: 30, y: 10, w: 40, h: 10 });
+
+  const config = { schemaVersion: 1, accent: '#000000', hue: { enabled: false, default: 0, presets: [] }, zones: [zone] };
+  assert.deepEqual(exportParams(config, { schemaVersion: 1, hue: 0, zones: { l: { rect: { x: 0, y: 45, w: 40, h: 10 } } } }).zones.l.rect, {
+    x: 0, y: 40, w: 40, h: 10,
   });
 });

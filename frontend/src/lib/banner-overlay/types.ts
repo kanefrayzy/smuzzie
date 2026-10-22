@@ -6,14 +6,27 @@ export type Align = 'left' | 'center' | 'right';
 export type AlignY = 'top' | 'center' | 'bottom';
 export type TextCase = 'none' | 'upper' | 'lower';
 
-export interface ZoneRect {
-  key: string;
-  label: string;
-  /** Percent of the video width / height */
+/** Percent of the video width / height */
+export interface Rect {
   x: number;
   y: number;
   w: number;
   h: number;
+}
+
+export interface ZoneRect extends Rect {
+  key: string;
+  label: string;
+}
+
+/**
+ * The buyer may drag the zone (and, with `resize`, change its size) inside `bounds`.
+ * Added after the first templates: missing = off.
+ */
+export interface PositionControl {
+  enabled: boolean;
+  resize: boolean;
+  bounds: Rect;
 }
 
 export interface TextStyle {
@@ -56,6 +69,7 @@ export interface TextControls {
   glow?: { enabled: boolean };
   /** Percent */
   opacity?: RangeControl;
+  position?: PositionControl;
 }
 
 export interface TextZone extends ZoneRect {
@@ -75,6 +89,7 @@ export interface ImageControls {
   upload: { enabled: boolean; maxBytes: number };
   scale: { enabled: boolean; min: number; max: number };
   align: { enabled: boolean; x: Align[]; y: AlignY[] };
+  position?: PositionControl;
 }
 
 export interface ImageZone extends ZoneRect {
@@ -114,12 +129,14 @@ export interface TextZoneParams {
   lineHeight?: number;
   glow?: boolean;
   opacity?: number;
+  rect?: Rect;
 }
 
 export interface ImageZoneParams {
   scale?: number;
   alignX?: Align;
   alignY?: AlignY;
+  rect?: Rect;
 }
 
 /** What the buyer chose. Only enabled controls are sent; the server drops the rest. */

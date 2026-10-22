@@ -8,6 +8,7 @@ export { layoutText, canvasMeasure, graphemes } from './layout';
 export type { Measure, TextLayout, TextLayoutInput } from './layout';
 export {
   resolveText, resolveImage, resolveHue, defaultParams, defaultZoneParams, exportParams, configFontIds,
+  resolveRect, zoneMinSize, MIN_BUYER_ZONE,
   cleanText, charLength, truncateChars,
 } from './resolve';
 export type { ResolvedText, ResolvedImage } from './resolve';

@@ -49,11 +49,15 @@ test('renders MP4 and GIF with the text burned in', async (t) => {
         {
           key: 'logo', type: 'image', label: 'Logo', x: 40, y: 60, w: 20, h: 30,
           style: { scale: 100, alignX: 'center', alignY: 'center' },
-          controls: { upload: { enabled: true, maxBytes: 2097152 }, scale: { enabled: false, min: 30, max: 100 }, align: { enabled: false, x: ['center'], y: ['center'] } },
+          controls: {
+            upload: { enabled: true, maxBytes: 2097152 }, scale: { enabled: false, min: 30, max: 100 }, align: { enabled: false, x: ['center'], y: ['center'] },
+            position: { enabled: true, resize: false, bounds: { x: 0, y: 0, w: 100, h: 100 } },
+          },
         },
       ],
     },
-    params: { schemaVersion: 1, hue: 180, zones: { title: { text: 'Привет, мир' } } },
+    // The buyer dragged the logo to the left edge
+    params: { schemaVersion: 1, hue: 180, zones: { title: { text: 'Привет, мир' }, logo: { rect: { x: 5, y: 60, w: 20, h: 30 } } } },
   };
   const jobFile = path.join(dir, 'job.json');
   fs.writeFileSync(jobFile, JSON.stringify(job));
@@ -73,14 +77,16 @@ test('renders MP4 and GIF with the text burned in', async (t) => {
   const gif = probe(out.gif.path);
   assert.deepEqual([gif.codec_name, gif.width], ['gif', 320]);
 
-  // A frame: the logo zone center is white (the image), a corner is the hue-shifted background
+  // A frame: the moved logo's center is white (the image), its old place and a corner are the
+  // hue-shifted background
   const frame = path.join(dir, 'frame.png');
   ffmpeg(['-ss', '1', '-i', out.mp4.path, '-frames:v', '1', frame]);
   const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
-    const [logoPx, cornerPx] = await readPixels(page, frame, [[320, 270], [5, 5]]);
+    const [logoPx, oldPx, cornerPx] = await readPixels(page, frame, [[96, 270], [320, 270], [5, 5]]);
     assert.ok(logoPx.every((v) => v > 235), `logo pixel ${logoPx}`);
+    assert.ok(oldPx.every((v) => v < 200), `old logo place ${oldPx} should be background`);
     // 0x102040 rotated by 180°: red goes up, blue goes down
     assert.ok(cornerPx[0] > cornerPx[2], `background pixel ${cornerPx} should be hue-shifted`);
   } finally {

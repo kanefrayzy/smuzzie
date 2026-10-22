@@ -18,7 +18,7 @@ const ALIGN_ICON: Record<Align, React.ReactNode> = {
 export function hasTextControls(zone: TextZone): boolean {
   const c = zone.controls;
   return (
-    c.text.enabled || c.size.enabled || c.color.enabled || c.align.enabled || c.visible.enabled ||
+    c.text.enabled || c.size.enabled || c.color.enabled || c.align.enabled || c.visible.enabled || !!c.position?.enabled ||
     hasStyleControls(zone)
   );
 }

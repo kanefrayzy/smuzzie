@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { Move, RotateCcw } from 'lucide-react';
 import BannerPreview from '@/components/banners/BannerPreview';
-import { defaultParams, defaultZoneParams } from '@/lib/banner-overlay';
-import type { BuyerParams, ImageZoneParams, OverlayResult, TextZoneParams, Zone } from '@/lib/banner-overlay';
+import ZoneHandles, { type HandleItem } from '@/components/banners/ZoneHandles';
+import { defaultParams, defaultZoneParams, resolveRect, resolveText, zoneMinSize } from '@/lib/banner-overlay';
+import type { BuyerParams, ImageZoneParams, OverlayResult, Rect, TextZoneParams, Zone } from '@/lib/banner-overlay';
+import PositionControls from './PositionControls';
 import type { PublicBannerTemplate } from '@/types/banners';
 import { Section } from './ui';
 import { clearDraft, loadDraft, saveDraft, type DraftImage } from './draft';
@@ -87,6 +89,48 @@ export default function BannerEditor({
     });
   }, []);
 
+  // Moving zones: "layout mode" shows the draggable frames over the preview
+  const [layoutMode, setLayoutMode] = useState(false);
+  const [selectedZone, setSelectedZone] = useState<string | null>(null);
+
+  const setRect = useCallback(
+    (zone: Zone, rect: Rect) => patchZone(zone.key, { rect: resolveRect(zone, { rect }) }),
+    [patchZone],
+  );
+
+  const activateZone = useCallback((key: string) => {
+    setLayoutMode(true);
+    setSelectedZone(key);
+  }, []);
+
+  // Zones that can be moved right now (shown, and for logos: uploaded)
+  const movable = config.zones.filter((z) => {
+    if (!z.controls.position?.enabled) return false;
+    if (z.type === 'image') return z.controls.upload.enabled && !!images[z.key];
+    return resolveText(z, params.zones[z.key] as TextZoneParams | undefined).visible;
+  });
+  const anyMovable = config.zones.some((z) => z.controls.position?.enabled);
+
+  const handleItems: HandleItem[] = movable.map((z) => ({
+    id: z.key,
+    rect: resolveRect(z, params.zones[z.key]),
+    bounds: z.controls.position!.bounds,
+    resizable: z.controls.position!.resize,
+    min: zoneMinSize(z),
+    color: z.type === 'image' ? '#38bdf8' : '#ff2d3d',
+    label: z.label,
+  }));
+
+  const positionFor = (zone: Zone) => (
+    <PositionControls
+      zone={zone}
+      rect={(params.zones[zone.key] as TextZoneParams | ImageZoneParams | undefined)?.rect}
+      active={layoutMode && selectedZone === zone.key}
+      onRect={(rect) => setRect(zone, rect)}
+      onActivate={() => activateZone(zone.key)}
+    />
+  );
+
   const previewImages = useMemo(
     () => Object.fromEntries(Object.entries(images).map(([k, v]) => [k, v.dataUrl])),
     [images],
@@ -118,9 +162,42 @@ export default function BannerEditor({
               fonts={template.fonts}
               onResult={setResult}
               className="rounded-lg shadow-[0_30px_80px_-30px_rgba(255,45,61,0.35)] ring-1 ring-white/[0.06]"
-            />
+            >
+              {layoutMode && handleItems.length > 0 && (
+                <ZoneHandles
+                  items={handleItems}
+                  selected={selectedZone}
+                  onSelect={setSelectedZone}
+                  onRect={(key, rect) => {
+                    const zone = config.zones.find((z) => z.key === key);
+                    if (zone) setRect(zone, rect);
+                  }}
+                  large
+                />
+              )}
+            </BannerPreview>
           </div>
-          <p className="text-center text-[11px] lg:text-xs text-gray-500 mt-2 lg:mt-3">Preview with a watermark. The file you buy has none.</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-2 lg:mt-3 text-[11px] lg:text-xs text-gray-500">
+            <span>Preview with a watermark. The file you buy has none.</span>
+            {anyMovable && (
+              <button
+                type="button"
+                onClick={() => {
+                  setLayoutMode((v) => !v);
+                  setSelectedZone(null);
+                }}
+                aria-pressed={layoutMode}
+                className={`flex items-center gap-1 ${layoutMode ? 'text-white' : 'hover:text-white'}`}
+              >
+                <Move size={12} /> {layoutMode ? 'Done moving' : 'Move blocks'}
+              </button>
+            )}
+          </div>
+          {layoutMode && (
+            <p className="text-center text-[11px] text-gray-500 mt-1">
+              {handleItems.length ? 'Drag a block to move it, pull the corners to resize.' : 'Nothing to move yet: upload the logo or show a hidden text.'}
+            </p>
+          )}
         </div>
       </div>
 
@@ -149,6 +226,7 @@ export default function BannerEditor({
                 onChange={(patch) => patchZone(zone.key, patch)}
                 onImage={(img) => setImage(zone.key, img)}
               />
+              {images[zone.key] && positionFor(zone)}
             </Section>
           ) : null,
         )}
@@ -157,15 +235,17 @@ export default function BannerEditor({
           <Section title="Texts">
             <div className="space-y-6">
               {textZones.map((zone) => (
-                <TextZoneControls
-                  key={zone.key}
-                  zone={zone}
-                  params={params.zones[zone.key] as TextZoneParams | undefined}
-                  fit={result?.zones[zone.key]}
-                  fonts={template.fonts}
-                  onChange={(patch) => patchZone(zone.key, patch)}
-                  onReset={() => resetZone(zone)}
-                />
+                <div key={zone.key} className="space-y-3">
+                  <TextZoneControls
+                    zone={zone}
+                    params={params.zones[zone.key] as TextZoneParams | undefined}
+                    fit={result?.zones[zone.key]}
+                    fonts={template.fonts}
+                    onChange={(patch) => patchZone(zone.key, patch)}
+                    onReset={() => resetZone(zone)}
+                  />
+                  {resolveText(zone, params.zones[zone.key] as TextZoneParams | undefined).visible && positionFor(zone)}
+                </div>
               ))}
             </div>
           </Section>

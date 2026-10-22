@@ -218,7 +218,9 @@ class BannerConfigValidator
         $letterSpacing = $this->number($style['letterSpacing'] ?? 0, "{$path}.style.letterSpacing", -0.5, 1, 3);
         $opacity = (int) $this->number($style['opacity'] ?? 100, "{$path}.style.opacity", 10, 100, 0);
 
-        return $this->zoneBase($zone, $path) + [
+        $base = $this->zoneBase($zone, $path);
+
+        return $base + [
             'style' => [
                 'text' => $default,
                 'fontId' => $fontId,
@@ -248,6 +250,7 @@ class BannerConfigValidator
                 'lineHeight' => $this->range($controls, 'lineHeight', $lineHeight, $path, 0.6, 3, 2),
                 'glow' => ['enabled' => $this->bool($this->controlBlock($controls, 'glow')['enabled'] ?? false)],
                 'opacity' => $this->range($controls, 'opacity', $opacity, $path, 10, 100, 0),
+                'position' => $this->position($controls, $base, $path),
             ],
         ];
     }
@@ -296,7 +299,9 @@ class BannerConfigValidator
         $alignX = $this->choice($style['alignX'] ?? 'center', self::ALIGN, "{$path}.style.alignX");
         $alignY = $this->choice($style['alignY'] ?? 'center', self::ALIGN_Y, "{$path}.style.alignY");
 
-        return $this->zoneBase($zone, $path) + [
+        $base = $this->zoneBase($zone, $path);
+
+        return $base + [
             'style' => ['scale' => (int) $scale, 'alignX' => $alignX, 'alignY' => $alignY],
             'controls' => [
                 'upload' => [
@@ -309,7 +314,46 @@ class BannerConfigValidator
                     'x' => $xs ?: [$alignX],
                     'y' => $ys ?: [$alignY],
                 ],
+                'position' => $this->position($controls, $base, $path),
             ],
+        ];
+    }
+
+    /**
+     * Where the buyer may drag the zone (and resize it, if allowed). The area must contain the
+     * zone itself; while the control is off it is widened to do so instead of failing.
+     */
+    private function position(array $controls, array $rect, string $path): array
+    {
+        $ctl = $this->controlBlock($controls, 'position');
+        $enabled = $this->bool($ctl['enabled'] ?? false);
+        $b = is_array($ctl['bounds'] ?? null) ? $ctl['bounds'] : [];
+        $p = "{$path}.controls.position.bounds";
+        $x = $this->number($b['x'] ?? 0, "{$p}.x", 0, 100, 3);
+        $y = $this->number($b['y'] ?? 0, "{$p}.y", 0, 100, 3);
+        $w = $this->number($b['w'] ?? 100 - $x, "{$p}.w", 0.5, 100, 3);
+        $h = $this->number($b['h'] ?? 100 - $y, "{$p}.h", 0.5, 100, 3);
+        if ($x + $w > 100.001 || $y + $h > 100.001) {
+            $this->fail($p, 'The area must stay inside the video');
+        }
+
+        $e = 0.001;
+        $inside = $rect['x'] >= $x - $e && $rect['y'] >= $y - $e
+            && $rect['x'] + $rect['w'] <= $x + $w + $e && $rect['y'] + $rect['h'] <= $y + $h + $e;
+        if (!$inside && $enabled) {
+            $this->fail($p, 'The area must contain the zone');
+        } elseif (!$inside) {
+            $x1 = max($x + $w, $rect['x'] + $rect['w']);
+            $y1 = max($y + $h, $rect['y'] + $rect['h']);
+            $x = min($x, $rect['x']);
+            $y = min($y, $rect['y']);
+            [$w, $h] = [round($x1 - $x, 3), round($y1 - $y, 3)];
+        }
+
+        return [
+            'enabled' => $enabled,
+            'resize' => $this->bool($ctl['resize'] ?? false),
+            'bounds' => ['x' => $x, 'y' => $y, 'w' => $w, 'h' => $h],
         ];
     }
 

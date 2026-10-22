@@ -1,6 +1,6 @@
 import { isHex } from './color';
 import type {
-  Align, AlignY, BuyerParams, ImageZone, ImageZoneParams, RangeControl, TemplateConfig, TextCase, TextZone,
+  Align, AlignY, BuyerParams, ImageZone, ImageZoneParams, RangeControl, Rect, TemplateConfig, TextCase, TextZone,
   TextZoneParams, Zone,
 } from './types';
 
@@ -132,6 +132,37 @@ export function resolveImage(zone: ImageZone, p: ImageZoneParams | undefined): R
   return { scale, alignX, alignY };
 }
 
+/** Smallest zone a buyer can resize to, percent of the video (or the zone's own size if smaller). */
+export const MIN_BUYER_ZONE = 2;
+
+const round3 = (v: number) => Math.round(v * 1000) / 1000;
+
+export function zoneMinSize(zone: Rect): { w: number; h: number } {
+  return { w: Math.min(MIN_BUYER_ZONE, zone.w), h: Math.min(MIN_BUYER_ZONE, zone.h) };
+}
+
+/**
+ * Where the zone is drawn: the buyer's rectangle when the template lets them move it (kept
+ * inside the allowed area, the size fixed unless resizing is allowed), the template's otherwise.
+ */
+export function resolveRect(zone: Zone, p: { rect?: Rect } | undefined): Rect {
+  const own = { x: zone.x, y: zone.y, w: zone.w, h: zone.h };
+  const pos = zone.controls.position;
+  const r = p?.rect;
+  if (!pos?.enabled || !r || ![r.x, r.y, r.w, r.h].every((n) => typeof n === 'number' && Number.isFinite(n))) return own;
+  // Not moved: the template's own place is always allowed
+  if (r.x === own.x && r.y === own.y && r.w === own.w && r.h === own.h) return own;
+  const b = pos.bounds;
+  const min = zoneMinSize(zone);
+  const w = pos.resize ? clamp(round3(r.w), min.w, b.w) : zone.w;
+  const h = pos.resize ? clamp(round3(r.h), min.h, b.h) : zone.h;
+  return {
+    x: round3(clamp(r.x, b.x, b.x + b.w - w)),
+    y: round3(clamp(r.y, b.y, b.y + b.h - h)),
+    w, h,
+  };
+}
+
 export function resolveHue(config: TemplateConfig, params: Pick<BuyerParams, 'hue'> | undefined): number {
   if (!config.hue.enabled) return config.hue.default;
   const h = Number(params?.hue);
@@ -146,15 +177,16 @@ export function defaultParams(config: TemplateConfig): BuyerParams {
 }
 
 export function defaultZoneParams(zone: Zone): TextZoneParams | ImageZoneParams {
+  const rect = { x: zone.x, y: zone.y, w: zone.w, h: zone.h };
   if (zone.type === 'text') {
     const s = zone.style;
     return {
       text: s.text, size: s.size, color: s.color, align: s.align, visible: true,
       fontId: s.fontId, case: s.case, letterSpacing: s.letterSpacing, lineHeight: s.lineHeight, glow: s.glow,
-      opacity: s.opacity ?? 100,
+      opacity: s.opacity ?? 100, rect,
     };
   }
-  return { scale: zone.style.scale, alignX: zone.style.alignX, alignY: zone.style.alignY };
+  return { scale: zone.style.scale, alignX: zone.style.alignX, alignY: zone.style.alignY, rect };
 }
 
 /**
@@ -180,6 +212,7 @@ export function exportParams(config: TemplateConfig, params: BuyerParams): Buyer
       if (c.lineHeight?.enabled) out.lineHeight = r.lineHeight;
       if (c.glow?.enabled) out.glow = r.glow;
       if (c.opacity?.enabled) out.opacity = r.opacity;
+      if (c.position?.enabled) out.rect = resolveRect(zone, raw);
       if (Object.keys(out).length) zones[zone.key] = out;
     } else {
       const r = resolveImage(zone, raw as ImageZoneParams);
@@ -190,6 +223,7 @@ export function exportParams(config: TemplateConfig, params: BuyerParams): Buyer
         out.alignX = r.alignX;
         out.alignY = r.alignY;
       }
+      if (c.position?.enabled) out.rect = resolveRect(zone, raw);
       if (Object.keys(out).length) zones[zone.key] = out;
     }
   }

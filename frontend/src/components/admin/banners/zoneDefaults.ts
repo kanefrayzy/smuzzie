@@ -1,6 +1,9 @@
-import type { ImageZone, TemplateConfig, TextControls, TextZone, Zone } from '@/lib/banner-overlay';
+import type { ImageZone, PositionControl, TemplateConfig, TextControls, TextZone, Zone } from '@/lib/banner-overlay';
 
 // Starting values for zones added in the admin zone editor.
+
+/** Moving is opt-in per zone (text on animated elements usually has to stay put) */
+const POSITION_OFF: PositionControl = { enabled: false, resize: true, bounds: { x: 0, y: 0, w: 100, h: 100 } };
 
 function uniqueKey(config: TemplateConfig, base: string): string {
   const taken = new Set(config.zones.map((z) => z.key));
@@ -31,6 +34,7 @@ export function newTextZone(config: TemplateConfig, fontId: number): TextZone {
       lineHeight: { enabled: false, min: 0.9, max: 1.6 },
       glow: { enabled: true },
       opacity: { enabled: false, min: 40, max: 100 },
+      position: POSITION_OFF,
     },
   };
 }
@@ -51,6 +55,7 @@ export function withStyleControls(zone: TextZone): TextZone {
     lineHeight: c.lineHeight ?? range(s.lineHeight),
     glow: c.glow ?? { enabled: false },
     opacity: c.opacity ?? range(s.opacity ?? 100),
+    position: c.position ?? POSITION_OFF,
   };
   return { ...zone, style: { ...s, opacity: s.opacity ?? 100 }, controls };
 }
@@ -66,8 +71,14 @@ export function newImageZone(config: TemplateConfig): ImageZone {
       upload: { enabled: true, maxBytes: 2 * 1024 * 1024 },
       scale: { enabled: true, min: 30, max: 100 },
       align: { enabled: true, x: ['left', 'center', 'right'], y: ['top', 'center', 'bottom'] },
+      position: POSITION_OFF,
     },
   };
+}
+
+/** Image zones saved before moving existed: add the block switched off. */
+export function withImageControls(zone: ImageZone): ImageZone {
+  return zone.controls.position ? zone : { ...zone, controls: { ...zone.controls, position: POSITION_OFF } };
 }
 
 /** Placeholder logo for the admin preview (never uploaded anywhere). */
