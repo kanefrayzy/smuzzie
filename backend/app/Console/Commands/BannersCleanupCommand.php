@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * Daily housekeeping for the banner builder (scheduled in App\Console\Kernel):
- *  - unpaid orders older than 7 days, with their logos;
+ *  - unpaid orders older than 7 days, with their logos (not those that received crypto:
+ *    an underpaid or late payment is the admin's to resolve);
  *  - test renders older than 7 days;
  *  - rendered MP4/GIF files 30 days after they were ready (the order and its settings stay;
  *    "Render again" rebuilds them);
@@ -35,6 +36,7 @@ class BannersCleanupCommand extends Command
         $counts = [
             'unpaid orders' => $this->deleteOrders(
                 BannerOrder::real()->status(BannerOrderStatus::PendingPayment)->where('created_at', '<', now()->subDays($retention['unpaid_days']))
+                    ->whereDoesntHave('payments', fn ($q) => $q->whereNotNull('detected_at'))
             ),
             'test renders' => $this->deleteOrders(
                 BannerOrder::where('is_test', true)->where('created_at', '<', now()->subDays($retention['test_days']))

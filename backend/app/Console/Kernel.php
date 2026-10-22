@@ -14,6 +14,8 @@ class Kernel extends ConsoleKernel
     {
         // Banner builder housekeeping (needs the cron entry from docs/banners/DEPLOY.md)
         $schedule->command('banners:cleanup')->dailyAt('04:10')->withoutOverlapping();
+        // Crypto payments: re-check open payments through the gateway's API (lost notifications)
+        $schedule->command('banners:payments-sync')->everyMinute()->withoutOverlapping(10);
     }
 
     /**

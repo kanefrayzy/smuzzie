@@ -73,6 +73,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Crypto payment notifications and their verification (banner builder)
+        'payments' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/payments.log'),
+            'level' => 'info',
+            'days' => 180,
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

@@ -91,5 +91,72 @@ return [
         'orders_per_minute' => 5,
         'orders_per_day' => 30,
         'status_per_minute' => 60,
+        'payment_per_minute' => 10,   // choosing a coin (may create a deposit address)
+        'payment_per_day' => 60,
+        'ipn_per_minute' => 120,
+    ],
+
+    /*
+    | Crypto payments. The buyer pays on /banners/order/<token>: picks a coin and network,
+    | gets a deposit address (one per order + coin, reused), and the provider's notification
+    | (verified against the provider's API) moves the order to "paid" through
+    | BannerOrderService::markPaid(). See docs/banners/DEPLOY.md, "Payments (WestWallet)".
+    */
+    'payments' => [
+        'provider' => env('BANNERS_PAYMENT_PROVIDER', 'westwallet'),
+
+        // How long the quoted coin amount is guaranteed. After that the buyer gets a fresh quote
+        // for the same address (only while nothing has been received yet).
+        'price_lock_minutes' => (int) env('BANNERS_PAYMENT_LOCK_MINUTES', 30),
+        // A transaction first seen up to this long after the lock ended still counts as on time
+        // (slow wallets, mempool delays).
+        'late_grace_minutes' => (int) env('BANNERS_PAYMENT_GRACE_MINUTES', 15),
+        // Received amounts this much below the quote still count as paid (rounding, wallet quirks).
+        'underpay_tolerance_percent' => (float) env('BANNERS_PAYMENT_UNDERPAY_TOLERANCE', 0.5),
+        // A payment that arrives after lock + grace, for coins not pegged to USD:
+        //   requote - accept if what arrived is worth the price at the current rate, else "review";
+        //   accept  - always honour the original quote;
+        //   review  - always leave it to the admin.
+        'late_policy' => env('BANNERS_PAYMENT_LATE_POLICY', 'requote'),
+
+        'max_addresses_per_order' => 6,  // different coins one order may try
+        'sync_hours' => 24,              // the scheduled sync re-checks open payments this long
+        'sync_interval_seconds' => 120,  // ...and each one at most this often
+        'rates_cache_seconds' => 60,     // WestWallet allows its rates endpoint once per 5 s
+        'currencies_cache_seconds' => 600,
+
+        // Coins priced 1:1 to the USD price (no exchange rate involved)
+        'usd_pegged' => ['USDT', 'USDC'],
+        // Ticker whose rate is treated as USD for the other coins (coin -> USDT TRC-20)
+        'rate_quote_ticker' => 'USDTTRC',
+
+        /*
+        | What the picker offers, in this order. Only methods whose ticker WestWallet currently
+        | accepts (currencies_data: active + receive_active) are shown. `ticker` is what we send
+        | to WestWallet, `aliases` are other codes WestWallet uses for the same currency
+        | (merged with currencies_data at runtime). `decimals`: the quote is rounded up to this.
+        | Icons live in frontend/public/crypto/ (<coin>.svg); `network_icon` names a file in
+        | networks/ and is set only for tokens on another chain (USDT on Tron), null for a chain's own coin.
+        */
+        'methods' => [
+            ['key' => 'usdt-trc20', 'coin' => 'USDT', 'coin_name' => 'Tether', 'network' => 'TRC20', 'network_name' => 'Tron (TRC20)', 'network_icon' => 'tron', 'ticker' => 'USDTTRC', 'aliases' => ['USDTTRC20'], 'decimals' => 2],
+            ['key' => 'usdt-erc20', 'coin' => 'USDT', 'coin_name' => 'Tether', 'network' => 'ERC20', 'network_name' => 'Ethereum (ERC20)', 'network_icon' => 'ethereum', 'ticker' => 'USDTERC', 'aliases' => ['USDT', 'USDTERC20'], 'decimals' => 2],
+            ['key' => 'usdt-bep20', 'coin' => 'USDT', 'coin_name' => 'Tether', 'network' => 'BEP20', 'network_name' => 'BNB Smart Chain (BEP20)', 'network_icon' => 'bsc', 'ticker' => 'USDTBEP', 'aliases' => ['USDTBEP20'], 'decimals' => 2],
+            ['key' => 'usdt-ton', 'coin' => 'USDT', 'coin_name' => 'Tether', 'network' => 'TON', 'network_name' => 'TON', 'network_icon' => 'ton', 'ticker' => 'USDTTON', 'aliases' => ['USDTTONCOIN'], 'decimals' => 2],
+            ['key' => 'usdt-sol', 'coin' => 'USDT', 'coin_name' => 'Tether', 'network' => 'SOL', 'network_name' => 'Solana', 'network_icon' => 'solana', 'ticker' => 'USDTSOL', 'aliases' => [], 'decimals' => 2],
+            ['key' => 'usdc-erc20', 'coin' => 'USDC', 'coin_name' => 'USD Coin', 'network' => 'ERC20', 'network_name' => 'Ethereum (ERC20)', 'network_icon' => 'ethereum', 'ticker' => 'USDCERC', 'aliases' => ['USDC', 'USDCERC20'], 'decimals' => 2],
+            ['key' => 'usdc-bep20', 'coin' => 'USDC', 'coin_name' => 'USD Coin', 'network' => 'BEP20', 'network_name' => 'BNB Smart Chain (BEP20)', 'network_icon' => 'bsc', 'ticker' => 'USDCBEP', 'aliases' => ['USDCBEP20'], 'decimals' => 2],
+            ['key' => 'btc', 'coin' => 'BTC', 'coin_name' => 'Bitcoin', 'network' => 'BTC', 'network_name' => 'Bitcoin', 'network_icon' => null, 'ticker' => 'BTC', 'aliases' => [], 'decimals' => 8],
+            ['key' => 'eth', 'coin' => 'ETH', 'coin_name' => 'Ethereum', 'network' => 'ERC20', 'network_name' => 'Ethereum', 'network_icon' => null, 'ticker' => 'ETH', 'aliases' => [], 'decimals' => 6],
+            ['key' => 'ltc', 'coin' => 'LTC', 'coin_name' => 'Litecoin', 'network' => 'LTC', 'network_name' => 'Litecoin', 'network_icon' => null, 'ticker' => 'LTC', 'aliases' => [], 'decimals' => 6],
+            ['key' => 'trx', 'coin' => 'TRX', 'coin_name' => 'Tron', 'network' => 'TRC20', 'network_name' => 'Tron', 'network_icon' => null, 'ticker' => 'TRX', 'aliases' => [], 'decimals' => 2],
+            ['key' => 'sol', 'coin' => 'SOL', 'coin_name' => 'Solana', 'network' => 'SOL', 'network_name' => 'Solana', 'network_icon' => null, 'ticker' => 'SOL', 'aliases' => [], 'decimals' => 5],
+            ['key' => 'ton', 'coin' => 'TON', 'coin_name' => 'Toncoin', 'network' => 'TON', 'network_name' => 'TON', 'network_icon' => null, 'ticker' => 'TON', 'aliases' => ['GRAM'], 'decimals' => 3],
+            ['key' => 'bnb', 'coin' => 'BNB', 'coin_name' => 'BNB', 'network' => 'BEP20', 'network_name' => 'BNB Smart Chain (BEP20)', 'network_icon' => null, 'ticker' => 'BNB', 'aliases' => ['BNBBEP20', 'BNB20'], 'decimals' => 6],
+            ['key' => 'xrp', 'coin' => 'XRP', 'coin_name' => 'XRP', 'network' => 'XRP', 'network_name' => 'XRP Ledger', 'network_icon' => null, 'ticker' => 'XRP', 'aliases' => [], 'decimals' => 3],
+            ['key' => 'doge', 'coin' => 'DOGE', 'coin_name' => 'Dogecoin', 'network' => 'DOGE', 'network_name' => 'Dogecoin', 'network_icon' => null, 'ticker' => 'DOGE', 'aliases' => [], 'decimals' => 2],
+            ['key' => 'bch', 'coin' => 'BCH', 'coin_name' => 'Bitcoin Cash', 'network' => 'BCH', 'network_name' => 'Bitcoin Cash', 'network_icon' => null, 'ticker' => 'BCH', 'aliases' => [], 'decimals' => 6],
+            ['key' => 'ada', 'coin' => 'ADA', 'coin_name' => 'Cardano', 'network' => 'ADA', 'network_name' => 'Cardano', 'network_icon' => null, 'ticker' => 'ADA', 'aliases' => [], 'decimals' => 2],
+        ],
     ],
 ];
