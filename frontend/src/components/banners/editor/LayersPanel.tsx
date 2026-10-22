@@ -55,7 +55,7 @@ export default function LayersPanel({
           </button>
         )}
       </div>
-      {layers.length === 0 && <p className="text-xs text-gray-500">Add your own text or picture on top of the banner. Later layers are drawn above earlier ones.</p>}
+      {layers.length === 0 && <p className="text-xs text-gray-500">Add your own texts, icons or pictures (PNG, JPG, WebP or animated GIF) on top of the banner. Drag them on the preview to place them.</p>}
 
       {layers.map(({ layer, zone }, i) => {
         const p = layerParams(layer);

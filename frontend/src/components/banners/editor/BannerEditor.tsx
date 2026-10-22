@@ -286,6 +286,27 @@ export default function BannerEditor({
         </div>
         {template.description && <p className="text-sm text-gray-400 -mt-2">{template.description}</p>}
 
+        {customConfig(config) && (
+          <Section title="Add text & images">
+            <LayersPanel
+              config={config}
+              params={params}
+              images={images}
+              fonts={template.fonts}
+              videoWidth={template.width}
+              fits={result?.zones}
+              onAdd={addLayer}
+              onPatch={patchLayer}
+              onRemove={removeLayer}
+              onMove={moveLayer}
+              onReset={resetLayer}
+              onImage={setImage}
+              position={positionFor}
+              still={still}
+            />
+          </Section>
+        )}
+
         {imageZones.map((zone) =>
           zone.type === 'image' ? (
             <Section key={zone.key} title={zone.label}>
@@ -320,27 +341,6 @@ export default function BannerEditor({
                 </div>
               ))}
             </div>
-          </Section>
-        )}
-
-        {customConfig(config) && (
-          <Section title="Your layers">
-            <LayersPanel
-              config={config}
-              params={params}
-              images={images}
-              fonts={template.fonts}
-              videoWidth={template.width}
-              fits={result?.zones}
-              onAdd={addLayer}
-              onPatch={patchLayer}
-              onRemove={removeLayer}
-              onMove={moveLayer}
-              onReset={resetLayer}
-              onImage={setImage}
-              position={positionFor}
-              still={still}
-            />
           </Section>
         )}
 
