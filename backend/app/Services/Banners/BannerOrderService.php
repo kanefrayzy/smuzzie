@@ -6,6 +6,7 @@ use App\Enums\BannerOrderStatus;
 use App\Jobs\RenderBannerOrder;
 use App\Models\BannerOrder;
 use App\Models\BannerTemplate;
+use App\Services\Mail\BannerNotifications;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -17,14 +18,19 @@ use Illuminate\Support\Str;
  *   pending_payment --markPaid()--> queued --job--> rendering --> ready | failed
  *                                     ^-- rerender() (admin) from ready / failed
  *
- * markPaid() is the single entry point into the paid state: today the admin's "confirm
- * payment" button and BANNERS_AUTO_APPROVE call it; a payment webhook will call it the same way.
+ * markPaid() is the single entry point into the paid state: the admin's "confirm payment"
+ * button, BANNERS_AUTO_APPROVE and the crypto payment service (IPN / sync) call it.
+ *
+ * The order emails hang off these transitions too (App\Services\Mail\BannerNotifications):
+ * create -> "order received", markPaid -> "payment received" (+ admin), markReady -> "banner
+ * ready", markFailed -> admin. They are sent after the response / transaction and never throw.
  */
 class BannerOrderService
 {
     public function __construct(
         private BannerParamsValidator $paramsValidator,
         private BannerImageProcessor $imageProcessor,
+        private BannerNotifications $notifications,
     ) {
     }
 
@@ -104,6 +110,8 @@ class BannerOrderService
             $this->markPaid($order, 'test');
         } elseif (config('banners.auto_approve')) {
             $this->markPaid($order, 'auto');
+        } else {
+            $this->notifications->orderReceived($order);
         }
 
         return $order->fresh();
@@ -131,6 +139,9 @@ class BannerOrderService
         });
 
         $order->refresh();
+        if ($paid) {
+            $this->notifications->orderPaid($order);
+        }
 
         return $paid;
     }
@@ -174,6 +185,7 @@ class BannerOrderService
             'result_purged_at' => null,
             'error' => null,
         ]);
+        $this->notifications->orderReady($order);
     }
 
     public function markFailed(BannerOrder $order, string $error, ?string $log = null): void
@@ -184,6 +196,7 @@ class BannerOrderService
             'error' => mb_substr($error, 0, 2000),
             'render_log' => $log !== null ? mb_substr($log, -20000) : $order->render_log,
         ]);
+        $this->notifications->renderFailed($order);
     }
 
     private function enqueue(BannerOrder $order): void

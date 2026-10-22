@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Enums\BannerOrderStatus;
-use App\Mail\BannerReadyMail;
 use App\Models\BannerOrder;
 use App\Services\Banners\BannerOrderService;
 use App\Services\Banners\BannerRenderer;
@@ -14,7 +13,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * Renders one order on the "banners" queue. One worker process => one render at a time.
@@ -60,8 +58,7 @@ class RenderBannerOrder implements ShouldQueue
             return;
         }
 
-        $orders->markReady($order, $result);
-        $this->afterReady($order);
+        $orders->markReady($order, $result); // also emails the buyer, once (BannerNotifications)
     }
 
     /** Worker-level failure (timeout, crash): make sure the order doesn't stay "rendering". */
@@ -70,23 +67,6 @@ class RenderBannerOrder implements ShouldQueue
         $order = BannerOrder::find($this->orderId);
         if ($order && $order->status !== BannerOrderStatus::Failed && $order->status !== BannerOrderStatus::Ready) {
             app(BannerOrderService::class)->markFailed($order, $e->getMessage() ?: 'Render failed');
-        }
-    }
-
-    /**
-     * Email the buyer once. Mail problems (not configured, SMTP down) are logged and never
-     * affect the order: the buyer already has the order page link.
-     */
-    protected function afterReady(BannerOrder $order): void
-    {
-        if ($order->is_test || !$order->email || $order->notified_at) {
-            return;
-        }
-        try {
-            Mail::to($order->email)->send(new BannerReadyMail($order));
-            $order->update(['notified_at' => now()]);
-        } catch (\Throwable $e) {
-            Log::warning("Banner order {$order->token}: ready email not sent: {$e->getMessage()}");
         }
     }
 }

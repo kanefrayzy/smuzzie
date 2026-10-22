@@ -8,6 +8,7 @@ use App\Models\BannerOrder;
 use App\Models\BannerPayment;
 use App\Models\BannerPaymentTransaction;
 use App\Services\Banners\BannerOrderService;
+use App\Services\Mail\BannerNotifications;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -29,14 +30,19 @@ use Illuminate\Support\Facades\Log;
  *  - overpayment: accepted, the extra is recorded for the admin (no automatic refund);
  *  - late: a transaction first seen after the lock + late_grace_minutes is handled by
  *    late_policy (USD-pegged coins always keep their quote, their price doesn't move);
- *  - repeated notifications update the same transaction row and never pay twice.
+ *  - repeated notifications update the same transaction row and never pay twice;
+ *  - the admin is emailed once per payment and reason when a payment needs a look:
+ *    underpaid, late (review), or paid for an order that was already paid.
  */
 class BannerPaymentService
 {
     private const EPSILON = 1e-9;
 
-    public function __construct(private CryptoPaymentProvider $provider, private BannerOrderService $orders)
-    {
+    public function __construct(
+        private CryptoPaymentProvider $provider,
+        private BannerOrderService $orders,
+        private BannerNotifications $notifications,
+    ) {
     }
 
     public function provider(): CryptoPaymentProvider
@@ -347,6 +353,7 @@ class BannerPaymentService
                 $payment->meta = $meta;
                 $payment->save();
                 Log::channel('payments')->warning('Payment completed for an order that was already paid', ['order' => $order->id, 'payment' => $payment->id]);
+                $this->notifyReview($payment, 'already_paid');
             }
             return;
         }
@@ -363,6 +370,29 @@ class BannerPaymentService
         }
         $payment->meta = $meta;
         $payment->save();
+
+        if ($review) {
+            $this->notifyReview($payment, $review);
+        } elseif ($payment->status === BannerPaymentStatus::Underpaid) {
+            $this->notifyReview($payment, 'underpaid');
+        }
+    }
+
+    /**
+     * Email the admin once per payment and reason. Runs under the payment's row lock (apply()),
+     * so the check-and-set in meta is safe; the email itself goes out after the commit.
+     */
+    private function notifyReview(BannerPayment $payment, string $reason): void
+    {
+        $meta = $payment->meta ?? [];
+        if (!empty($meta['notified'][$reason])) {
+            return;
+        }
+        $meta['notified'][$reason] = now()->toIso8601String();
+        $payment->meta = $meta;
+        $payment->save();
+
+        $this->notifications->paymentNeedsReview($payment, $reason);
     }
 
     /** Our payment for a transaction: same label, address, tag and currency. */

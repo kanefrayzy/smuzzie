@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ContactSubmission;
+use App\Services\Mail\ContactNotifications;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -16,7 +17,7 @@ class ContactController extends Controller
         return response()->json($submissions);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, ContactNotifications $notifications)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -38,6 +39,13 @@ class ContactController extends Controller
         $validated['message'] = strip_tags($validated['message']);
 
         $submission = ContactSubmission::create($validated);
+
+        // Admin notification + auto-reply, sent after the response; mail errors are only logged
+        try {
+            $notifications->submitted($submission);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return response()->json([
             'message' => 'Your message has been sent successfully!',

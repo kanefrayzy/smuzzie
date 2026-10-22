@@ -22,6 +22,7 @@ class BannerOrder extends Model
         'params', 'snapshot', 'images',
         'amount', 'currency', 'payment_provider', 'payment_reference',
         'paid_at', 'queued_at', 'rendering_started_at', 'ready_at', 'failed_at', 'notified_at', 'result_purged_at',
+        'received_notified_at', 'paid_notified_at', 'admin_paid_notified_at', 'admin_failed_notified_at',
         'attempts', 'error', 'render_log', 'result', 'ip',
     ];
 
@@ -41,6 +42,10 @@ class BannerOrder extends Model
         'failed_at' => 'datetime',
         'notified_at' => 'datetime',
         'result_purged_at' => 'datetime',
+        'received_notified_at' => 'datetime',
+        'paid_notified_at' => 'datetime',
+        'admin_paid_notified_at' => 'datetime',
+        'admin_failed_notified_at' => 'datetime',
     ];
 
     protected $attributes = [
