@@ -55,16 +55,86 @@ function Float({
   );
 }
 
+/* ─── A made-up ad, drawn in code: synthwave sun, perspective grid, glowing orbs ─── */
+type HueAnim = { filter: string[] } | undefined;
+
+const SUN_MASK =
+  'linear-gradient(180deg,#000 52%,transparent 52%,transparent 56%,#000 56%,#000 64%,transparent 64%,transparent 69%,#000 69%,#000 76%,transparent 76%,transparent 82%,#000 82%)';
+
+const ORBS = [
+  { c: 'left-[8%] top-[30%] w-[14%] bg-[#3df5ff] text-[#3df5ff]', d: 0 },
+  { c: 'right-[10%] top-[22%] w-[9%] bg-[#ffd23f] text-[#ffd23f]', d: 1.2 },
+  { c: 'right-[18%] top-[38%] w-[6%] bg-[#ff4fd8] text-[#ff4fd8]', d: 2.1 },
+];
+
+function AdArtwork({ reduce, hueAnim, hueTransition }: { reduce: boolean; hueAnim: HueAnim; hueTransition: object }) {
+  return (
+    <div className="absolute inset-0" aria-hidden="true">
+      {/* Background: everything here shifts color with the slider */}
+      <motion.div className="absolute inset-0" animate={hueAnim} transition={hueTransition}>
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#14052b_0%,#2b0b45_42%,#3a0d3d_58%,#0a0216_100%)]" />
+        <div className="absolute left-1/2 top-[13%] -translate-x-1/2 w-[52%] aspect-square rounded-full bg-[#ff3d8b] blur-[40px] opacity-60" />
+        <div
+          className="absolute left-1/2 top-[13%] -translate-x-1/2 w-[48%] aspect-square rounded-full bg-[linear-gradient(180deg,#ffd23f_0%,#ff7a3d_45%,#ff2d8a_100%)]"
+          style={{ WebkitMaskImage: SUN_MASK, maskImage: SUN_MASK }}
+        />
+        <div className="absolute left-0 right-0 top-[44%] h-[3px] bg-[#ff4fd8] shadow-[0_0_24px_6px_rgba(255,79,216,0.7)]" />
+        <svg className="absolute left-0 right-0 bottom-0 w-full h-[56%]" viewBox="0 0 100 56" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="bb-floor" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#ff4fd8" stopOpacity="0.15" />
+              <stop offset="1" stopColor="#ff4fd8" stopOpacity="0.75" />
+            </linearGradient>
+          </defs>
+          {Array.from({ length: 13 }).map((_, i) => {
+            const x = (i / 12) * 100;
+            return <line key={i} x1={50 + (x - 50) * 0.12} y1="0" x2={50 + (x - 50) * 2.4} y2="56" stroke="url(#bb-floor)" strokeWidth="0.35" />;
+          })}
+          <motion.g animate={reduce ? undefined : { y: [0, 7] }} transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}>
+            {Array.from({ length: 9 }).map((_, i) => {
+              const y = Math.pow(i / 8, 1.8) * 56;
+              return <line key={i} x1="0" y1={y} x2="100" y2={y} stroke="url(#bb-floor)" strokeWidth="0.35" />;
+            })}
+          </motion.g>
+        </svg>
+        {ORBS.map((o) => (
+          <motion.div
+            key={o.c}
+            className={`absolute aspect-square rounded-full blur-[2px] opacity-80 ${o.c}`}
+            style={{ boxShadow: '0 0 30px 6px currentColor' }}
+            animate={reduce ? undefined : { y: [0, -10, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: o.d }}
+          />
+        ))}
+      </motion.div>
+
+      {/* Foreground: logo, subtitle and button keep their own colors */}
+      <div className="absolute left-1/2 top-[5%] -translate-x-1/2 flex items-center gap-1.5 rounded-full border border-white/25 bg-black/25 backdrop-blur px-3 py-1">
+        <span className="w-2.5 h-2.5 rotate-45 bg-white" />
+        <span className="text-[10px] font-black tracking-[0.25em] text-white">LOGO</span>
+      </div>
+      <p className="absolute left-0 right-0 top-[62%] text-center text-[11px] sm:text-xs font-semibold tracking-[0.3em] text-white/85">
+        SUMMER SALE · −50%
+      </p>
+      <motion.div
+        className="absolute left-1/2 top-[70%] -translate-x-1/2 rounded-full bg-white px-5 py-2 text-[11px] font-black tracking-wider text-[#2b0b45] shadow-[0_0_30px_rgba(255,255,255,0.35)]"
+        animate={reduce ? undefined : { scale: [1, 1.06, 1] }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        SHOP NOW
+      </motion.div>
+    </div>
+  );
+}
+
 /* ─── The illustration ─── */
 function EditorIllustration({ template }: { template: PublicBannerTemplateCard | null }) {
   const reduce = useReducedMotion();
-  const { ref, inView } = useInView({ triggerOnce: true, rootMargin: '200px' });
-  const ratio = template ? template.width / template.height : 0.86;
   const hueAnim = reduce ? undefined : { filter: ['hue-rotate(0deg)', 'hue-rotate(360deg)'] };
   const hueTransition = { duration: CYCLE, repeat: Infinity, ease: 'linear' as const };
 
   return (
-    <div ref={ref} className="relative mx-auto w-full max-w-[460px] py-10 px-6 sm:px-10">
+    <div className="relative mx-auto w-full max-w-[460px] py-10 px-6 sm:px-10">
       {/* Glow */}
       <div className="absolute inset-10 rounded-full bg-accent-red/20 blur-[90px]" aria-hidden="true" />
 
@@ -81,38 +151,17 @@ function EditorIllustration({ template }: { template: PublicBannerTemplateCard |
           <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
           <span className="ml-3 flex-1 truncate rounded-md bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-mono text-gray-500">
-            smuzzie.com/banners/{template?.slug ?? 'builder'}
+            smuzzie.com/banners
           </span>
         </div>
 
-        <div className="relative" style={{ aspectRatio: String(ratio) }}>
-          {template ? (
-            <motion.video
-              className="absolute inset-0 w-full h-full object-cover"
-              src={inView ? getImageUrl(template.preview_url) : undefined}
-              poster={template.poster_url ? getImageUrl(template.poster_url) : undefined}
-              muted
-              loop
-              autoPlay
-              playsInline
-              preload="none"
-              aria-hidden="true"
-              animate={hueAnim}
-              transition={hueTransition}
-            />
-          ) : (
-            <motion.div
-              className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,#1e9bff_0%,transparent_45%),radial-gradient(circle_at_70%_80%,#7c3aed_0%,transparent_50%),#07101f]"
-              animate={hueAnim}
-              transition={hueTransition}
-              aria-hidden="true"
-            />
-          )}
+        <div className="relative overflow-hidden" style={{ aspectRatio: '4 / 5' }}>
+          <AdArtwork reduce={!!reduce} hueAnim={hueAnim} hueTransition={hueTransition} />
 
-          {/* Drag frame with handles and a cursor */}
+          {/* Drag frame with handles and a cursor, around the headline */}
           <motion.div
-            className="absolute left-[18%] top-[34%] w-[64%] h-[14%] border-2 border-accent-red rounded-sm"
-            animate={reduce ? undefined : { x: [0, 10, 10, 0], y: [0, 0, 12, 0] }}
+            className="absolute left-[12%] top-[47%] w-[76%] h-[13%] border-2 border-white/90 rounded-sm"
+            animate={reduce ? undefined : { x: [0, 8, 8, 0], y: [0, 0, 6, 0] }}
             transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
             aria-hidden="true"
           >
@@ -120,10 +169,17 @@ function EditorIllustration({ template }: { template: PublicBannerTemplateCard |
             {['-left-1.5 -top-1.5', '-right-1.5 -top-1.5', '-left-1.5 -bottom-1.5', '-right-1.5 -bottom-1.5'].map((pos) => (
               <span key={pos} className={`absolute ${pos} w-3 h-3 bg-white border-2 border-accent-red rounded-[3px]`} />
             ))}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="font-display font-black text-white text-sm sm:text-lg tracking-tight drop-shadow-[0_0_12px_rgba(30,155,255,0.9)]">
+            <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+              <span className="relative font-display font-black text-[22px] sm:text-[28px] tracking-tight leading-none bg-gradient-to-b from-white via-white to-pink-200 bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(255,61,240,0.55)]">
                 YOUR BRAND
               </span>
+              {!reduce && (
+                <motion.span
+                  className="absolute inset-y-0 w-1/4 bg-gradient-to-r from-transparent via-white/35 to-transparent skew-x-[-20deg]"
+                  animate={{ left: ['-30%', '130%'] }}
+                  transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 2.2, ease: 'easeInOut' }}
+                />
+              )}
             </div>
             <MousePointer2 size={20} className="absolute -right-4 -bottom-5 text-white fill-white drop-shadow" />
           </motion.div>
@@ -177,7 +233,7 @@ function EditorIllustration({ template }: { template: PublicBannerTemplateCard |
           <div>
             <p className="text-xs font-semibold text-white leading-tight">banner.mp4 · banner.gif</p>
             <p className="text-[10px] text-gray-500 font-mono">
-              {template ? `${template.width}×${template.height} · ` : ''}ready in minutes
+              full resolution · ready in minutes
             </p>
           </div>
         </div>
