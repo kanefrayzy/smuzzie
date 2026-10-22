@@ -40,7 +40,7 @@ return [
         'image_mimes' => ['image/png', 'image/jpeg', 'image/webp'],
         'max_fps' => 60,
         'max_zones' => 20,
-        'max_image_zones' => 3,
+        'max_image_zones' => 12, // logos and icons (PHP max_file_uploads must stay above this + custom.max_images)
         'preview_width' => 720,
         'preview_crf' => 26,
         'master_crf' => 15,        // only when the upload can't be used as-is (not H.264 yuv420p / odd size)
@@ -74,7 +74,16 @@ return [
         'max_kb' => 2048,
         'max_side' => 4096,
         'max_pixels' => 16_000_000,
-        'mimes' => ['image/png', 'image/jpeg', 'image/webp'],
+        'mimes' => ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+        // Animated GIFs (icons, logos) are kept animated: checked from the file structure first,
+        // then re-encoded by ffmpeg with a time limit. A one-frame GIF is treated like a PNG.
+        'gif' => [
+            'max_side' => 1024,
+            'max_frames' => 300,
+            'max_duration' => 20,             // seconds, as browsers play it
+            'max_total_pixels' => 50_000_000, // canvas width x height x frames: bounds decode work
+            'timeout' => 30,                  // seconds for the ffmpeg re-encode
+        ],
     ],
 
     'text' => [

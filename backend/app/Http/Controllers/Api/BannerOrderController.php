@@ -107,6 +107,8 @@ class BannerOrderController extends Controller
             return response()->json(['message' => 'Not found'], 404);
         }
 
-        return $disk->response($path, null, ['Content-Type' => 'image/png', 'Cache-Control' => 'private, max-age=600']);
+        $type = str_ends_with($path, '.gif') ? 'image/gif' : 'image/png';
+
+        return $disk->response($path, null, ['Content-Type' => $type, 'Cache-Control' => 'private, max-age=600']);
     }
 }
