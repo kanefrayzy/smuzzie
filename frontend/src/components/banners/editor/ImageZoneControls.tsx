@@ -4,13 +4,14 @@ import React, { useRef, useState } from 'react';
 import {
   Upload, X, AlignLeft, AlignCenter, AlignRight, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
 } from 'lucide-react';
-import { resolveImage } from '@/lib/banner-overlay';
+import { isAnimatedSource, resolveImage } from '@/lib/banner-overlay';
 import type { Align, AlignY, ImageZone, ImageZoneParams } from '@/lib/banner-overlay';
 import { formatFileSize } from '@/lib/utils';
 import { Segmented, Slider } from './ui';
 import type { DraftImage } from './draft';
 
-const TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+// Animated GIFs stay animated in video banners (the server checks frames and duration)
+const TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 const MAX_SIDE = 4096;
 const MAX_PIXELS = 16_000_000;
 
@@ -45,11 +46,13 @@ function imageSize(src: string): Promise<{ w: number; h: number }> {
 
 /** Logo upload (drag and drop), size and alignment inside the zone. */
 export default function ImageZoneControls({
-  zone, params, image, onChange, onImage,
+  zone, params, image, onChange, onImage, still = false,
 }: {
   zone: ImageZone;
   params: ImageZoneParams | undefined;
   image: DraftImage | undefined;
+  /** Image (static) template: an animated GIF ends up as its first frame */
+  still?: boolean;
   onChange: (patch: ImageZoneParams) => void;
   onImage: (image: DraftImage | null) => void;
 }) {
@@ -63,7 +66,7 @@ export default function ImageZoneControls({
     setError('');
     if (!file) return;
     if (!TYPES.includes(file.type)) {
-      setError('Use PNG, JPG or WebP. SVG is not supported.');
+      setError('Use PNG, JPG, WebP or GIF. SVG is not supported.');
       return;
     }
     if (file.size > c.upload.maxBytes) {
@@ -116,7 +119,9 @@ export default function ImageZoneControls({
         <span className="min-w-0 text-sm">
           <strong className="block text-white font-medium truncate">{image ? image.name : `Upload ${zone.label.toLowerCase()}`}</strong>
           <span className="block text-gray-500 text-xs">
-            {image ? formatFileSize(image.size) : `PNG with transparency, JPG or WebP, up to ${formatFileSize(c.upload.maxBytes)}`}
+            {image
+              ? formatFileSize(image.size)
+              : `PNG with transparency, JPG, WebP or ${still ? 'GIF' : 'animated GIF'}, up to ${formatFileSize(c.upload.maxBytes)}`}
           </span>
         </span>
         <input ref={inputRef} type="file" accept={TYPES.join(',')} className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
@@ -126,6 +131,9 @@ export default function ImageZoneControls({
         <p className="text-xs text-accent-red" role="alert">
           {error}
         </p>
+      )}
+      {still && isAnimatedSource(image?.dataUrl) && (
+        <p className="text-xs text-gray-500">This banner is a still image: an animated GIF is used as its first frame.</p>
       )}
 
       {image && (

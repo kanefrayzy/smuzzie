@@ -2,6 +2,7 @@ import { cache } from 'react';
 import type { PublicBannerTemplate, PublicBannerTemplateCard } from '@/types/banners';
 import { getImageUrl } from '@/lib/utils';
 import { SITE_URL } from '@/lib/site';
+import { FORMAT_LABEL, templateFormats } from '@/lib/banner-formats';
 
 // Server-side reads of the public banner catalog, so the catalog and template pages ship real
 // HTML (texts, prices, structured data) to crawlers instead of a spinner. Cached for 5 minutes.
@@ -47,9 +48,10 @@ export function formatPrice(price: string, currency: string): string {
   return symbol ? `${symbol}${amount}` : `${amount} ${currency}`;
 }
 
-/** "MP4 1450×1694 + GIF" */
+/** "MP4 1450×1694 + GIF", "PNG 1200×628 + JPG" */
 export function formatsLabel(t: PublicBannerTemplateCard): string {
-  return t.outputs?.gif?.enabled ? `MP4 ${t.width}×${t.height} + GIF` : `MP4 ${t.width}×${t.height}`;
+  const [first, ...rest] = templateFormats(t).map((f) => FORMAT_LABEL[f]);
+  return [`${first} ${t.width}×${t.height}`, ...rest].join(' + ');
 }
 
 /** Serialize JSON-LD safely for a <script> tag (no "</script>" breakouts). */

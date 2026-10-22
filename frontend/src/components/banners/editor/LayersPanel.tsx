@@ -12,7 +12,7 @@ import type { DraftImage } from './draft';
 
 /** Texts and images the buyer adds on top of the template, drawn in list order. */
 export default function LayersPanel({
-  config, params, images, fonts, fits, onAdd, onPatch, onRemove, onMove, onReset, onImage, position,
+  config, params, images, fonts, fits, onAdd, onPatch, onRemove, onMove, onReset, onImage, position, still = false,
 }: {
   config: TemplateConfig;
   params: BuyerParams;
@@ -27,6 +27,8 @@ export default function LayersPanel({
   onImage: (id: string, image: DraftImage | null) => void;
   /** Position controls for a zone (shared with the template zones) */
   position: (zone: Zone, rect: Rect | undefined) => React.ReactNode;
+  /** Image template: animated GIFs are used as their first frame */
+  still?: boolean;
 }) {
   const custom = customConfig(config);
   if (!custom) return null;
@@ -86,6 +88,7 @@ export default function LayersPanel({
                 zone={zone}
                 params={p as ImageZoneParams}
                 image={images[layer.id]}
+                still={still}
                 onChange={(patch) => onPatch(layer.id, patch)}
                 onImage={(img) => onImage(layer.id, img)}
               />

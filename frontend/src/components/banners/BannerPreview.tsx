@@ -4,6 +4,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BannerOverlay, hueFilter, loadFonts } from '@/lib/banner-overlay';
 import type { BannerFontFace, BuyerParams, OverlayResult, TemplateConfig } from '@/lib/banner-overlay';
 import { getImageUrl } from '@/lib/utils';
+import type { BannerKind } from '@/types/banners';
 
 interface Props {
   width: number;
@@ -20,15 +21,19 @@ interface Props {
   className?: string;
   /** Show the text layer (the admin zone editor can switch it off) */
   showOverlay?: boolean;
+  /** image: previewUrl is a still (WebP), shown with the same hue filter instead of a video */
+  kind?: BannerKind;
 }
 
 /**
- * Live banner preview: the watermarked preview video with the CSS hue shift, plus the shared
+ * Live banner preview: the watermarked preview video (or still image, for image templates) with
+ * the CSS hue shift, plus the shared
  * overlay laid out in the template's native resolution and scaled down with a transform, so
  * line breaks are exactly the ones the renderer will produce.
  */
 export default function BannerPreview({
   width, height, previewUrl, posterUrl, config, params, images, fonts, onResult, children, className = '', showOverlay = true,
+  kind = 'video',
 }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -97,7 +102,19 @@ export default function BannerPreview({
       className={`relative overflow-hidden bg-black select-none ${className}`}
       style={{ aspectRatio: `${width} / ${height}` }}
     >
-      {previewUrl && (
+      {previewUrl && kind === 'image' && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={previewUrl}
+          src={getImageUrl(previewUrl)}
+          alt=""
+          className="absolute inset-0 w-full h-full"
+          style={{ objectFit: 'fill', filter: hueFilter(hue) }}
+          draggable={false}
+          aria-hidden="true"
+        />
+      )}
+      {previewUrl && kind !== 'image' && (
         <video
           key={previewUrl}
           src={getImageUrl(previewUrl)}

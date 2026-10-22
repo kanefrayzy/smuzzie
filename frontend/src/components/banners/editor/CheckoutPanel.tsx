@@ -6,6 +6,7 @@ import { ShoppingBag, WifiOff } from 'lucide-react';
 import { publicApi } from '@/lib/api';
 import { exportParams } from '@/lib/banner-overlay';
 import type { PaymentAvailability, PublicBannerTemplate } from '@/types/banners';
+import { formatList, templateFormats } from '@/lib/banner-formats';
 import type { EditorState } from './BannerEditor';
 import { fieldInput } from './ui';
 
@@ -66,7 +67,7 @@ export default function CheckoutPanel({ template, state }: { template: PublicBan
   const unavailable = !!availability && !availability.payments_available && !autoApprove;
 
   const price = Number(template.price);
-  const formats = template.outputs.gif.enabled ? 'MP4 + GIF' : 'MP4';
+  const formats = formatList(templateFormats(template));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

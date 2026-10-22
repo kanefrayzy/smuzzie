@@ -14,7 +14,7 @@ const STEPS = [
   { icon: Film, title: 'Pick a template', text: 'Animated banners made by our designers, rendered in high resolution.' },
   { icon: Type, title: 'Make it yours', text: 'Your texts, fonts, colors and logo. Move blocks and add your own layers.' },
   { icon: Wallet, title: 'Pay with crypto', text: 'USDT, USDC, BTC, ETH, TON and more, right on the page. No account needed.' },
-  { icon: Download, title: 'Download', text: 'MP4 and GIF without the watermark, usually in a few minutes.' },
+  { icon: Download, title: 'Download', text: 'MP4 and GIF (PNG and JPG for still banners) without the watermark, usually in a few minutes.' },
 ];
 
 const FEATURES = [

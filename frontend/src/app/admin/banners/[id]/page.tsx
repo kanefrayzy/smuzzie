@@ -16,6 +16,9 @@ const input =
   'w-full bg-surface border border-white/5 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-accent-red/50';
 const label = 'block text-xs text-gray-400 mb-1.5';
 const MAX_UPLOAD = 500 * 1024 * 1024;
+const MAX_IMAGE_UPLOAD = 50 * 1024 * 1024;
+const VIDEO_EXT = ['mp4', 'mov', 'm4v'];
+const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'webp'];
 
 interface SettingsForm {
   name: string;
@@ -31,11 +34,16 @@ interface SettingsForm {
   gifEnabled: boolean;
   gifWidth: number;
   gifFps: number;
+  jpgEnabled: boolean;
+  jpgQuality: number;
   wmText: string;
   wmOpacity: number;
 }
 
 function toForm(t: AdminBannerTemplate): SettingsForm {
+  // Only one of the two exists, by the template's kind; the other keeps its defaults
+  const gif = 'gif' in t.outputs ? t.outputs.gif : { enabled: false, width: Math.min(1000, t.width || 1000), fps: 15 };
+  const jpg = 'jpg' in t.outputs ? t.outputs.jpg : { enabled: true, quality: 92 };
   return {
     name: t.name,
     slug: t.slug,
@@ -47,9 +55,11 @@ function toForm(t: AdminBannerTemplate): SettingsForm {
     accent: t.config.accent,
     hueEnabled: t.config.hue.enabled,
     huePresets: t.config.hue.presets.join(', '),
-    gifEnabled: t.outputs.gif.enabled,
-    gifWidth: t.outputs.gif.width,
-    gifFps: t.outputs.gif.fps,
+    gifEnabled: gif.enabled,
+    gifWidth: gif.width,
+    gifFps: gif.fps,
+    jpgEnabled: jpg.enabled,
+    jpgQuality: jpg.quality,
     wmText: t.watermark.text,
     wmOpacity: t.watermark.opacity,
   };
@@ -94,19 +104,25 @@ export default function AdminBannerTemplatePage() {
     }
   }, [template, fetchTemplate]);
 
-  const uploadVideo = async (file: File | undefined) => {
+  // A video makes an animated template, a PNG/JPG/WebP a static one (PNG + JPG results)
+  const uploadSource = async (file: File | undefined) => {
     if (!file || !template) return;
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!['mp4', 'mov', 'm4v'].includes(ext || '')) {
-      toast.error('MP4 or MOV only');
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const isImage = IMAGE_EXT.includes(ext);
+    if (!isImage && !VIDEO_EXT.includes(ext)) {
+      toast.error('MP4 or MOV video, or a PNG, JPG or WebP image');
       return;
     }
-    if (file.size > MAX_UPLOAD) {
-      toast.error(`The file is larger than 500 MB (${formatFileSize(file.size)})`);
+    if (file.size > (isImage ? MAX_IMAGE_UPLOAD : MAX_UPLOAD)) {
+      toast.error(`The file is larger than ${isImage ? 50 : 500} MB (${formatFileSize(file.size)})`);
       return;
+    }
+    if (template.has_media && isImage !== (template.kind === 'image')) {
+      const to = isImage ? 'a static template (PNG + JPG results)' : 'an animated template (MP4 results)';
+      if (!confirm(`This turns the template into ${to}. Output settings reset to the defaults. Continue?`)) return;
     }
     const data = new FormData();
-    data.append('video', file);
+    data.append('file', file);
     setUploadProgress(0);
     try {
       const res = await adminApi.uploadBannerSource(template.id, data, (e) => {
@@ -150,7 +166,10 @@ export default function AdminBannerTemplatePage() {
         sort_order: form.sort_order,
         is_active: form.is_active,
         config: { ...template.config, accent: form.accent, hue: { ...template.config.hue, enabled: form.hueEnabled, presets } },
-        outputs: { mp4: true, gif: { enabled: form.gifEnabled, width: form.gifWidth, fps: form.gifFps } },
+        outputs:
+          template.kind === 'image'
+            ? { png: true, jpg: { enabled: form.jpgEnabled, quality: form.jpgQuality } }
+            : { mp4: true, gif: { enabled: form.gifEnabled, width: form.gifWidth, fps: form.gifFps } },
         watermark: { text: form.wmText, opacity: form.wmOpacity },
       });
       setTemplate(res.data);
@@ -172,6 +191,7 @@ export default function AdminBannerTemplatePage() {
   }
 
   const set = <K extends keyof SettingsForm>(key: K, value: SettingsForm[K]) => setForm({ ...form, [key]: value });
+  const still = template.kind === 'image';
 
   return (
     <div>
@@ -191,11 +211,21 @@ export default function AdminBannerTemplatePage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6 items-start">
-        {/* Video */}
+        {/* Background: video or image */}
         <section className="glass-card p-6 border border-white/5">
-          <h3 className="text-lg font-semibold text-white mb-4">Video</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">
+            Background{template.has_media ? (still ? ' · static image' : ' · video') : ''}
+          </h3>
 
-          {template.preview_url ? (
+          {template.preview_url && still ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={template.preview_url}
+              src={getImageUrl(template.preview_url)}
+              alt="Template preview"
+              className="w-full max-h-[60vh] object-contain rounded-xl bg-black mb-4"
+            />
+          ) : template.preview_url ? (
             <video
               key={template.preview_url}
               src={getImageUrl(template.preview_url)}
@@ -216,9 +246,15 @@ export default function AdminBannerTemplatePage() {
           {template.width && (
             <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-4">
               <div><dt className="text-gray-500">Size</dt><dd className="text-white font-mono">{template.width}×{template.height}</dd></div>
-              <div><dt className="text-gray-500">FPS</dt><dd className="text-white font-mono">{template.fps}</dd></div>
-              <div><dt className="text-gray-500">Duration</dt><dd className="text-white font-mono">{template.duration} s</dd></div>
-              <div><dt className="text-gray-500">Frames</dt><dd className="text-white font-mono">{template.frame_count}</dd></div>
+              {still ? (
+                <div><dt className="text-gray-500">Type</dt><dd className="text-white font-mono">Still image</dd></div>
+              ) : (
+                <>
+                  <div><dt className="text-gray-500">FPS</dt><dd className="text-white font-mono">{template.fps}</dd></div>
+                  <div><dt className="text-gray-500">Duration</dt><dd className="text-white font-mono">{template.duration} s</dd></div>
+                  <div><dt className="text-gray-500">Frames</dt><dd className="text-white font-mono">{template.frame_count}</dd></div>
+                </>
+              )}
             </dl>
           )}
 
@@ -241,7 +277,7 @@ export default function AdminBannerTemplatePage() {
             onDrop={(e) => {
               e.preventDefault();
               setDragOver(false);
-              uploadVideo(e.dataTransfer.files[0]);
+              uploadSource(e.dataTransfer.files[0]);
             }}
           >
             <Upload size={20} className="text-gray-400" />
@@ -249,15 +285,22 @@ export default function AdminBannerTemplatePage() {
               {uploadProgress !== null
                 ? `Uploading… ${uploadProgress}%`
                 : template.is_processing
-                  ? 'Processing the video…'
+                  ? 'Processing…'
                   : template.has_media
-                    ? 'Replace the video (MP4 or MOV)'
-                    : 'Upload the video (MP4 or MOV, up to 500 MB)'}
+                    ? 'Replace the background (video or image)'
+                    : 'Upload the background: a video (MP4 or MOV, up to 500 MB) or an image (PNG, JPG or WebP, up to 50 MB)'}
             </span>
             <span className="text-gray-500 text-xs text-center">
-              After Effects render without text. H.264 is kept as-is; other formats are converted once in high quality.
+              Without text. A video makes an animated banner (H.264 is kept as-is; other formats are converted once in high
+              quality). An image makes a static banner with PNG and JPG results; use sRGB, up to 4096 px on a side.
             </span>
-            <input ref={fileRef} type="file" accept="video/mp4,video/quicktime,.mp4,.mov,.m4v" className="sr-only" onChange={(e) => uploadVideo(e.target.files?.[0])} />
+            <input
+              ref={fileRef}
+              type="file"
+              accept="video/mp4,video/quicktime,.mp4,.mov,.m4v,image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+              className="sr-only"
+              onChange={(e) => uploadSource(e.target.files?.[0])}
+            />
           </label>
 
           {template.has_media && (
@@ -317,6 +360,24 @@ export default function AdminBannerTemplatePage() {
           </div>
 
           <h4 className="text-sm font-semibold text-white mt-6 mb-3">Output</h4>
+          {still ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+              <label className="flex items-center gap-2 text-sm text-gray-300 h-[46px]">
+                <input type="checkbox" checked disabled /> PNG (always)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-300 h-[46px]">
+                <input type="checkbox" checked={form.jpgEnabled} onChange={(e) => set('jpgEnabled', e.target.checked)} /> JPG
+              </label>
+              {form.jpgEnabled ? (
+                <div>
+                  <label className={label} htmlFor="t-jpgq">JPG quality, 60–100</label>
+                  <input id="t-jpgq" className={input} type="number" min={60} max={100} value={form.jpgQuality} onChange={(e) => set('jpgQuality', Number(e.target.value) || 0)} />
+                </div>
+              ) : (
+                <div />
+              )}
+            </div>
+          ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <label className="flex items-center gap-2 text-sm text-gray-300 h-[46px]">
               <input type="checkbox" checked disabled /> MP4 (always)
@@ -339,6 +400,7 @@ export default function AdminBannerTemplatePage() {
               </>
             )}
           </div>
+          )}
 
           <h4 className="text-sm font-semibold text-white mt-6 mb-3">Preview watermark</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -353,7 +415,7 @@ export default function AdminBannerTemplatePage() {
               <input id="t-wmo" type="range" min={0} max={255} value={form.wmOpacity} onChange={(e) => set('wmOpacity', Number(e.target.value))} className="w-full accent-[#ff2d3d] h-[46px]" />
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2">The watermark is burned into the public preview video; changing it rebuilds the preview.</p>
+          <p className="text-xs text-gray-500 mt-2">The watermark is burned into the public preview; changing it rebuilds the preview.</p>
 
           <div className="flex flex-wrap items-center gap-4 mt-6 pt-6 border-t border-white/5">
             <label className="flex items-center gap-2 text-sm text-gray-300">

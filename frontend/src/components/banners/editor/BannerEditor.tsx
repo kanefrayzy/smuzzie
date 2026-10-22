@@ -12,6 +12,7 @@ import type { BuyerLayer, BuyerParams, ImageZoneParams, OverlayResult, Rect, Tex
 import PositionControls from './PositionControls';
 import LayersPanel from './LayersPanel';
 import type { PublicBannerTemplate } from '@/types/banners';
+import { FORMAT_LABEL, isImageTemplate, templateFormats } from '@/lib/banner-formats';
 import { Section } from './ui';
 import { clearDraft, loadDraft, saveDraft, type DraftImage } from './draft';
 import TextZoneControls, { hasTextControls } from './TextZoneControls';
@@ -199,7 +200,10 @@ export default function BannerEditor({
 
   const imageZones = config.zones.filter((z) => z.type === 'image' && z.controls.upload.enabled);
   const textZones = config.zones.filter((z): z is Extract<Zone, { type: 'text' }> => z.type === 'text' && hasTextControls(z));
-  const formats = template.outputs.gif.enabled ? `MP4 ${template.width}×${template.height} + GIF ${template.outputs.gif.width}px` : `MP4 ${template.width}×${template.height}`;
+  const still = isImageTemplate(template);
+  const [firstFormat, ...otherFormats] = templateFormats(template);
+  const gif = !still && 'gif' in template.outputs && template.outputs.gif.enabled ? ` ${template.outputs.gif.width}px` : '';
+  const formats = [`${FORMAT_LABEL[firstFormat]} ${template.width}×${template.height}`, ...otherFormats.map((f) => FORMAT_LABEL[f] + (f === 'gif' ? gif : ''))].join(' + ');
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-8 items-start">
@@ -217,6 +221,7 @@ export default function BannerEditor({
               height={template.height}
               previewUrl={template.preview_url}
               posterUrl={template.poster_url}
+              kind={still ? 'image' : 'video'}
               config={config}
               params={params}
               images={previewImages}
@@ -268,7 +273,8 @@ export default function BannerEditor({
           <div className="min-w-0">
             <h1 className="text-2xl font-display font-bold text-white">{template.name}</h1>
             <p className="text-xs font-mono text-gray-500 mt-1">
-              {formats} · {template.duration} s
+              {formats}
+              {!still && template.duration ? ` · ${template.duration} s` : ''}
             </p>
           </div>
           <button type="button" onClick={resetAll} className="shrink-0 text-xs text-gray-400 hover:text-white flex items-center gap-1 mt-1.5">
@@ -284,6 +290,7 @@ export default function BannerEditor({
                 zone={zone}
                 params={params.zones[zone.key] as ImageZoneParams | undefined}
                 image={images[zone.key]}
+                still={still}
                 onChange={(patch) => patchZone(zone.key, patch)}
                 onImage={(img) => setImage(zone.key, img)}
               />
@@ -327,6 +334,7 @@ export default function BannerEditor({
               onReset={resetLayer}
               onImage={setImage}
               position={positionFor}
+              still={still}
             />
           </Section>
         )}

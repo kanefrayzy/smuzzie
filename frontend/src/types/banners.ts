@@ -2,10 +2,22 @@ import type { BannerFontFace, TemplateConfig } from '@/lib/banner-overlay/types'
 
 export type BannerTemplateStatus = 'none' | 'pending' | 'processing' | 'ready' | 'failed';
 
-export interface BannerOutputs {
+/** video: an MP4/MOV background, MP4 (+ GIF) results; image: a still background, PNG (+ JPG) results */
+export type BannerKind = 'video' | 'image';
+export type BannerFormat = 'mp4' | 'gif' | 'png' | 'jpg';
+
+export interface VideoOutputs {
   mp4: true;
   gif: { enabled: boolean; width: number; fps: number };
 }
+
+export interface ImageOutputs {
+  png: true;
+  jpg: { enabled: boolean; quality: number };
+}
+
+/** Video templates have VideoOutputs, image templates ImageOutputs (see `kind`) */
+export type BannerOutputs = VideoOutputs | ImageOutputs;
 
 export interface BannerWatermark {
   text: string;
@@ -30,8 +42,11 @@ export interface AdminBannerTemplate {
   currency: string;
   is_active: boolean;
   sort_order: number;
+  kind: BannerKind;
   config: TemplateConfig;
   outputs: BannerOutputs;
+  /** What an order produces, e.g. ['mp4', 'gif'] or ['png', 'jpg'] */
+  formats: BannerFormat[];
   watermark: BannerWatermark;
   source_rev: number;
   width: number | null;
@@ -58,20 +73,25 @@ export interface PublicBannerTemplateCard {
   description: string | null;
   price: string;
   currency: string;
+  /** Missing in responses cached from before image templates: treat as video */
+  kind?: BannerKind;
   width: number;
   height: number;
-  duration: number;
+  /** null for image templates */
+  duration: number | null;
+  /** MP4 for video templates, a WebP still for image templates (watermarked either way) */
   preview_url: string;
   poster_url: string | null;
   outputs: BannerOutputs;
+  formats?: BannerFormat[];
 }
 
 /** Everything the buyer editor needs (GET /banners/templates/{slug}) */
 export interface PublicBannerTemplate extends PublicBannerTemplateCard {
   config: TemplateConfig;
   fonts: BannerFontFace[];
-  fps: number;
-  frame_count: number;
+  fps: number | null;
+  frame_count: number | null;
 }
 
 export type BannerOrderStatus = 'pending_payment' | 'queued' | 'rendering' | 'ready' | 'failed';
@@ -81,14 +101,15 @@ export interface PublicBannerOrder {
   token: string;
   status: BannerOrderStatus;
   template: { name: string | null; slug: string | null };
-  formats: ('mp4' | 'gif')[];
+  kind?: BannerKind;
+  formats: BannerFormat[];
   email: string | null;
   created_at: string;
   paid_at: string | null;
   ready_at: string | null;
   files_expire_at: string | null;
   files_expired: boolean;
-  downloads: Partial<Record<'mp4' | 'gif', string>> | null;
+  downloads: Partial<Record<BannerFormat, string>> | null;
   /** Crypto payment the buyer picked last (or the one that paid); null before a coin is chosen */
   payment: PublicBannerPayment | null;
   server_time: string;
@@ -211,17 +232,25 @@ export interface AdminBannerOrderDetails extends AdminBannerOrder {
   params: import('@/lib/banner-overlay/types').BuyerParams;
   snapshot: {
     snapshotVersion: number;
+    kind: BannerKind;
     template: { id: number; slug: string; name: string; price: string; currency: string };
     config: TemplateConfig;
     outputs: BannerOutputs;
-    media: { width: number; height: number; fps: number; duration: number; frame_count: number; source_rev: number };
+    media: { width: number; height: number; fps: number | null; duration: number | null; frame_count: number | null; source_rev: number };
     fonts: BannerFontFace[];
   };
   preview_url: string | null;
   images: Record<string, string>;
-  result: { timings: Record<string, number> | null; fit: Record<string, unknown> | null; mp4_size: number | null; gif_size: number | null } | null;
+  result: {
+    timings: Record<string, number> | null;
+    fit: Record<string, unknown> | null;
+    mp4_size: number | null;
+    gif_size: number | null;
+    png_size?: number | null;
+    jpg_size?: number | null;
+  } | null;
   render_log: string | null;
-  downloads: Partial<Record<'mp4' | 'gif', string>> | null;
+  downloads: Partial<Record<BannerFormat, string>> | null;
   ip: string | null;
   payments: AdminBannerPayment[];
 }

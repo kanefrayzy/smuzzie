@@ -6,7 +6,7 @@ import { ChevronDown } from 'lucide-react';
 export const BANNER_FAQ: { q: string; a: string }[] = [
   {
     q: 'What do I get after paying?',
-    a: 'An MP4 video in the template’s full resolution and, for most templates, an animated GIF, both without the watermark you see in the preview. The download links appear on your order page and are emailed to you.',
+    a: 'An MP4 video in the template’s full resolution and, for most templates, an animated GIF, both without the watermark you see in the preview. Still (non-animated) templates come as PNG and JPG. The download links appear on your order page and are emailed to you.',
   },
   {
     q: 'How long does it take?',
