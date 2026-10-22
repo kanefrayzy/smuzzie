@@ -42,6 +42,8 @@ export const metadata: Metadata = {
     follow: true,
   },
   icons: { icon: '/favicon.ico' },
+  // Google Search Console ownership
+  verification: { google: 'RH4w7VR4nn9OrQtvo0jfAQwz0fIF8-7oHUMxM1HNUGQ' },
 };
 
 export const viewport: Viewport = {

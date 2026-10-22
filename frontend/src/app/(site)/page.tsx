@@ -13,8 +13,8 @@ export default function HomePage() {
     <>
       <HeroSection />
       <PortfolioSlider />
-      <WhyChooseUs />
       <BannerBuilderSection />
+      <WhyChooseUs />
       <ReviewsSection />
       <CryptoSection />
       <CTAFooterSection />
