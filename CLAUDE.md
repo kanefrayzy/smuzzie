@@ -97,7 +97,7 @@ Deploy without downtime:
 
 ### Banner builder
 
-Buyers customize video templates (After Effects render without text + zones JSON) at `/banners` (hidden: direct link only, `noindex`, not in the sitemap, until payments exist). Full design: `docs/banners/PLAN.md`; server setup: `docs/banners/DEPLOY.md`.
+Buyers customize video templates (After Effects render without text + zones JSON) at `/banners` (public: in the header, footer, homepage and sitemap). The catalog and template pages are server components (`src/lib/banners-server.ts`, revalidate 5 min) so crawlers get HTML, metadata and JSON-LD (Product/Offer, BreadcrumbList, FAQPage); the editor itself is the client component `BannerTemplateClient`. Order pages (`/banners/order/*`) are `noindex`. Full design: `docs/banners/PLAN.md`; server setup: `docs/banners/DEPLOY.md`.
 
 - **One layout module.** `frontend/src/lib/banner-overlay/` (plain TS, no React) lays out the text/logo layer for the site preview, the admin zone editor and the renderer (bundled by `renderer/build.mjs`). It decides font size and line breaks itself (canvas measurements, explicit lines) so the preview and the file match; never duplicate that logic. User data goes into the DOM only via `textContent`/style properties/`img.src`.
 - **Color.** The preview shifts the background with CSS `hue-rotate` on the `<video>`; the renderer applies the same matrix with ffmpeg `colorchannelmixer` (not the `hue` filter). Video outputs are bt709-tagged via `setparams` (ffmpeg takes color metadata from frames).

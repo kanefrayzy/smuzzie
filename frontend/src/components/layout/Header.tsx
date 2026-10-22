@@ -10,6 +10,7 @@ import Logo from '@/components/ui/Logo';
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'Portfolio', href: '/portfolio' },
+  { label: 'Banners', href: '/banners' },
   { label: 'Services', href: '/get-started' },
   { label: 'Contact', href: '/contact' },
 ];
@@ -49,7 +50,7 @@ export default function Header() {
           <div className="flex items-center justify-between h-14 md:h-16">
             {/* Left — Navigation */}
             <nav className="hidden md:flex items-center gap-7 flex-1">
-              {navItems.slice(0, 2).map((item) => (
+              {navItems.slice(0, 3).map((item) => (
                 <Link key={item.href} href={item.href} className="nav-link">
                   {item.label}
                 </Link>
@@ -63,7 +64,7 @@ export default function Header() {
 
             {/* Right — Navigation + CTA */}
             <div className="hidden md:flex items-center gap-7 flex-1 justify-end">
-              {navItems.slice(2).map((item) => (
+              {navItems.slice(3).map((item) => (
                 <Link key={item.href} href={item.href} className="nav-link">
                   {item.label}
                 </Link>

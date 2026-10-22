@@ -1,15 +1,18 @@
 import type { Metadata } from 'next';
 import { pageMetadata } from '@/lib/site';
 
-// Hidden section until payments exist: reachable by direct link only, not indexed,
-// not in the sitemap, no links from the header/footer.
+// Catalog metadata. Template pages set their own (banners/[slug]/page.tsx), order pages are noindex.
 export const metadata: Metadata = {
   ...pageMetadata({
-    title: 'Video Banner Builder',
-    description: 'Customize an animated video banner: your texts, logo and colors, ready as MP4 and GIF.',
+    title: 'Animated Video Banner Maker — MP4 & GIF Templates',
+    description:
+      'Create an animated video banner in minutes: pick a template, add your text, logo and brand colors in the browser, pay with crypto and download MP4 and GIF without a watermark.',
     path: '/banners',
   }),
-  robots: { index: false, follow: false },
+  keywords: [
+    'animated banner maker', 'video banner templates', 'banner ad maker', 'animated GIF banner', 'MP4 banner',
+    'online banner editor', 'video ad templates', 'crypto payment',
+  ],
 };
 
 export default function BannersLayout({ children }: { children: React.ReactNode }) {
