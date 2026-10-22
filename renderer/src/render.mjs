@@ -4,9 +4,10 @@
 // 1. headless Chromium draws the text/logo layer with the shared overlay module (the same code
 //    as the site preview) into a transparent PNG at the template's native resolution;
 // 2. ffmpeg shifts the background hue with the CSS hue-rotate matrix and lays the PNG on top;
-// 3. MP4 (always) and GIF (optional) are written to job.workDir.
+// 3. video templates: MP4 (always) and GIF (optional); image templates (job.kind "image"):
+//    PNG (always) and JPG (optional). Files go to job.workDir.
 //
-// Prints ONE line of JSON to stdout: { ok: true, mp4, gif, timings, fit } or { ok: false, error }.
+// Prints ONE line of JSON to stdout: { ok: true, mp4, gif | png, jpg, timings, fit } or { ok: false, error }.
 // Diagnostics go to stderr. Exit code 0 on success, 1 on failure.
 //
 // The page can only reach the local static server (every other request is aborted), and the
@@ -16,7 +17,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import { startServer } from './server.mjs';
-import { mp4Args, gifArgs } from './ffmpeg.mjs';
+import { mp4Args, gifArgs, pngArgs, jpgArgs } from './ffmpeg.mjs';
 import { resolveHue } from '../dist/overlay.mjs';
 
 function fail(message, extra = {}) {
@@ -33,7 +34,7 @@ function readJob(file) {
   if (!Number.isInteger(job.width) || !Number.isInteger(job.height) || job.width < 2 || job.height < 2 || job.width > 4096 || job.height > 4096) {
     fail('job.json: bad size');
   }
-  if (!fs.existsSync(job.source)) fail('Template source video not found');
+  if (!fs.existsSync(job.source)) fail(job.kind === 'image' ? 'Template image not found' : 'Template source video not found');
   for (const f of job.fonts) if (!fs.existsSync(f.file)) fail(`Font file not found (id ${f.id})`);
   return job;
 }
@@ -117,6 +118,29 @@ async function main() {
   timings.overlay_ms = Date.now() - t;
 
   const hue = resolveHue(job.config, job.params);
+  const fit = {};
+  for (const [key, z] of Object.entries(layout.zones)) {
+    fit[key] = { requested: z.requested, used: Math.round(z.used * 1000) / 1000, shrunk: z.shrunk, overflow: z.overflow, lines: z.lines.length };
+  }
+  const file = (f) => (f ? { path: f, size: fs.statSync(f).size } : null);
+
+  if (job.kind === 'image') {
+    const png = path.join(job.workDir, 'banner.png');
+    t = Date.now();
+    await run(ffmpeg, pngArgs({ source: job.source, overlay: overlayPng, out: png, hue }), 2 * 60 * 1000);
+    timings.png_ms = Date.now() - t;
+
+    let jpg = null;
+    if (job.outputs?.jpg?.enabled) {
+      jpg = path.join(job.workDir, 'banner.jpg');
+      t = Date.now();
+      await run(ffmpeg, jpgArgs({ png, out: jpg, quality: job.outputs.jpg.quality }), 2 * 60 * 1000);
+      timings.jpg_ms = Date.now() - t;
+    }
+    process.stdout.write(JSON.stringify({ ok: true, png: file(png), jpg: file(jpg), hue, timings, fit }) + '\n');
+    return;
+  }
+
   const mp4 = path.join(job.workDir, 'banner.mp4');
   t = Date.now();
   await run(ffmpeg, mp4Args({ source: job.source, overlay: overlayPng, out: mp4, hue, threads }), 6 * 60 * 1000);
@@ -133,21 +157,7 @@ async function main() {
     timings.gif_ms = Date.now() - t;
   }
 
-  const fit = {};
-  for (const [key, z] of Object.entries(layout.zones)) {
-    fit[key] = { requested: z.requested, used: Math.round(z.used * 1000) / 1000, shrunk: z.shrunk, overflow: z.overflow, lines: z.lines.length };
-  }
-
-  process.stdout.write(
-    JSON.stringify({
-      ok: true,
-      mp4: { path: mp4, size: fs.statSync(mp4).size },
-      gif: gif ? { path: gif, size: fs.statSync(gif).size } : null,
-      hue,
-      timings,
-      fit,
-    }) + '\n',
-  );
+  process.stdout.write(JSON.stringify({ ok: true, mp4: file(mp4), gif: file(gif), hue, timings, fit }) + '\n');
 }
 
 main().catch((e) => {

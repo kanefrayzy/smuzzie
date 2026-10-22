@@ -34,6 +34,44 @@ export function mp4Args({ source, overlay, out, hue, threads = 3 }) {
   ];
 }
 
+// Stills (image templates) stay RGB end to end: no YUV round trip and no bt709 tags. The frames
+// are tagged sRGB so the PNG encoder writes an sRGB chunk (not a gAMA/cHRM pair from video tags).
+export const SRGB_PARAMS = 'setparams=color_primaries=bt709:color_trc=iec61966-2-1:colorspace=gbr:range=pc';
+
+/** Final PNG of an image template: shifted background + transparent overlay, full resolution. */
+export function pngArgs({ source, overlay, out, hue }) {
+  const mixer = mixerFilter(hue);
+  const graph = [
+    `[0:v]format=gbrp${mixer ? ',' + mixer : ''}[bg]`,
+    `[bg][1:v]overlay=0:0:format=rgb,format=rgb24,${SRGB_PARAMS}[v]`,
+  ].join(';');
+  return [
+    '-nostdin', '-v', 'error', '-y',
+    '-i', source, '-i', overlay,
+    '-filter_complex', graph, '-map', '[v]',
+    '-frames:v', '1', '-c:v', 'png', '-pred', 'mixed', '-update', '1', '-f', 'image2', out,
+  ];
+}
+
+/** JPEG quality 60..100 -> mjpeg qscale (2 is about 92, 1 the best). */
+export function jpegQscale(quality) {
+  const q = Math.max(60, Math.min(100, Number(quality) || 92));
+  return Math.max(1, Math.round((100 - q) / 4));
+}
+
+/**
+ * JPG from the finished PNG: full-range BT.601 YCbCr (what JFIF means, so every viewer decodes the
+ * same colors), no chroma subsampling so thin colored text stays sharp.
+ */
+export function jpgArgs({ png, out, quality }) {
+  return [
+    '-nostdin', '-v', 'error', '-y', '-i', png,
+    '-vf', 'scale=out_color_matrix=bt601:out_range=pc,format=yuvj444p',
+    '-frames:v', '1', '-c:v', 'mjpeg', '-q:v', String(jpegQscale(quality)), '-qmin', '1',
+    '-update', '1', '-f', 'image2', out,
+  ];
+}
+
 /**
  * GIF from the finished MP4. One palette for the whole clip built from the pixels that change
  * (stats_mode=diff), ordered bayer dithering (stable between frames, so unchanged areas stay
