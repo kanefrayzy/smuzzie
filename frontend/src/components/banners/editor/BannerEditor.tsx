@@ -245,45 +245,41 @@ export default function BannerEditor({
                 />
               )}
             </BannerPreview>
-            {/* While moving blocks: an always-visible way out, on top of the preview */}
-            {layoutMode && (
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-black/80 backdrop-blur border border-white/15 pl-3 pr-1 py-1 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.9)]">
-                <span className="flex items-center gap-1.5 text-[11px] text-gray-200 whitespace-nowrap">
-                  <Move size={12} className="text-accent-red" /> Moving blocks
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLayoutMode(false);
-                    setSelectedZone(null);
-                  }}
-                  className="flex items-center gap-1 rounded-full bg-accent-red hover:bg-accent-red/90 px-3 py-1 text-xs font-semibold text-white"
-                >
-                  <Check size={13} /> Done
-                </button>
-              </div>
-            )}
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-2 lg:mt-3 text-[11px] lg:text-xs text-gray-500">
-            <span>Preview with a watermark. The file you buy has none.</span>
-            {anyMovable && (
+          {layoutMode ? (
+            /* While moving blocks: a clear way out right under the preview (sticky on phones too) */
+            <div className="flex items-center justify-center gap-3 mt-2 lg:mt-3">
+              <span className="flex items-center gap-1.5 text-[11px] lg:text-xs text-gray-300">
+                <Move size={13} className="text-accent-red shrink-0" />
+                {handleItems.length ? 'Drag blocks, pull corners to resize' : 'Nothing to move yet: upload an image or show a hidden text'}
+              </span>
               <button
                 type="button"
                 onClick={() => {
-                  setLayoutMode((v) => !v);
+                  setLayoutMode(false);
                   setSelectedZone(null);
                 }}
-                aria-pressed={layoutMode}
-                className={`flex items-center gap-1 ${layoutMode ? 'text-white' : 'hover:text-white'}`}
+                className="shrink-0 flex items-center gap-1 rounded-full bg-accent-red hover:bg-accent-red/90 px-4 py-1.5 text-xs font-semibold text-white shadow-[0_0_20px_rgba(230,57,70,0.35)]"
               >
-                <Move size={12} /> {layoutMode ? 'Done moving' : 'Move blocks'}
+                <Check size={14} /> Done
               </button>
-            )}
-          </div>
-          {layoutMode && (
-            <p className="text-center text-[11px] text-gray-500 mt-1">
-              {handleItems.length ? 'Drag a block to move it, pull the corners to resize.' : 'Nothing to move yet: upload the logo or show a hidden text.'}
-            </p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-2 lg:mt-3 text-[11px] lg:text-xs text-gray-500">
+              <span>Preview with a watermark. The file you buy has none.</span>
+              {anyMovable && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLayoutMode(true);
+                    setSelectedZone(null);
+                  }}
+                  className="flex items-center gap-1 hover:text-white"
+                >
+                  <Move size={12} /> Move blocks
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
