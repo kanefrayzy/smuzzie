@@ -34,6 +34,8 @@ export interface AdminBannerFont extends BannerFontFace {
 
 export interface AdminBannerTemplate {
   id: number;
+  /** Server-side ceilings for per-template settings */
+  limits?: { custom_max_text: number; custom_max_images: number };
   uuid: string;
   slug: string;
   name: string;

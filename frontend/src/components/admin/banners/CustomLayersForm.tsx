@@ -13,12 +13,15 @@ const input =
 
 /** Template setting: may the buyer add their own texts and images on top, with which fonts and where. */
 export default function CustomLayersForm({
-  value, fonts, errors, onChange,
+  value, fonts, errors, onChange, maxText = 20, maxImages = 20,
 }: {
   value: CustomLayersConfig | undefined;
   fonts: AdminBannerFont[];
   errors: Record<string, string>;
   onChange: (v: CustomLayersConfig) => void;
+  /** Ceilings set on the server (BANNERS_CUSTOM_MAX_TEXT / BANNERS_CUSTOM_MAX_IMAGES) */
+  maxText?: number;
+  maxImages?: number;
 }) {
   const c = value ?? CUSTOM_OFF;
   const set = (patch: Partial<CustomLayersConfig>) => onChange({ ...c, ...patch });
@@ -35,13 +38,13 @@ export default function CustomLayersForm({
         <>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="block text-[11px] text-gray-400 mb-1">Max texts (0–10)</span>
-              <input type="number" min={0} max={10} className={input} value={Number.isFinite(c.maxText) ? c.maxText : ''} onChange={(e) => set({ maxText: num(e.target.value) })} />
+              <span className="block text-[11px] text-gray-400 mb-1">Max texts (0–{maxText})</span>
+              <input type="number" min={0} max={maxText} className={input} value={Number.isFinite(c.maxText) ? c.maxText : ''} onChange={(e) => set({ maxText: num(e.target.value) })} />
               {err('config.custom.maxText')}
             </label>
             <label className="block">
-              <span className="block text-[11px] text-gray-400 mb-1">Max images (0–3)</span>
-              <input type="number" min={0} max={3} className={input} value={Number.isFinite(c.maxImage) ? c.maxImage : ''} onChange={(e) => set({ maxImage: num(e.target.value) })} />
+              <span className="block text-[11px] text-gray-400 mb-1">Max images (0–{maxImages})</span>
+              <input type="number" min={0} max={maxImages} className={input} value={Number.isFinite(c.maxImage) ? c.maxImage : ''} onChange={(e) => set({ maxImage: num(e.target.value) })} />
               {err('config.custom.maxImage')}
             </label>
           </div>

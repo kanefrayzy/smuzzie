@@ -267,7 +267,14 @@ export default function ZoneEditor({
         )}
 
         <div className="mb-4">
-          <CustomLayersForm value={config.custom} fonts={fonts} errors={customErrors} onChange={setCustom} />
+          <CustomLayersForm
+            value={config.custom}
+            fonts={fonts}
+            errors={customErrors}
+            onChange={setCustom}
+            maxText={template.limits?.custom_max_text ?? 20}
+            maxImages={template.limits?.custom_max_images ?? 20}
+          />
         </div>
 
         {/* Zone list (later = drawn on top) */}

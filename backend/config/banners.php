@@ -66,8 +66,10 @@ return [
 
     // Layers the buyer adds on top of a template (texts and images), upper limits for any template
     'custom' => [
-        'max_text' => 10,
-        'max_images' => 3,
+        // Upper limits the admin can set per template ("Max texts / Max images"). Each image is
+        // ≤ logo.max_kb, so keep max_image_zones + max_images under PHP max_file_uploads (100 on prod)
+        'max_text' => (int) env('BANNERS_CUSTOM_MAX_TEXT', 20),
+        'max_images' => (int) env('BANNERS_CUSTOM_MAX_IMAGES', 20),
     ],
 
     'logo' => [

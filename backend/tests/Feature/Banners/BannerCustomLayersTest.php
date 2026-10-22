@@ -5,6 +5,7 @@ namespace Tests\Feature\Banners;
 use App\Models\BannerFont;
 use App\Models\BannerOrder;
 use App\Models\BannerTemplate;
+use App\Models\User;
 use App\Services\Banners\BannerConfigValidator;
 use Database\Factories\BannerTemplateFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 /** Texts and images the buyer adds on top of a template (config.custom, params.layers). */
 class BannerCustomLayersTest extends TestCase
@@ -166,5 +168,25 @@ class BannerCustomLayersTest extends TestCase
         $this->order([$this->textLayer()])->assertCreated();
 
         $this->assertArrayNotHasKey('layers', BannerOrder::firstOrFail()->params);
+    }
+
+    public function test_image_and_text_limits_are_configurable(): void
+    {
+        $out = (new BannerConfigValidator())->validate($this->config(['maxImage' => 15, 'maxText' => 20]));
+        $this->assertSame([15, 20], [$out['custom']['maxImage'], $out['custom']['maxText']]);
+        $this->assertArrayHasKey('config.custom.maxImage', $this->errorsFor($this->config(['maxImage' => 21])));
+
+        // The ceiling itself comes from config (BANNERS_CUSTOM_MAX_IMAGES)
+        config(['banners.custom.max_images' => 30]);
+        $this->assertSame(25, (new BannerConfigValidator())->validate($this->config(['maxImage' => 25]))['custom']['maxImage']);
+
+        // The admin form gets the ceilings with the template
+        $template = $this->template();
+        $token = JWTAuth::fromUser(User::factory()->admin()->create());
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/admin/banner-templates/{$template->id}")
+            ->assertOk()
+            ->assertJsonPath('limits.custom_max_images', 30)
+            ->assertJsonPath('limits.custom_max_text', 20);
     }
 }

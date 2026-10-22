@@ -333,6 +333,11 @@ class BannerTemplateController extends Controller
             'has_media' => $template->hasMedia(),
             'formats' => $template->formats(),
             'is_processing' => in_array($template->processing_status, [BannerTemplateStatus::Pending, BannerTemplateStatus::Processing], true),
+            // Ceilings for the admin form (Max texts / Max images of the buyer's own layers)
+            'limits' => [
+                'custom_max_text' => (int) config('banners.custom.max_text'),
+                'custom_max_images' => (int) config('banners.custom.max_images'),
+            ],
         ];
     }
 }
