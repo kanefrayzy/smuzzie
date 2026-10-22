@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import {
   LayoutDashboard, FolderOpen, Image, Star, Mail,
-  LogOut, Menu, X, ChevronRight, Settings
+  LogOut, Menu, X, ChevronRight, Settings, Film, Type
 } from 'lucide-react';
 
 const sidebarLinks = [
@@ -15,7 +15,17 @@ const sidebarLinks = [
   { label: 'Portfolio', href: '/admin/portfolio', icon: Image },
   { label: 'Reviews', href: '/admin/reviews', icon: Star },
   { label: 'Contacts', href: '/admin/contacts', icon: Mail },
+  { label: 'Banners', href: '/admin/banners', icon: Film },
+  { label: 'Banner fonts', href: '/admin/banners/fonts', icon: Type },
 ];
+
+// The most specific link wins, so /admin/banners/fonts doesn't also light up /admin/banners
+function activeHref(pathname: string): string | undefined {
+  return sidebarLinks
+    .map((l) => l.href)
+    .filter((href) => pathname === href || (href !== '/admin' && pathname.startsWith(href + '/')))
+    .sort((a, b) => b.length - a.length)[0];
+}
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user, logout, hydrate } = useAuthStore();
@@ -86,7 +96,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1">
             {sidebarLinks.map((link) => {
-              const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
+              const isActive = activeHref(pathname) === link.href;
               return (
                 <Link
                   key={link.href}

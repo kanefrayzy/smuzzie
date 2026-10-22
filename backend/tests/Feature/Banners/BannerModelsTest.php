@@ -33,11 +33,12 @@ class BannerModelsTest extends TestCase
         $published = BannerTemplate::factory()->published()->create();
         BannerTemplate::factory()->published()->create(['is_active' => false]);
         BannerTemplate::factory()->create(['is_active' => true]); // no video yet
-        BannerTemplate::factory()->published()->create(['processing_status' => BannerTemplateStatus::Failed]);
+        // An earlier version is still served while a new upload is being processed
+        $processing = BannerTemplate::factory()->published()->create(['processing_status' => BannerTemplateStatus::Processing]);
         $deleted = BannerTemplate::factory()->published()->create();
         $deleted->delete();
 
-        $this->assertEquals([$published->id], BannerTemplate::published()->pluck('id')->all());
+        $this->assertEquals([$published->id, $processing->id], BannerTemplate::published()->orderBy('id')->pluck('id')->all());
         $this->assertTrue($published->isPublished());
     }
 

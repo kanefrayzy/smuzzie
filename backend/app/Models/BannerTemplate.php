@@ -66,16 +66,26 @@ class BannerTemplate extends Model
         return $this->hasMany(BannerOrder::class, 'template_id');
     }
 
-    /** Visible in the public catalog: switched on by the admin and the video is processed. */
+    /**
+     * Visible in the public catalog: switched on by the admin and a processed video exists.
+     * Re-processing a new upload doesn't hide the template; the old media is served until the
+     * new files are complete.
+     */
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('is_active', true)
-            ->where('processing_status', BannerTemplateStatus::Ready->value);
+            ->whereNotNull('source_path')
+            ->whereNotNull('preview_path');
     }
 
     public function isPublished(): bool
     {
-        return $this->is_active && $this->processing_status === BannerTemplateStatus::Ready;
+        return $this->is_active && $this->hasMedia();
+    }
+
+    public function hasMedia(): bool
+    {
+        return $this->source_path !== null && $this->preview_path !== null;
     }
 
     public function getPreviewUrlAttribute(): ?string

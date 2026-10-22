@@ -98,4 +98,26 @@ export const adminApi = {
   getContact: (id: number) => api.get(`/admin/contacts/${id}`),
   updateContactStatus: (id: number, status: string) => api.patch(`/admin/contacts/${id}/status`, { status }),
   deleteContact: (id: number) => api.delete(`/admin/contacts/${id}`),
+
+  // Banner builder: fonts
+  getBannerFonts: () => api.get('/admin/banner-fonts'),
+  createBannerFont: (data: FormData) =>
+    api.post('/admin/banner-fonts', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  updateBannerFont: (id: number, data: Record<string, any>) => api.put(`/admin/banner-fonts/${id}`, data),
+  deleteBannerFont: (id: number) => api.delete(`/admin/banner-fonts/${id}`),
+
+  // Banner builder: templates
+  getBannerTemplates: () => api.get('/admin/banner-templates'),
+  getBannerTemplate: (id: number) => api.get(`/admin/banner-templates/${id}`),
+  createBannerTemplate: (data: Record<string, any>) => api.post('/admin/banner-templates', data),
+  updateBannerTemplate: (id: number, data: Record<string, any>) => api.put(`/admin/banner-templates/${id}`, data),
+  deleteBannerTemplate: (id: number) => api.delete(`/admin/banner-templates/${id}`),
+  uploadBannerSource: (id: number, data: FormData, onUploadProgress?: (e: any) => void) =>
+    api.post(`/admin/banner-templates/${id}/source`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress,
+    }),
+  reprocessBannerTemplate: (id: number) => api.post(`/admin/banner-templates/${id}/reprocess`),
+  reorderBannerTemplates: (items: { id: number; sort_order: number }[]) =>
+    api.post('/admin/banner-templates/reorder', { items }),
 };

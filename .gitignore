@@ -28,3 +28,4 @@ docs/banners/prototype/**/*.woff2
 # Tool caches
 backend/.phpunit.result.cache
 frontend/tsconfig.tsbuildinfo
+frontend/.next-*/

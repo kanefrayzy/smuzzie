@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\PortfolioController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\Admin\BannerFontController;
+use App\Http\Controllers\Api\Admin\BannerTemplateController;
 
 /*
 |--------------------------------------------------------------------------
@@ -67,5 +69,17 @@ Route::prefix('v1')->group(function () {
         Route::get('/contacts/{contactSubmission}', [ContactController::class, 'show']);
         Route::patch('/contacts/{contactSubmission}/status', [ContactController::class, 'updateStatus']);
         Route::delete('/contacts/{contactSubmission}', [ContactController::class, 'destroy']);
+
+        // Banner builder: fonts and templates
+        Route::get('/banner-fonts', [BannerFontController::class, 'index']);
+        Route::post('/banner-fonts', [BannerFontController::class, 'store']);
+        Route::put('/banner-fonts/{bannerFont}', [BannerFontController::class, 'update']);
+        Route::delete('/banner-fonts/{bannerFont}', [BannerFontController::class, 'destroy']);
+
+        Route::post('/banner-templates/reorder', [BannerTemplateController::class, 'reorder']);
+        Route::apiResource('/banner-templates', BannerTemplateController::class)
+            ->parameters(['banner-templates' => 'bannerTemplate']);
+        Route::post('/banner-templates/{bannerTemplate}/source', [BannerTemplateController::class, 'uploadSource']);
+        Route::post('/banner-templates/{bannerTemplate}/reprocess', [BannerTemplateController::class, 'reprocess']);
     });
 });
