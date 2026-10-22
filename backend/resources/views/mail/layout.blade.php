@@ -59,8 +59,18 @@
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;margin:0 auto;">
         {{-- Brand header --}}
         <tr>
-          <td bgcolor="#0b0b0e" style="background-color:#0b0b0e;padding:22px 32px;border-radius:12px 12px 0 0;" class="em-pad">
-            <a href="{{ $siteUrl }}" target="_blank" style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:18px;line-height:24px;font-weight:800;letter-spacing:4px;color:#ffffff;text-decoration:none;">SMUZZIE<span style="color:#ff2d3d;">.</span></a>
+          <td bgcolor="#0b0b0e" style="background-color:#0b0b0e;padding:16px 32px;border-radius:12px 12px 0 0;" class="em-pad">
+            {{-- Helmet logo (PNG: email clients don't show SVG) + wordmark --}}
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td valign="middle" style="padding-right:12px;">
+                  <a href="{{ $siteUrl }}" target="_blank" style="text-decoration:none;"><img src="{{ $siteUrl }}/email/logo.png" width="38" height="56" alt="Smuzzie" style="display:block;width:38px;height:56px;border:0;outline:none;"></a>
+                </td>
+                <td valign="middle">
+                  <a href="{{ $siteUrl }}" target="_blank" style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:18px;line-height:24px;font-weight:800;letter-spacing:4px;color:#ffffff;text-decoration:none;">SMUZZIE<span style="color:#ff2d3d;">.</span></a>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
         <tr>
