@@ -20,6 +20,7 @@ class BannerConfigValidator
     public const CASES = ['none', 'upper', 'lower'];
     private const KEY_PATTERN = '/^[a-z][a-z0-9_]{0,31}$/';
     private const HEX_PATTERN = '/^#[0-9a-f]{6}$/';
+    public const MAX_FONT_OPTIONS = 12;
 
     /** @var array<string, string[]> */
     private array $errors = [];
@@ -193,18 +194,43 @@ class BannerConfigValidator
             $this->fail("{$path}.style.align", 'Default alignment must be one of the allowed options');
         }
 
+        $fontCtl = $this->controlBlock($controls, 'font');
+        $fontEnabled = $this->bool($fontCtl['enabled'] ?? false);
+        $fontOptions = [];
+        foreach (array_slice((array) ($fontCtl['options'] ?? []), 0, self::MAX_FONT_OPTIONS) as $j => $id) {
+            if (!is_numeric($id) || !in_array((int) $id, $fontIds, true)) {
+                // A font deleted while the choice was switched off is just dropped
+                if ($fontEnabled) {
+                    $this->fail("{$path}.controls.font.options.{$j}", 'Unknown font');
+                }
+                continue;
+            }
+            $fontOptions[] = (int) $id;
+        }
+        // The default font is always one of the choices
+        $fontOptions = array_values(array_unique([$fontId, ...$fontOptions]));
+
+        $case = $this->choice($style['case'] ?? 'none', self::CASES, "{$path}.style.case");
+        $caseCtl = $this->controlBlock($controls, 'case');
+        $caseOptions = array_values(array_intersect(self::CASES, [$case, ...(array) ($caseCtl['options'] ?? self::CASES)]));
+
+        $lineHeight = $this->number($style['lineHeight'] ?? 1.14, "{$path}.style.lineHeight", 0.6, 3);
+        $letterSpacing = $this->number($style['letterSpacing'] ?? 0, "{$path}.style.letterSpacing", -0.5, 1, 3);
+        $opacity = (int) $this->number($style['opacity'] ?? 100, "{$path}.style.opacity", 10, 100, 0);
+
         return $this->zoneBase($zone, $path) + [
             'style' => [
                 'text' => $default,
                 'fontId' => $fontId,
                 'size' => $size,
                 'minSize' => $minSize,
-                'case' => $this->choice($style['case'] ?? 'none', self::CASES, "{$path}.style.case"),
+                'case' => $case,
                 'align' => $align,
                 'color' => $this->hex($style['color'] ?? '#ffffff', "{$path}.style.color"),
                 'glow' => $this->bool($style['glow'] ?? true),
-                'lineHeight' => $this->number($style['lineHeight'] ?? 1.14, "{$path}.style.lineHeight", 0.6, 3),
-                'letterSpacing' => $this->number($style['letterSpacing'] ?? 0, "{$path}.style.letterSpacing", -0.5, 1),
+                'lineHeight' => $lineHeight,
+                'letterSpacing' => $letterSpacing,
+                'opacity' => $opacity,
             ],
             'controls' => [
                 'text' => ['enabled' => $this->bool($textCtl['enabled'] ?? false), 'maxLength' => $maxLength, 'multiline' => $multiline],
@@ -216,8 +242,36 @@ class BannerConfigValidator
                 ],
                 'align' => ['enabled' => $this->bool($alignCtl['enabled'] ?? false), 'options' => $options],
                 'visible' => ['enabled' => $this->bool($this->controlBlock($controls, 'visible')['enabled'] ?? false)],
+                'font' => ['enabled' => $fontEnabled, 'options' => $fontOptions],
+                'case' => ['enabled' => $this->bool($caseCtl['enabled'] ?? false), 'options' => $caseOptions],
+                'letterSpacing' => $this->range($controls, 'letterSpacing', $letterSpacing, $path, -0.5, 1, 3),
+                'lineHeight' => $this->range($controls, 'lineHeight', $lineHeight, $path, 0.6, 3, 2),
+                'glow' => ['enabled' => $this->bool($this->controlBlock($controls, 'glow')['enabled'] ?? false)],
+                'opacity' => $this->range($controls, 'opacity', $opacity, $path, 10, 100, 0),
             ],
         ];
+    }
+
+    /**
+     * A slider limit block. Missing limits default to the zone's own value. A switched-off block
+     * is widened to include the default instead of failing, so editing the default look never
+     * trips over a control nobody uses.
+     */
+    private function range(array $controls, string $name, float $default, string $path, float $lo, float $hi, int $decimals): array
+    {
+        $ctl = $this->controlBlock($controls, $name);
+        $enabled = $this->bool($ctl['enabled'] ?? false);
+        $min = $this->number($ctl['min'] ?? $default, "{$path}.controls.{$name}.min", $lo, $hi, $decimals);
+        $max = $this->number($ctl['max'] ?? $default, "{$path}.controls.{$name}.max", $lo, $hi, $decimals);
+        if ($enabled && ($min > $default || $default > $max)) {
+            $this->fail("{$path}.controls.{$name}", 'Limits must satisfy: min ≤ default ≤ max');
+        }
+        if (!$enabled) {
+            [$min, $max] = [min($min, $default), max($max, $default)];
+        }
+        $cast = fn (float $n) => $decimals === 0 ? (int) $n : $n;
+
+        return ['enabled' => $enabled, 'min' => $cast($min), 'max' => $cast($max)];
     }
 
     private function imageZone(array $zone, string $path): array
@@ -298,13 +352,21 @@ class BannerConfigValidator
 
     // ─── Helpers ───────────────────────────────────────────────
 
-    /** Font ids that zones may use: existing, not deleted. */
+    /** Font ids that zones may use (as default or as a buyer choice): existing, not deleted. */
     private function availableFontIds(array $zones): array
     {
         $wanted = [];
         foreach ($zones as $zone) {
-            if (is_array($zone) && isset($zone['style']['fontId']) && is_numeric($zone['style']['fontId'])) {
+            if (!is_array($zone)) {
+                continue;
+            }
+            if (isset($zone['style']['fontId']) && is_numeric($zone['style']['fontId'])) {
                 $wanted[] = (int) $zone['style']['fontId'];
+            }
+            foreach ((array) ($zone['controls']['font']['options'] ?? []) as $id) {
+                if (is_numeric($id)) {
+                    $wanted[] = (int) $id;
+                }
             }
         }
         if (!$wanted) {

@@ -103,8 +103,17 @@ class BannerTemplate extends Model
     {
         $ids = [];
         foreach ($this->config['zones'] ?? [] as $zone) {
-            if (($zone['type'] ?? null) === 'text' && isset($zone['style']['fontId'])) {
+            if (($zone['type'] ?? null) !== 'text') {
+                continue;
+            }
+            if (isset($zone['style']['fontId'])) {
                 $ids[] = (int) $zone['style']['fontId'];
+            }
+            // Fonts the buyer can switch to (same rule as configFontIds() in banner-overlay)
+            if (!empty($zone['controls']['font']['enabled'])) {
+                foreach ((array) ($zone['controls']['font']['options'] ?? []) as $id) {
+                    $ids[] = (int) $id;
+                }
             }
         }
         return array_values(array_unique($ids));

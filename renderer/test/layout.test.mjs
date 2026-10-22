@@ -74,10 +74,51 @@ test('disabled controls fall back to the template, enabled ones are clamped', ()
     },
   };
   const r = resolveText(zone, { text: 'Hello world', size: 9, color: '#00ff00', align: 'left', visible: false });
-  assert.deepEqual(r, { visible: true, text: 'Hello', size: 5, color: '#ffffff', align: 'center' });
+  // Old configs have no style control blocks: everything comes from the template
+  assert.deepEqual(r, {
+    visible: true, text: 'Hello', size: 5, color: '#ffffff', align: 'center',
+    fontId: 1, case: 'none', letterSpacing: 0, lineHeight: 1.1, glow: true, opacity: 100,
+  });
 
   const config = { schemaVersion: 1, accent: '#000000', hue: { enabled: false, default: 20, presets: [] }, zones: [zone] };
   assert.deepEqual(exportParams(config, { schemaVersion: 1, hue: 200, zones: { t: { text: 'Hi', size: 4.5, color: '#ff0000' } } }), {
     schemaVersion: 1, hue: 20, zones: { t: { text: 'Hi', size: 4.5, color: '#ff0000' } },
+  });
+});
+
+test('style controls: font, case, spacing, line height, glow and opacity', () => {
+  const zone = {
+    key: 't', type: 'text', label: 'T', x: 0, y: 0, w: 50, h: 10,
+    style: { text: 'Hi', fontId: 1, size: 4, minSize: 2, case: 'upper', align: 'center', color: '#ffffff', glow: true, lineHeight: 1.1, letterSpacing: 0, opacity: 90 },
+    controls: {
+      text: { enabled: false, maxLength: 5, multiline: false },
+      size: { enabled: false, min: 4, max: 4 },
+      color: { enabled: false, palette: [], custom: false },
+      align: { enabled: false, options: ['center'] },
+      visible: { enabled: false },
+      font: { enabled: true, options: [1, 2] },
+      case: { enabled: true, options: ['none', 'upper'] },
+      letterSpacing: { enabled: true, min: -0.05, max: 0.2 },
+      lineHeight: { enabled: true, min: 0.9, max: 1.6 },
+      glow: { enabled: true },
+      opacity: { enabled: false, min: 90, max: 90 },
+    },
+  };
+  const r = resolveText(zone, { fontId: 2, case: 'none', letterSpacing: 0.12345, lineHeight: 9, glow: false, opacity: 20 });
+  assert.equal(r.fontId, 2);
+  assert.equal(r.case, 'none');
+  assert.equal(r.letterSpacing, 0.123); // rounded like the server
+  assert.equal(r.lineHeight, 1.6); // clamped
+  assert.equal(r.glow, false);
+  assert.equal(r.opacity, 90); // control off
+
+  // Not offered: template values
+  const r2 = resolveText(zone, { fontId: 3, case: 'lower' });
+  assert.equal(r2.fontId, 1);
+  assert.equal(r2.case, 'upper');
+
+  const config = { schemaVersion: 1, accent: '#000000', hue: { enabled: false, default: 0, presets: [] }, zones: [zone] };
+  assert.deepEqual(exportParams(config, { schemaVersion: 1, hue: 0, zones: { t: { fontId: 2, glow: false, opacity: 20 } } }).zones.t, {
+    fontId: 2, case: 'upper', letterSpacing: 0, lineHeight: 1.1, glow: false,
   });
 });

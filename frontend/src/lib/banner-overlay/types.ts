@@ -29,14 +29,33 @@ export interface TextStyle {
   glow: boolean;
   lineHeight: number;
   letterSpacing: number;
+  /** Percent, 10..100. Missing in configs saved before it existed: treat as 100 */
+  opacity?: number;
 }
 
+export interface RangeControl {
+  enabled: boolean;
+  min: number;
+  max: number;
+}
+
+// The blocks marked optional were added after the first templates and orders were saved;
+// the server always writes them now, but old snapshots don't have them (= switched off).
 export interface TextControls {
   text: { enabled: boolean; maxLength: number; multiline: boolean };
-  size: { enabled: boolean; min: number; max: number };
+  size: RangeControl;
   color: { enabled: boolean; palette: string[]; custom: boolean };
   align: { enabled: boolean; options: Align[] };
   visible: { enabled: boolean };
+  /** Font ids the buyer can pick from; always includes the default font */
+  font?: { enabled: boolean; options: number[] };
+  case?: { enabled: boolean; options: TextCase[] };
+  /** em */
+  letterSpacing?: RangeControl;
+  lineHeight?: RangeControl;
+  glow?: { enabled: boolean };
+  /** Percent */
+  opacity?: RangeControl;
 }
 
 export interface TextZone extends ZoneRect {
@@ -89,6 +108,12 @@ export interface TextZoneParams {
   color?: string;
   align?: Align;
   visible?: boolean;
+  fontId?: number;
+  case?: TextCase;
+  letterSpacing?: number;
+  lineHeight?: number;
+  glow?: boolean;
+  opacity?: number;
 }
 
 export interface ImageZoneParams {

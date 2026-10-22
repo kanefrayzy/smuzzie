@@ -29,3 +29,6 @@ docs/banners/prototype/**/*.woff2
 backend/.phpunit.result.cache
 frontend/tsconfig.tsbuildinfo
 frontend/.next-*/
+
+# Claude Code local files (agent worktrees, settings)
+.claude/

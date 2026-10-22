@@ -1,6 +1,7 @@
 import { isHex } from './color';
 import type {
-  Align, AlignY, BuyerParams, ImageZone, ImageZoneParams, TemplateConfig, TextZone, TextZoneParams, Zone,
+  Align, AlignY, BuyerParams, ImageZone, ImageZoneParams, RangeControl, TemplateConfig, TextCase, TextZone,
+  TextZoneParams, Zone,
 } from './types';
 
 // Effective values of a zone: what the buyer chose where the template allows it, the
@@ -14,6 +15,14 @@ export interface ResolvedText {
   size: number;
   color: string;
   align: Align;
+  fontId: number;
+  case: TextCase;
+  /** em */
+  letterSpacing: number;
+  lineHeight: number;
+  glow: boolean;
+  /** Percent */
+  opacity: number;
 }
 
 export interface ResolvedImage {
@@ -72,7 +81,38 @@ export function resolveText(zone: TextZone, p: TextZoneParams | undefined): Reso
 
   const visible = controls.visible.enabled ? p.visible !== false : true;
 
-  return { visible, text, size, color, align };
+  let fontId = style.fontId;
+  if (controls.font?.enabled && typeof p.fontId === 'number' && controls.font.options.includes(p.fontId)) fontId = p.fontId;
+
+  let textCase = style.case;
+  if (controls.case?.enabled && p.case && controls.case.options.includes(p.case)) textCase = p.case;
+
+  const glow = controls.glow?.enabled && typeof p.glow === 'boolean' ? p.glow : style.glow;
+
+  return {
+    visible, text, size, color, align, fontId, glow,
+    case: textCase,
+    letterSpacing: range(controls.letterSpacing, p.letterSpacing, style.letterSpacing, 1000),
+    lineHeight: range(controls.lineHeight, p.lineHeight, style.lineHeight, 100),
+    opacity: range(controls.opacity, p.opacity, style.opacity ?? 100, 1),
+  };
+}
+
+/** A buyer number inside an enabled range control, rounded like the server stores it. */
+function range(ctl: RangeControl | undefined, value: unknown, fallback: number, precision: number): number {
+  if (!ctl?.enabled || typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return clamp(Math.round(value * precision) / precision, ctl.min, ctl.max);
+}
+
+/** Every font a config can use: the zone defaults plus the fonts offered to the buyer. */
+export function configFontIds(config: TemplateConfig): number[] {
+  const ids = new Set<number>();
+  for (const zone of config.zones) {
+    if (zone.type !== 'text') continue;
+    ids.add(zone.style.fontId);
+    if (zone.controls.font?.enabled) zone.controls.font.options.forEach((id) => ids.add(id));
+  }
+  return Array.from(ids);
 }
 
 export function resolveImage(zone: ImageZone, p: ImageZoneParams | undefined): ResolvedImage {
@@ -108,7 +148,11 @@ export function defaultParams(config: TemplateConfig): BuyerParams {
 export function defaultZoneParams(zone: Zone): TextZoneParams | ImageZoneParams {
   if (zone.type === 'text') {
     const s = zone.style;
-    return { text: s.text, size: s.size, color: s.color, align: s.align, visible: true };
+    return {
+      text: s.text, size: s.size, color: s.color, align: s.align, visible: true,
+      fontId: s.fontId, case: s.case, letterSpacing: s.letterSpacing, lineHeight: s.lineHeight, glow: s.glow,
+      opacity: s.opacity ?? 100,
+    };
   }
   return { scale: zone.style.scale, alignX: zone.style.alignX, alignY: zone.style.alignY };
 }
@@ -130,6 +174,12 @@ export function exportParams(config: TemplateConfig, params: BuyerParams): Buyer
       if (c.color.enabled) out.color = r.color;
       if (c.align.enabled) out.align = r.align;
       if (c.visible.enabled) out.visible = r.visible;
+      if (c.font?.enabled) out.fontId = r.fontId;
+      if (c.case?.enabled) out.case = r.case;
+      if (c.letterSpacing?.enabled) out.letterSpacing = r.letterSpacing;
+      if (c.lineHeight?.enabled) out.lineHeight = r.lineHeight;
+      if (c.glow?.enabled) out.glow = r.glow;
+      if (c.opacity?.enabled) out.opacity = r.opacity;
       if (Object.keys(out).length) zones[zone.key] = out;
     } else {
       const r = resolveImage(zone, raw as ImageZoneParams);

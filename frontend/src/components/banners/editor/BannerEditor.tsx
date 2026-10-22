@@ -162,6 +162,7 @@ export default function BannerEditor({
                   zone={zone}
                   params={params.zones[zone.key] as TextZoneParams | undefined}
                   fit={result?.zones[zone.key]}
+                  fonts={template.fonts}
                   onChange={(patch) => patchZone(zone.key, patch)}
                   onReset={() => resetZone(zone)}
                 />

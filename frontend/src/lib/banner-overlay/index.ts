@@ -7,7 +7,7 @@ export { OVERLAY_CSS, ensureStyles } from './css';
 export { layoutText, canvasMeasure, graphemes } from './layout';
 export type { Measure, TextLayout, TextLayoutInput } from './layout';
 export {
-  resolveText, resolveImage, resolveHue, defaultParams, defaultZoneParams, exportParams,
+  resolveText, resolveImage, resolveHue, defaultParams, defaultZoneParams, exportParams, configFontIds,
   cleanText, charLength, truncateChars,
 } from './resolve';
 export type { ResolvedText, ResolvedImage } from './resolve';

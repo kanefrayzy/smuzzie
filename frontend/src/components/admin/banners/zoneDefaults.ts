@@ -1,4 +1,4 @@
-import type { ImageZone, TemplateConfig, TextZone, Zone } from '@/lib/banner-overlay';
+import type { ImageZone, TemplateConfig, TextControls, TextZone, Zone } from '@/lib/banner-overlay';
 
 // Starting values for zones added in the admin zone editor.
 
@@ -17,7 +17,7 @@ export function newTextZone(config: TemplateConfig, fontId: number): TextZone {
     x: 20, y: 20, w: 60, h: 10,
     style: {
       text: 'Your text', fontId, size: 4, minSize: 2, case: 'none', align: 'center',
-      color: '#ffffff', glow: true, lineHeight: 1.14, letterSpacing: -0.01,
+      color: '#ffffff', glow: true, lineHeight: 1.14, letterSpacing: -0.01, opacity: 100,
     },
     controls: {
       text: { enabled: true, maxLength: 40, multiline: false },
@@ -25,8 +25,34 @@ export function newTextZone(config: TemplateConfig, fontId: number): TextZone {
       color: { enabled: true, palette: ['#ffffff', config.accent], custom: true },
       align: { enabled: true, options: ['left', 'center', 'right'] },
       visible: { enabled: true },
+      font: { enabled: true, options: [fontId] },
+      case: { enabled: true, options: ['none', 'upper', 'lower'] },
+      letterSpacing: { enabled: true, min: -0.05, max: 0.2 },
+      lineHeight: { enabled: false, min: 0.9, max: 1.6 },
+      glow: { enabled: true },
+      opacity: { enabled: false, min: 40, max: 100 },
     },
   };
+}
+
+/**
+ * Zones saved before the style controls existed lack those blocks: fill them in switched off
+ * (same as the server does), so the form always has every field.
+ */
+export function withStyleControls(zone: TextZone): TextZone {
+  const s = zone.style;
+  const c = zone.controls;
+  const range = (v: number) => ({ enabled: false, min: v, max: v });
+  const controls: Required<TextControls> = {
+    ...c,
+    font: c.font ?? { enabled: false, options: [s.fontId] },
+    case: c.case ?? { enabled: false, options: ['none', 'upper', 'lower'] },
+    letterSpacing: c.letterSpacing ?? range(s.letterSpacing),
+    lineHeight: c.lineHeight ?? range(s.lineHeight),
+    glow: c.glow ?? { enabled: false },
+    opacity: c.opacity ?? range(s.opacity ?? 100),
+  };
+  return { ...zone, style: { ...s, opacity: s.opacity ?? 100 }, controls };
 }
 
 export function newImageZone(config: TemplateConfig): ImageZone {

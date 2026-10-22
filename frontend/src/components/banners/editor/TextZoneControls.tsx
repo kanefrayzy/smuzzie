@@ -1,10 +1,13 @@
 'use client';
 
 import React from 'react';
-import { AlignLeft, AlignCenter, AlignRight, Eye, EyeOff, RotateCcw } from 'lucide-react';
-import { charLength, resolveText, truncateChars } from '@/lib/banner-overlay';
-import type { Align, TextZone, TextZoneParams, ZoneFit } from '@/lib/banner-overlay';
+import { AlignLeft, AlignCenter, AlignRight, Eye, EyeOff, RotateCcw, Sparkles } from 'lucide-react';
+import { charLength, fontFamily, resolveText, truncateChars } from '@/lib/banner-overlay';
+import type { Align, BannerFontFace, TextCase, TextZone, TextZoneParams, ZoneFit } from '@/lib/banner-overlay';
 import { Segmented, Slider, Swatch, fieldInput } from './ui';
+
+const CASE_LABEL: Record<TextCase, string> = { none: 'Aa', upper: 'AA', lower: 'aa' };
+const CASE_NAME: Record<TextCase, string> = { none: 'As typed', upper: 'Uppercase', lower: 'Lowercase' };
 
 const ALIGN_ICON: Record<Align, React.ReactNode> = {
   left: <AlignLeft size={14} />,
@@ -14,16 +17,43 @@ const ALIGN_ICON: Record<Align, React.ReactNode> = {
 
 export function hasTextControls(zone: TextZone): boolean {
   const c = zone.controls;
-  return c.text.enabled || c.size.enabled || c.color.enabled || c.align.enabled || c.visible.enabled;
+  return (
+    c.text.enabled || c.size.enabled || c.color.enabled || c.align.enabled || c.visible.enabled ||
+    hasStyleControls(zone)
+  );
+}
+
+function hasStyleControls(zone: TextZone): boolean {
+  const c = zone.controls;
+  return !!(
+    (c.font?.enabled && c.font.options.length > 1) ||
+    (c.case?.enabled && c.case.options.length > 1) ||
+    c.letterSpacing?.enabled || c.lineHeight?.enabled || c.glow?.enabled || c.opacity?.enabled
+  );
+}
+
+function LabeledSlider({
+  id, label, ...rest
+}: { label: string } & React.ComponentProps<typeof Slider>) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-[11px] text-gray-500 mb-0.5">
+        {label}
+      </label>
+      <Slider id={id} label={label} {...rest} />
+    </div>
+  );
 }
 
 /** Controls for one text zone; only what the template allows is shown. */
 export default function TextZoneControls({
-  zone, params, fit, onChange, onReset,
+  zone, params, fit, fonts, onChange, onReset,
 }: {
   zone: TextZone;
   params: TextZoneParams | undefined;
   fit: ZoneFit | undefined;
+  /** Faces of the template, to show each font choice in its own font */
+  fonts: BannerFontFace[];
   onChange: (patch: TextZoneParams) => void;
   onReset: () => void;
 }) {
@@ -140,12 +170,128 @@ export default function TextZoneControls({
         </div>
       )}
 
+      {r.visible && hasStyleControls(zone) && (
+        <StyleControls zone={zone} params={params} fonts={fonts} onChange={onChange} />
+      )}
+
       {r.visible && fit && (fit.overflow || fit.shrunk) && (
         <p className="text-xs text-amber-300/80" role="status">
           {fit.overflow
             ? "The text doesn't fit even at the smallest size. Try a shorter text."
             : `Font reduced to fit (×${(fit.used / zone.style.size).toFixed(2)}).`}
         </p>
+      )}
+    </div>
+  );
+}
+
+/** Font, letter case, glow, spacing, line height and opacity: only what the template allows. */
+function StyleControls({
+  zone, params, fonts, onChange,
+}: {
+  zone: TextZone;
+  params: TextZoneParams | undefined;
+  fonts: BannerFontFace[];
+  onChange: (patch: TextZoneParams) => void;
+}) {
+  const c = zone.controls;
+  const r = resolveText(zone, params);
+  const id = `f-${zone.key}`;
+  const byId = new Map(fonts.map((f) => [f.id, f]));
+  const fontOptions = c.font?.enabled ? c.font.options.filter((fid) => byId.has(fid)) : [];
+
+  return (
+    <div className="space-y-3">
+      {fontOptions.length > 1 && (
+        <div role="radiogroup" aria-label={`${zone.label} font`} className="flex flex-wrap gap-1.5">
+          {fontOptions.map((fid) => {
+            const f = byId.get(fid)!;
+            const on = r.fontId === fid;
+            return (
+              <button
+                key={fid}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => onChange({ fontId: fid })}
+                title={`${f.name} ${f.weight}`}
+                className={`h-9 px-3 rounded-lg border text-sm transition-colors ${
+                  on ? 'border-accent-red/60 bg-accent-red/15 text-white' : 'border-white/[0.08] bg-white/[0.02] text-gray-300 hover:text-white hover:border-white/20'
+                }`}
+                style={{ fontFamily: fontFamily(fid), fontWeight: f.weight, fontStyle: f.style }}
+              >
+                {f.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {((c.case?.enabled && c.case.options.length > 1) || c.glow?.enabled) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {c.case?.enabled && c.case.options.length > 1 && (
+            <Segmented<TextCase>
+              label={`${zone.label} letter case`}
+              value={r.case}
+              options={c.case.options}
+              onChange={(v) => onChange({ case: v })}
+              render={(v) => <span title={CASE_NAME[v]} className="font-semibold">{CASE_LABEL[v]}</span>}
+            />
+          )}
+          {c.glow?.enabled && (
+            <button
+              type="button"
+              onClick={() => onChange({ glow: !r.glow })}
+              aria-pressed={r.glow}
+              className={`h-9 px-3 rounded-lg border text-xs flex items-center gap-1.5 transition-colors ${
+                r.glow ? 'border-accent-red/60 bg-accent-red/15 text-white' : 'border-white/[0.08] bg-white/[0.02] text-gray-400 hover:text-white'
+              }`}
+            >
+              <Sparkles size={13} /> Glow
+            </button>
+          )}
+        </div>
+      )}
+
+      {(c.letterSpacing?.enabled || c.lineHeight?.enabled || c.opacity?.enabled) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+          {c.letterSpacing?.enabled && (
+            <LabeledSlider
+              id={`${id}-ls`}
+              label="Letter spacing"
+              value={r.letterSpacing}
+              min={c.letterSpacing.min}
+              max={c.letterSpacing.max}
+              step={0.005}
+              onChange={(letterSpacing) => onChange({ letterSpacing })}
+              display={`${Math.round(r.letterSpacing * 1000) / 10}%`}
+            />
+          )}
+          {c.lineHeight?.enabled && (
+            <LabeledSlider
+              id={`${id}-lh`}
+              label="Line height"
+              value={r.lineHeight}
+              min={c.lineHeight.min}
+              max={c.lineHeight.max}
+              step={0.01}
+              onChange={(lineHeight) => onChange({ lineHeight })}
+              display={r.lineHeight.toFixed(2)}
+            />
+          )}
+          {c.opacity?.enabled && (
+            <LabeledSlider
+              id={`${id}-op`}
+              label="Opacity"
+              value={r.opacity}
+              min={c.opacity.min}
+              max={c.opacity.max}
+              step={1}
+              onChange={(opacity) => onChange({ opacity })}
+              display={`${r.opacity}%`}
+            />
+          )}
+        </div>
       )}
     </div>
   );

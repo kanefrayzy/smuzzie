@@ -2,13 +2,16 @@
 
 import React, { useState } from 'react';
 import { X, Plus } from 'lucide-react';
-import type { Align, AlignY, ImageZone, TextCase, TextZone, Zone } from '@/lib/banner-overlay';
+import type { Align, AlignY, ImageZone, RangeControl, TextCase, TextControls, TextZone, Zone } from '@/lib/banner-overlay';
 import type { AdminBannerFont } from '@/types/banners';
+import { withStyleControls } from './zoneDefaults';
 
 const input =
   'w-full bg-surface border border-white/5 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-accent-red/50';
 const ALIGNS: Align[] = ['left', 'center', 'right'];
 const ALIGNS_Y: AlignY[] = ['top', 'center', 'bottom'];
+const CASES: TextCase[] = ['none', 'upper', 'lower'];
+const MAX_FONT_OPTIONS = 12;
 
 function Field({ label, children, error, className = '' }: { label: string; children: React.ReactNode; error?: string; className?: string }) {
   return (
@@ -92,6 +95,38 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
+/** A "buyer can change" slider: checkbox plus min/max. */
+function RangeRow({
+  label, unit, ctl, step, err, errKey, onChange,
+}: {
+  label: string;
+  unit: string;
+  ctl: RangeControl;
+  step: number;
+  err: (p: string) => string | undefined;
+  errKey: string;
+  onChange: (patch: Partial<RangeControl>) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Check label={label} checked={ctl.enabled} onChange={(enabled) => onChange({ enabled })} />
+      {ctl.enabled && (
+        <>
+          <div className="grid grid-cols-2 gap-3 pl-6">
+            <Field label={`Min${unit}`} error={err(`controls.${errKey}.min`)}>
+              <Num value={ctl.min} step={step} onChange={(min) => onChange({ min })} />
+            </Field>
+            <Field label={`Max${unit}`} error={err(`controls.${errKey}.max`)}>
+              <Num value={ctl.max} step={step} onChange={(max) => onChange({ max })} />
+            </Field>
+          </div>
+          {err(`controls.${errKey}`) && <p className="text-[11px] text-red-400 pl-6">{err(`controls.${errKey}`)}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
 /** Errors for this zone from the server, keyed by the rest of the path ("style.size", "key"...). */
 export type ZoneErrors = Record<string, string>;
 
@@ -128,7 +163,7 @@ export default function ZoneForm({
 }
 
 function TextForm({
-  zone, fonts, common, err, onChange,
+  zone: rawZone, fonts, common, err, onChange,
 }: {
   zone: TextZone;
   fonts: AdminBannerFont[];
@@ -136,11 +171,13 @@ function TextForm({
   err: (p: string) => string | undefined;
   onChange: (z: Zone) => void;
 }) {
+  const zone = withStyleControls(rawZone);
   const s = zone.style;
-  const c = zone.controls;
+  const c = zone.controls as Required<TextControls>;
   const setStyle = (patch: Partial<TextZone['style']>) => onChange({ ...zone, style: { ...s, ...patch } });
-  const setCtl = <K extends keyof TextZone['controls']>(k: K, patch: Partial<TextZone['controls'][K]>) =>
+  const setCtl = <K extends keyof TextControls>(k: K, patch: Partial<Required<TextControls>[K]>) =>
     onChange({ ...zone, controls: { ...c, [k]: { ...c[k], ...patch } } });
+  const fontErrors = Array.from({ length: MAX_FONT_OPTIONS }, (_, j) => err(`controls.font.options.${j}`)).filter(Boolean);
 
   return (
     <div>
@@ -201,6 +238,9 @@ function TextForm({
           <Field label="Letter spacing, em" error={err('style.letterSpacing')}>
             <Num value={s.letterSpacing} step={0.005} onChange={(letterSpacing) => setStyle({ letterSpacing })} />
           </Field>
+          <Field label="Opacity, %" error={err('style.opacity')}>
+            <Num value={s.opacity ?? 100} step={1} min={10} max={100} onChange={(opacity) => setStyle({ opacity })} />
+          </Field>
         </div>
       </Group>
 
@@ -242,6 +282,51 @@ function TextForm({
           </div>
         </div>
         <Check label="Show / hide the field" checked={c.visible.enabled} onChange={(enabled) => setCtl('visible', { enabled })} />
+        <div className="space-y-2">
+          <Check label="Font" checked={c.font.enabled} onChange={(enabled) => setCtl('font', { enabled })} />
+          {c.font.enabled && (
+            <div className="pl-6 space-y-1.5">
+              <p className="text-[11px] text-gray-500">Fonts the buyer can pick (the default one is always included, up to {MAX_FONT_OPTIONS})</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {fonts.map((f) => {
+                  const isDefault = f.id === s.fontId;
+                  const on = isDefault || c.font.options.includes(f.id);
+                  return (
+                    <label key={f.id} className={`flex items-center gap-2 text-sm ${isDefault ? 'text-gray-500' : 'text-gray-300'}`}>
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        disabled={isDefault || (!on && c.font.options.length >= MAX_FONT_OPTIONS)}
+                        onChange={(e) =>
+                          setCtl('font', {
+                            options: e.target.checked ? [...c.font.options, f.id] : c.font.options.filter((id) => id !== f.id),
+                          })
+                        }
+                      />
+                      {f.name} {f.weight}
+                      {f.style === 'italic' ? ' italic' : ''}
+                    </label>
+                  );
+                })}
+              </div>
+              {fontErrors.map((m, j) => (
+                <p key={j} className="text-[11px] text-red-400">{m}</p>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Check label="Letter case" checked={c.case.enabled} onChange={(enabled) => setCtl('case', { enabled })} />
+          {c.case.enabled && (
+            <div className="pl-6">
+              <OptionChecks all={CASES} value={c.case.options} onChange={(options) => setCtl('case', { options })} />
+            </div>
+          )}
+        </div>
+        <Check label="Glow on / off" checked={c.glow.enabled} onChange={(enabled) => setCtl('glow', { enabled })} />
+        <RangeRow label="Letter spacing (slider)" unit=", em" ctl={c.letterSpacing} step={0.005} err={err} errKey="letterSpacing" onChange={(p) => setCtl('letterSpacing', p)} />
+        <RangeRow label="Line height (slider)" unit="" ctl={c.lineHeight} step={0.01} err={err} errKey="lineHeight" onChange={(p) => setCtl('lineHeight', p)} />
+        <RangeRow label="Opacity (slider)" unit=", %" ctl={c.opacity} step={1} err={err} errKey="opacity" onChange={(p) => setCtl('opacity', p)} />
       </Group>
     </div>
   );

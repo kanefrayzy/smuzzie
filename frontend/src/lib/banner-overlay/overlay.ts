@@ -1,7 +1,7 @@
 import { shiftColor } from './color';
 import { ensureStyles } from './css';
 import { canvasMeasure, layoutText, type Measure, type TextLayout } from './layout';
-import { resolveHue, resolveImage, resolveText } from './resolve';
+import { configFontIds, resolveHue, resolveImage, resolveText } from './resolve';
 import type { BannerFontFace, BuyerParams, ImageZone, ImageZoneParams, TemplateConfig, TextZone, TextZoneParams } from './types';
 
 // The text + logo layer, drawn in the template's native resolution. The site preview scales
@@ -66,15 +66,14 @@ export class BannerOverlay {
   }
 
   /**
-   * Wait until every face used by the config can be measured and drawn. Measurements taken
-   * before this would use the fallback font, so render again afterwards.
+   * Wait until every face the config can use (defaults and the buyer's choices) can be measured
+   * and drawn. Measurements taken before this would use the fallback font, so render again afterwards.
    */
   async fontsReady(config: TemplateConfig): Promise<void> {
     const doc = this.stage.ownerDocument;
     const jobs: Promise<unknown>[] = [];
-    for (const zone of config.zones) {
-      if (zone.type !== 'text') continue;
-      const f = this.fonts.get(zone.style.fontId);
+    for (const id of configFontIds(config)) {
+      const f = this.fonts.get(id);
       if (f) jobs.push(doc.fonts.load(`${f.style} ${f.weight} 100px "${f.family}"`, 'AaЯя0'));
     }
     await Promise.all(jobs);
@@ -150,17 +149,18 @@ export class BannerOverlay {
   private renderText(els: ZoneEls, zone: TextZone, p: TextZoneParams | undefined, accent: string): ZoneFit {
     const r = resolveText(zone, p);
     const box = els.inner as HTMLDivElement;
-    const font = this.fonts.get(zone.style.fontId);
+    // A chosen font that isn't available falls back to the template's own
+    const font = this.fonts.get(r.fontId) || this.fonts.get(zone.style.fontId);
     const requested = r.size;
 
     els.zone.hidden = !r.visible;
-    const sane = [r.size, zone.style.minSize, zone.style.lineHeight, zone.w, zone.h].every((n) => Number.isFinite(n) && n > 0);
+    const sane = [r.size, zone.style.minSize, r.lineHeight, zone.w, zone.h].every((n) => Number.isFinite(n) && n > 0);
     if (!r.visible || r.text.trim() === '' || !font || !sane) {
       box.replaceChildren();
       return { requested, used: requested, shrunk: false, overflow: false, lines: [] };
     }
 
-    const text = zone.style.case === 'upper' ? r.text.toUpperCase() : zone.style.case === 'lower' ? r.text.toLowerCase() : r.text;
+    const text = r.case === 'upper' ? r.text.toUpperCase() : r.case === 'lower' ? r.text.toLowerCase() : r.text;
     const layout: TextLayout = layoutText(
       {
         text,
@@ -168,8 +168,8 @@ export class BannerOverlay {
         boxH: (zone.h / 100) * this.height,
         sizePx: (r.size / 100) * this.width,
         minPx: (zone.style.minSize / 100) * this.width,
-        lineHeight: zone.style.lineHeight,
-        letterSpacing: zone.style.letterSpacing,
+        lineHeight: r.lineHeight,
+        letterSpacing: r.letterSpacing,
       },
       this.measureFor(font),
     );
@@ -179,11 +179,12 @@ export class BannerOverlay {
       fontWeight: String(font.weight),
       fontStyle: font.style,
       fontSize: `${layout.sizePx}px`,
-      lineHeight: String(zone.style.lineHeight),
-      letterSpacing: `${zone.style.letterSpacing}em`,
+      lineHeight: String(r.lineHeight),
+      letterSpacing: `${r.letterSpacing}em`,
       color: r.color,
+      opacity: r.opacity < 100 ? String(r.opacity / 100) : '',
       textAlign: r.align,
-      textShadow: zone.style.glow
+      textShadow: r.glow
         ? `0 0 0.35em ${accent}, 0 0.04em 0.1em rgba(0,0,0,.55)`
         : '0 0.04em 0.12em rgba(0,0,0,.35)',
     });

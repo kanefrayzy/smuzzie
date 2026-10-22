@@ -136,7 +136,55 @@ class BannerParamsValidator
             }
         }
 
+        // Blocks below were added later: snapshots of older orders don't have them (= off)
+        if (($c['font']['enabled'] ?? false) && array_key_exists('fontId', $p)) {
+            if (!is_int($p['fontId']) || !in_array($p['fontId'], $c['font']['options'], true)) {
+                $this->fail("{$path}.fontId", 'This font is not available');
+            } else {
+                $out['fontId'] = $p['fontId'];
+            }
+        }
+
+        if (($c['case']['enabled'] ?? false) && array_key_exists('case', $p)) {
+            if (!in_array($p['case'], $c['case']['options'], true)) {
+                $this->fail("{$path}.case", 'Letter case is not allowed');
+            } else {
+                $out['case'] = $p['case'];
+            }
+        }
+
+        foreach (['letterSpacing' => 3, 'lineHeight' => 2, 'opacity' => 0] as $field => $decimals) {
+            if (!($c[$field]['enabled'] ?? false) || !array_key_exists($field, $p)) {
+                continue;
+            }
+            $value = $this->rangeValue($c[$field], $p[$field], "{$path}.{$field}");
+            if ($value !== null) {
+                $out[$field] = $decimals === 0 ? (int) round($value) : round($value, $decimals);
+            }
+        }
+
+        if (($c['glow']['enabled'] ?? false) && array_key_exists('glow', $p)) {
+            if (!is_bool($p['glow'])) {
+                $this->fail("{$path}.glow", 'Glow must be true or false');
+            } else {
+                $out['glow'] = $p['glow'];
+            }
+        }
+
         return $out;
+    }
+
+    private function rangeValue(array $ctl, mixed $value, string $path): ?float
+    {
+        if (!is_int($value) && !is_float($value) || !is_finite((float) $value)) {
+            $this->fail($path, 'Must be a number');
+            return null;
+        }
+        if ($value < $ctl['min'] - self::EPS || $value > $ctl['max'] + self::EPS) {
+            $this->fail($path, "Must be between {$ctl['min']} and {$ctl['max']}");
+            return null;
+        }
+        return (float) $value;
     }
 
     private function imageZone(array $zone, array $p, string $path): array

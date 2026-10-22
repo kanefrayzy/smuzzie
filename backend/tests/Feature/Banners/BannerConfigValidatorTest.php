@@ -46,7 +46,10 @@ class BannerConfigValidatorTest extends TestCase
         $this->assertSame(1, $out['schemaVersion']);
         $this->assertCount(3, $out['zones']);
         $title = $out['zones'][1];
-        $this->assertSame(['text', 'size', 'color', 'align', 'visible'], array_keys($title['controls']));
+        $this->assertSame(
+            ['text', 'size', 'color', 'align', 'visible', 'font', 'case', 'letterSpacing', 'lineHeight', 'glow', 'opacity'],
+            array_keys($title['controls'])
+        );
         $this->assertSame(32, $title['controls']['text']['maxLength']);
         $this->assertSame($this->font->id, $title['style']['fontId']);
         $this->assertSame(['upload', 'scale', 'align'], array_keys($out['zones'][0]['controls']));
