@@ -26,7 +26,7 @@ class ProcessBannerTemplate implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1;
-    public int $timeout = 900;
+    public int $timeout = 840; // below the "banners" connection retry_after (900)
 
     public function __construct(public int $templateId, public ?string $uploadPath = null, public ?int $rev = null)
     {

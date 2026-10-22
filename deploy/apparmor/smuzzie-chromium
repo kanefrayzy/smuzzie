@@ -1,0 +1,12 @@
+# Lets Playwright's headless Chromium create user namespaces for its sandbox on Ubuntu 24.04
+# (kernel.apparmor_restrict_unprivileged_userns=1). Same approach as Ubuntu's own profile for
+# Google Chrome (/etc/apparmor.d/chrome): unconfined, plus the userns permission.
+# Install: cp to /etc/apparmor.d/ && apparmor_parser -r /etc/apparmor.d/smuzzie-chromium
+abi <abi/4.0>,
+include <tunables/global>
+
+profile smuzzie-chromium /opt/ms-playwright/chromium_headless_shell-*/chrome-*/headless_shell flags=(unconfined) {
+  userns,
+
+  include if exists <local/smuzzie-chromium>
+}
