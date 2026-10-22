@@ -4,6 +4,8 @@ namespace Tests\Feature\Banners;
 
 use App\Enums\BannerOrderStatus;
 use App\Jobs\RenderBannerOrder;
+use App\Mail\BannerReadyMail;
+use Illuminate\Support\Facades\Mail;
 use App\Models\BannerFont;
 use App\Models\BannerOrder;
 use App\Models\BannerTemplate;
@@ -104,6 +106,54 @@ class BannerRenderTest extends TestCase
         $this->assertTrue($job['outputs']['gif']['enabled']);
 
         Process::assertRan(fn (PendingProcess $p) => str_ends_with($p->command[1], 'render.mjs') && $p->timeout === 540);
+    }
+
+    public function test_ready_email_is_sent_once_with_the_order_link(): void
+    {
+        Mail::fake();
+        config(['banners.frontend_url' => 'https://smuzzie.com']);
+        $order = $this->paidOrder();
+        $this->fakeRenderer();
+
+        (new RenderBannerOrder($order->id))->handle(app(BannerRenderer::class), app(BannerOrderService::class));
+
+        Mail::assertSent(BannerReadyMail::class, function (BannerReadyMail $mail) use ($order) {
+            $html = $mail->render();
+            return $mail->hasTo('buyer@example.com')
+                && str_contains($html, "https://smuzzie.com/banners/order/{$order->token}")
+                && !str_contains($html, 'signature='); // no expiring links in the email
+        });
+        $this->assertNotNull($order->fresh()->notified_at);
+
+        // Rendering again doesn't email again
+        app(BannerOrderService::class)->rerender($order->fresh());
+        (new RenderBannerOrder($order->id))->handle(app(BannerRenderer::class), app(BannerOrderService::class));
+        Mail::assertSent(BannerReadyMail::class, 1);
+    }
+
+    public function test_broken_mail_does_not_fail_the_order(): void
+    {
+        Mail::shouldReceive('to')->andThrow(new \RuntimeException('SMTP connection refused'));
+        $order = $this->paidOrder();
+        $this->fakeRenderer();
+
+        (new RenderBannerOrder($order->id))->handle(app(BannerRenderer::class), app(BannerOrderService::class));
+
+        $order->refresh();
+        $this->assertSame(BannerOrderStatus::Ready, $order->status);
+        $this->assertNull($order->notified_at);
+    }
+
+    public function test_test_renders_are_never_emailed(): void
+    {
+        Mail::fake();
+        $order = app(BannerOrderService::class)->create($this->template, null, ['zones' => []], [], null, true);
+        $this->fakeRenderer();
+
+        (new RenderBannerOrder($order->id))->handle(app(BannerRenderer::class), app(BannerOrderService::class));
+
+        $this->assertSame(BannerOrderStatus::Ready, $order->fresh()->status);
+        Mail::assertNothingSent();
     }
 
     public function test_renderer_error_is_retried_then_marks_failed_with_log(): void

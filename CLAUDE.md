@@ -8,6 +8,9 @@ Smuzzie (smuzzie.com) is a design-portfolio site: a public showcase of portfolio
 
 - `backend/` — Laravel 10 (PHP 8.1+) JSON API. MySQL by default (`config/database.php`).
 - `frontend/` — Next.js 14 App Router, TypeScript, Tailwind, Zustand, axios.
+- `renderer/` — Node script that renders banner orders (headless Chromium + ffmpeg); see "Banner builder".
+- `deploy/` — server config for the banner builder (supervisor worker, AppArmor profile).
+- `docs/banners/` — banner builder plan, server setup (`DEPLOY.md`) and the original prototype.
 - `nginx-cache.conf` — production snippet that proxies `/storage/` to Laravel with long-lived cache headers.
 
 ## Commands
@@ -24,6 +27,15 @@ php vendor/bin/phpunit              # in-memory SQLite (phpunit.xml), no .env ne
 php vendor/bin/phpunit --filter=AdminRoutesAccessTest
 ./vendor/bin/pint                   # PHP code style
 php artisan portfolio:video-thumbnails [--force]   # backfill video poster JPGs (needs ffmpeg)
+php artisan queue:work banners --queue=banners     # banner worker (template videos + renders)
+php artisan banners:cleanup [--dry-run]            # daily via the scheduler
+```
+
+Renderer (run from `renderer/`):
+
+```bash
+npm ci && npm run build   # bundles frontend/src/lib/banner-overlay into dist/ (rebuild after changing it)
+npm test                  # hue matrix, layout, end-to-end render; set BANNERS_CHROMIUM_PATH to a local Chrome
 ```
 
 Frontend (run from `frontend/`):
@@ -80,7 +92,20 @@ On the frontend, pick what to render with `getItemMedia()` in `src/lib/media.ts`
 Deploy without downtime:
 1. Back up the DB, then `git pull` in `/var/www/smuzzie` (check `git status` first — production has had hand edits before).
 2. Backend: `sudo -u www-data php artisan migrate --force` (run artisan as `www-data` so log/cache files stay writable by FPM).
-3. Frontend: `cd frontend && NEXT_DIST_DIR=.next-new npm run build`, smoke-test with `NEXT_DIST_DIR=.next-new npx next start -p 3001`, then `mv .next .next.prev && mv .next-new .next && pm2 restart smuzzie-frontend`. Don't build into the live `.next` (pages 500 mid-build), and don't build in another directory and copy it over (the build embeds absolute source paths).
+3. Banner worker: `sudo -u www-data php artisan queue:restart` after every deploy (supervisor restarts it with the new code). If `frontend/src/lib/banner-overlay/` or `renderer/` changed, first `cd renderer && npm ci && npm run build`.
+4. Frontend: `cd frontend && NEXT_DIST_DIR=.next-new npm run build`, smoke-test with `NEXT_DIST_DIR=.next-new npx next start -p 3001`, then `mv .next .next.prev && mv .next-new .next && pm2 restart smuzzie-frontend`. Don't build into the live `.next` (pages 500 mid-build), and don't build in another directory and copy it over (the build embeds absolute source paths).
+
+### Banner builder
+
+Buyers customize video templates (After Effects render without text + zones JSON) at `/banners` (hidden: direct link only, `noindex`, not in the sitemap, until payments exist). Full design: `docs/banners/PLAN.md`; server setup: `docs/banners/DEPLOY.md`.
+
+- **One layout module.** `frontend/src/lib/banner-overlay/` (plain TS, no React) lays out the text/logo layer for the site preview, the admin zone editor and the renderer (bundled by `renderer/build.mjs`). It decides font size and line breaks itself (canvas measurements, explicit lines) so the preview and the file match; never duplicate that logic. User data goes into the DOM only via `textContent`/style properties/`img.src`.
+- **Color.** The preview shifts the background with CSS `hue-rotate` on the `<video>`; the renderer applies the same matrix with ffmpeg `colorchannelmixer` (not the `hue` filter). Video outputs are bt709-tagged via `setparams` (ffmpeg takes color metadata from frames).
+- **Config format** (`banner_templates.config`, `schemaVersion` 1): zones in % of the video, text sizes in % of the video width, `style` = defaults, `controls` = what the buyer may change and the limits. Validated by `BannerConfigValidator`; buyer input by `BannerParamsValidator` against the order's snapshot (unknown keys / disabled controls dropped, bad values 422). The frontend mirror is `banner-overlay/resolve.ts`.
+- **Orders** store a full template snapshot; the renderer reads only the snapshot. Status changes go through `BannerOrderService`; `markPaid()` is the single, idempotent way into the paid state (admin button now, payment webhook later). `BANNERS_AUTO_APPROVE=true` skips payment in development.
+- **Storage.** Private disk `banners` (`storage/app/banners`): template masters, buyer logos, results, temp folders. Public disk: watermarked previews, posters, fonts. Files are never overwritten (new names per upload), so snapshots stay valid. Downloads only via `temporarySignedRoute` (7 days).
+- **Queue.** Banner jobs use their own `banners` database connection (`retry_after` 900) with one supervisor worker; the default `QUEUE_CONNECTION` stays `sync` (`OptimizePortfolioMedia` runs in-process anyway). After deploying, run `php artisan queue:restart`.
+- **Mail.** `BannerReadyMail` is sent once when an order is ready; mail errors are logged and never fail the order.
 
 ### Frontend layout
 

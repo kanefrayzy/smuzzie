@@ -89,7 +89,7 @@ Supervisor поднимет воркер заново, текущее задан
 ( crontab -u www-data -l 2>/dev/null; echo '* * * * * cd /var/www/smuzzie/backend && php artisan schedule:run >> /dev/null 2>&1' ) | crontab -u www-data -
 ```
 
-Планировщик ежедневно запускает `banners:cleanup` (команду добавляет этап с письмами и очисткой). Она удаляет:
+Планировщик каждый день в 04:10 запускает `banners:cleanup`. Ручной запуск: `sudo -u www-data php artisan banners:cleanup --dry-run`. Команда удаляет:
 - неоплаченные и тестовые заказы старше 7 дней;
 - готовые файлы старше 30 дней;
 - временные папки рендера.

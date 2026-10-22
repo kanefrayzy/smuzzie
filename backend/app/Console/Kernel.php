@@ -12,7 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Banner builder housekeeping (needs the cron entry from docs/banners/DEPLOY.md)
+        $schedule->command('banners:cleanup')->dailyAt('04:10')->withoutOverlapping();
     }
 
     /**
