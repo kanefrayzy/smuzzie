@@ -53,7 +53,8 @@ class BannerConfigValidator
             $this->fail('config.zones', "At most {$limits['max_zones']} zones");
         }
 
-        $fontIds = $this->availableFontIds($zones);
+        $custom = is_array($config['custom'] ?? null) ? $config['custom'] : [];
+        $fontIds = $this->availableFontIds($zones, (array) ($custom['fonts'] ?? []));
         $keys = [];
         $images = 0;
         foreach (array_slice($zones, 0, $limits['max_zones']) as $i => $zone) {
@@ -67,6 +68,8 @@ class BannerConfigValidator
                 $this->fail("{$path}.key", 'Key: lowercase latin letters, digits and _, starting with a letter, up to 32 chars');
             } elseif (isset($keys[$key])) {
                 $this->fail("{$path}.key", "Duplicate key \"{$key}\"");
+            } elseif (str_starts_with($key, 'layer_')) {
+                $this->fail("{$path}.key", 'Keys starting with layer_ are reserved for layers the buyer adds');
             }
             $keys[$key] = true;
 
@@ -83,10 +86,56 @@ class BannerConfigValidator
         if ($images > $limits['max_image_zones']) {
             $this->fail('config.zones', "At most {$limits['max_image_zones']} image zones");
         }
+        $out['custom'] = $this->custom($custom, $fontIds);
 
         $this->throwIfFailed();
 
         return $out;
+    }
+
+    /** Layers the buyer may add on top (texts and images), the fonts for them and where they may go. */
+    private function custom(array $custom, array $fontIds): array
+    {
+        $limits = config('banners.custom');
+        $enabled = $this->bool($custom['enabled'] ?? false);
+        $maxText = (int) $this->number($custom['maxText'] ?? 3, 'config.custom.maxText', 0, $limits['max_text'], 0);
+        $maxImage = (int) $this->number($custom['maxImage'] ?? 1, 'config.custom.maxImage', 0, $limits['max_images'], 0);
+
+        $fonts = [];
+        foreach (array_slice((array) ($custom['fonts'] ?? []), 0, self::MAX_FONT_OPTIONS) as $j => $id) {
+            if (!is_numeric($id) || !in_array((int) $id, $fontIds, true)) {
+                if ($enabled) {
+                    $this->fail("config.custom.fonts.{$j}", 'Unknown font');
+                }
+                continue;
+            }
+            $fonts[] = (int) $id;
+        }
+        $fonts = array_values(array_unique($fonts));
+        if ($enabled && $maxText > 0 && !$fonts) {
+            $this->fail('config.custom.fonts', 'Pick at least one font for added texts');
+        }
+
+        return [
+            'enabled' => $enabled,
+            'maxText' => $maxText,
+            'maxImage' => $maxImage,
+            'fonts' => $fonts,
+            'bounds' => $this->bounds(is_array($custom['bounds'] ?? null) ? $custom['bounds'] : [], 'config.custom.bounds'),
+        ];
+    }
+
+    /** An area in percent of the video, inside the video. Defaults to the whole frame. */
+    private function bounds(array $b, string $p): array
+    {
+        $x = $this->number($b['x'] ?? 0, "{$p}.x", 0, 100, 3);
+        $y = $this->number($b['y'] ?? 0, "{$p}.y", 0, 100, 3);
+        $w = $this->number($b['w'] ?? 100 - $x, "{$p}.w", 0.5, 100, 3);
+        $h = $this->number($b['h'] ?? 100 - $y, "{$p}.h", 0.5, 100, 3);
+        if ($x + $w > 100.001 || $y + $h > 100.001) {
+            $this->fail($p, 'The area must stay inside the video');
+        }
+        return ['x' => $x, 'y' => $y, 'w' => $w, 'h' => $h];
     }
 
     /** @throws ValidationException */
@@ -327,15 +376,8 @@ class BannerConfigValidator
     {
         $ctl = $this->controlBlock($controls, 'position');
         $enabled = $this->bool($ctl['enabled'] ?? false);
-        $b = is_array($ctl['bounds'] ?? null) ? $ctl['bounds'] : [];
         $p = "{$path}.controls.position.bounds";
-        $x = $this->number($b['x'] ?? 0, "{$p}.x", 0, 100, 3);
-        $y = $this->number($b['y'] ?? 0, "{$p}.y", 0, 100, 3);
-        $w = $this->number($b['w'] ?? 100 - $x, "{$p}.w", 0.5, 100, 3);
-        $h = $this->number($b['h'] ?? 100 - $y, "{$p}.h", 0.5, 100, 3);
-        if ($x + $w > 100.001 || $y + $h > 100.001) {
-            $this->fail($p, 'The area must stay inside the video');
-        }
+        ['x' => $x, 'y' => $y, 'w' => $w, 'h' => $h] = $this->bounds(is_array($ctl['bounds'] ?? null) ? $ctl['bounds'] : [], $p);
 
         $e = 0.001;
         $inside = $rect['x'] >= $x - $e && $rect['y'] >= $y - $e
@@ -396,10 +438,10 @@ class BannerConfigValidator
 
     // ─── Helpers ───────────────────────────────────────────────
 
-    /** Font ids that zones may use (as default or as a buyer choice): existing, not deleted. */
-    private function availableFontIds(array $zones): array
+    /** Font ids that zones and added layers may use: existing, not deleted. */
+    private function availableFontIds(array $zones, array $customFonts): array
     {
-        $wanted = [];
+        $wanted = array_map('intval', array_filter($customFonts, 'is_numeric'));
         foreach ($zones as $zone) {
             if (!is_array($zone)) {
                 continue;

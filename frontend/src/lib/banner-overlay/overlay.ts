@@ -1,6 +1,7 @@
 import { shiftColor } from './color';
 import { ensureStyles } from './css';
 import { canvasMeasure, layoutText, type Measure, type TextLayout } from './layout';
+import { expandLayers } from './custom';
 import { configFontIds, resolveHue, resolveImage, resolveRect, resolveText } from './resolve';
 import type { BannerFontFace, BuyerParams, ImageZone, ImageZoneParams, Rect, TemplateConfig, TextZone, TextZoneParams } from './types';
 
@@ -91,7 +92,8 @@ export class BannerOverlay {
   }
 
   render(state: OverlayState): OverlayResult {
-    const { config, params } = state;
+    // The buyer's own layers are drawn as extra zones on top
+    const { config, params } = expandLayers(state.config, state.params);
     this.syncZones(config);
     const hue = resolveHue(config, params);
     const accent = shiftColor(config.accent, hue);

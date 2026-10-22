@@ -4,9 +4,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Move, RotateCcw } from 'lucide-react';
 import BannerPreview from '@/components/banners/BannerPreview';
 import ZoneHandles, { type HandleItem } from '@/components/banners/ZoneHandles';
-import { defaultParams, defaultZoneParams, resolveRect, resolveText, zoneMinSize } from '@/lib/banner-overlay';
-import type { BuyerParams, ImageZoneParams, OverlayResult, Rect, TextZoneParams, Zone } from '@/lib/banner-overlay';
+import {
+  LAYER_ID, customConfig, defaultParams, defaultZoneParams, expandLayers, layerImageZone, layerTextZone, newLayerRect,
+  nextLayerId, resolveRect, resolveText, zoneMinSize,
+} from '@/lib/banner-overlay';
+import type { BuyerLayer, BuyerParams, ImageZoneParams, OverlayResult, Rect, TextZoneParams, Zone } from '@/lib/banner-overlay';
 import PositionControls from './PositionControls';
+import LayersPanel from './LayersPanel';
 import type { PublicBannerTemplate } from '@/types/banners';
 import { Section } from './ui';
 import { clearDraft, loadDraft, saveDraft, type DraftImage } from './draft';
@@ -47,11 +51,16 @@ export default function BannerEditor({
         zones: Object.fromEntries(
           config.zones.map((z) => [z.key, { ...base.zones[z.key], ...(draft.params.zones?.[z.key] || {}) }]),
         ),
+        layers: Array.isArray(draft.params.layers) ? draft.params.layers : [],
       });
       const imgs: Record<string, DraftImage> = {};
-      for (const z of config.zones) {
-        const img = draft.images[z.key];
-        if (z.type === 'image' && img?.dataUrl?.startsWith('data:image/')) imgs[z.key] = img;
+      const imageKeys = [
+        ...config.zones.filter((z) => z.type === 'image').map((z) => z.key),
+        ...(draft.params.layers || []).filter((l) => l.type === 'image').map((l) => l.id),
+      ];
+      for (const key of imageKeys) {
+        const img = draft.images[key];
+        if (img?.dataUrl?.startsWith('data:image/')) imgs[key] = img;
       }
       setImages(imgs);
     }
@@ -74,6 +83,56 @@ export default function BannerEditor({
     setParams((prev) => ({ ...prev, zones: { ...prev.zones, [zone.key]: defaultZoneParams(zone) } }));
   }, []);
 
+  // ─── The buyer's own layers ───
+  const patchLayer = useCallback((id: string, patch: TextZoneParams | ImageZoneParams) => {
+    setParams((prev) => ({
+      ...prev,
+      layers: (prev.layers || []).map((l) => (l.id === id ? ({ ...l, ...patch } as BuyerLayer) : l)),
+    }));
+  }, []);
+
+  const addLayer = useCallback(
+    (type: 'text' | 'image') => {
+      setParams((prev) => {
+        const id = nextLayerId(prev);
+        const count = (prev.layers || []).filter((l) => l.type === type).length;
+        const zone = type === 'text' ? layerTextZone(config, id, '') : layerImageZone(config, id, '');
+        const layer = { id, type, ...defaultZoneParams(zone), rect: newLayerRect(config, type, count) } as BuyerLayer;
+        return { ...prev, layers: [...(prev.layers || []), layer] };
+      });
+    },
+    [config],
+  );
+
+  const removeLayer = useCallback((id: string) => {
+    setParams((prev) => ({ ...prev, layers: (prev.layers || []).filter((l) => l.id !== id) }));
+    setImages((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  const moveLayer = useCallback((id: string, dir: -1 | 1) => {
+    setParams((prev) => {
+      const layers = [...(prev.layers || [])];
+      const i = layers.findIndex((l) => l.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= layers.length) return prev;
+      [layers[i], layers[j]] = [layers[j], layers[i]];
+      return { ...prev, layers };
+    });
+  }, []);
+
+  // Keeps the layer's place, resets everything else
+  const resetLayer = useCallback(
+    (zone: Zone) => {
+      const layer = (params.layers || []).find((l) => l.id === zone.key);
+      if (layer) patchLayer(zone.key, { ...defaultZoneParams(zone), rect: layer.rect });
+    },
+    [params.layers, patchLayer],
+  );
+
   const resetAll = useCallback(() => {
     setParams(defaultParams(config));
     setImages({});
@@ -94,8 +153,9 @@ export default function BannerEditor({
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
 
   const setRect = useCallback(
-    (zone: Zone, rect: Rect) => patchZone(zone.key, { rect: resolveRect(zone, { rect }) }),
-    [patchZone],
+    (zone: Zone, rect: Rect) =>
+      (LAYER_ID.test(zone.key) ? patchLayer : patchZone)(zone.key, { rect: resolveRect(zone, { rect }) }),
+    [patchZone, patchLayer],
   );
 
   const activateZone = useCallback((key: string) => {
@@ -103,17 +163,18 @@ export default function BannerEditor({
     setSelectedZone(key);
   }, []);
 
-  // Zones that can be moved right now (shown, and for logos: uploaded)
-  const movable = config.zones.filter((z) => {
+  // Zones that can be moved right now (shown, and for logos: uploaded), the buyer's layers included
+  const expanded = expandLayers(config, params);
+  const movable = expanded.config.zones.filter((z) => {
     if (!z.controls.position?.enabled) return false;
     if (z.type === 'image') return z.controls.upload.enabled && !!images[z.key];
-    return resolveText(z, params.zones[z.key] as TextZoneParams | undefined).visible;
+    return resolveText(z, expanded.params.zones[z.key] as TextZoneParams | undefined).visible;
   });
-  const anyMovable = config.zones.some((z) => z.controls.position?.enabled);
+  const anyMovable = config.zones.some((z) => z.controls.position?.enabled) || !!customConfig(config);
 
   const handleItems: HandleItem[] = movable.map((z) => ({
     id: z.key,
-    rect: resolveRect(z, params.zones[z.key]),
+    rect: resolveRect(z, expanded.params.zones[z.key]),
     bounds: z.controls.position!.bounds,
     resizable: z.controls.position!.resize,
     min: zoneMinSize(z),
@@ -121,10 +182,10 @@ export default function BannerEditor({
     label: z.label,
   }));
 
-  const positionFor = (zone: Zone) => (
+  const positionFor = (zone: Zone, rect?: Rect) => (
     <PositionControls
       zone={zone}
-      rect={(params.zones[zone.key] as TextZoneParams | ImageZoneParams | undefined)?.rect}
+      rect={rect ?? (params.zones[zone.key] as TextZoneParams | ImageZoneParams | undefined)?.rect}
       active={layoutMode && selectedZone === zone.key}
       onRect={(rect) => setRect(zone, rect)}
       onActivate={() => activateZone(zone.key)}
@@ -169,7 +230,7 @@ export default function BannerEditor({
                   selected={selectedZone}
                   onSelect={setSelectedZone}
                   onRect={(key, rect) => {
-                    const zone = config.zones.find((z) => z.key === key);
+                    const zone = expanded.config.zones.find((z) => z.key === key);
                     if (zone) setRect(zone, rect);
                   }}
                   large
@@ -248,6 +309,25 @@ export default function BannerEditor({
                 </div>
               ))}
             </div>
+          </Section>
+        )}
+
+        {customConfig(config) && (
+          <Section title="Your layers">
+            <LayersPanel
+              config={config}
+              params={params}
+              images={images}
+              fonts={template.fonts}
+              fits={result?.zones}
+              onAdd={addLayer}
+              onPatch={patchLayer}
+              onRemove={removeLayer}
+              onMove={moveLayer}
+              onReset={resetLayer}
+              onImage={setImage}
+              position={positionFor}
+            />
           </Section>
         )}
 

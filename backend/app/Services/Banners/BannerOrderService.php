@@ -40,25 +40,49 @@ class BannerOrderService
         $params = $this->paramsValidator->validate($snapshot['config'], $rawParams);
         $token = (string) Str::uuid();
 
+        // Image zones of the template plus image layers the buyer added
+        $imageZones = $snapshot['config']['zones'];
+        $layerRects = [];
+        foreach ($params['layers'] ?? [] as $layer) {
+            $layerRects[$layer['id']] = $layer['rect'];
+        }
+        foreach (BannerCustomLayers::zones($snapshot['config'], $params) as $zone) {
+            $imageZones[] = $zone;
+        }
+
         $images = [];
         try {
-            foreach ($snapshot['config']['zones'] as $zone) {
-                $file = $files[$zone['key']] ?? null;
+            foreach ($imageZones as $zone) {
+                $key = $zone['key'];
+                $file = $files[$key] ?? null;
                 if ($zone['type'] !== 'image' || !($zone['controls']['upload']['enabled'] ?? false) || !$file instanceof UploadedFile) {
                     continue; // files for unknown zones or zones without uploads are ignored
                 }
+                // Sized for where the buyer put it (a moved or resized zone, or a layer)
+                $rect = $layerRects[$key] ?? $params['zones'][$key]['rect'] ?? null;
                 $stored = $this->imageProcessor->process(
                     $file,
-                    $zone,
+                    $rect ? array_merge($zone, ['w' => $rect['w'], 'h' => $rect['h']]) : $zone,
                     [$snapshot['media']['width'], $snapshot['media']['height']],
-                    "orders/{$token}/image-{$zone['key']}.png",
-                    "images.{$zone['key']}"
+                    "orders/{$token}/image-{$key}.png",
+                    "images.{$key}"
                 );
-                $images[$zone['key']] = $stored['path'];
+                $images[$key] = $stored['path'];
             }
         } catch (\Throwable $e) {
             Storage::disk(config('banners.disks.private'))->deleteDirectory("orders/{$token}");
             throw $e;
+        }
+
+        // An image layer without an image draws nothing: don't keep it
+        if (isset($params['layers'])) {
+            $params['layers'] = array_values(array_filter(
+                $params['layers'],
+                fn ($layer) => $layer['type'] === 'text' || isset($images[$layer['id']])
+            ));
+            if (!$params['layers']) {
+                unset($params['layers']);
+            }
         }
 
         $order = new BannerOrder([

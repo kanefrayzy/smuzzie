@@ -1,6 +1,7 @@
 import { isHex } from './color';
+import { customConfig, layerParams, layerZones } from './custom';
 import type {
-  Align, AlignY, BuyerParams, ImageZone, ImageZoneParams, RangeControl, Rect, TemplateConfig, TextCase, TextZone,
+  Align, AlignY, BuyerLayer, BuyerParams, ImageZone, ImageZoneParams, RangeControl, Rect, TemplateConfig, TextCase, TextZone,
   TextZoneParams, Zone,
 } from './types';
 
@@ -112,6 +113,7 @@ export function configFontIds(config: TemplateConfig): number[] {
     ids.add(zone.style.fontId);
     if (zone.controls.font?.enabled) zone.controls.font.options.forEach((id) => ids.add(id));
   }
+  customConfig(config)?.fonts.forEach((id) => ids.add(id));
   return Array.from(ids);
 }
 
@@ -189,6 +191,38 @@ export function defaultZoneParams(zone: Zone): TextZoneParams | ImageZoneParams 
   return { scale: zone.style.scale, alignX: zone.style.alignX, alignY: zone.style.alignY, rect };
 }
 
+/** One zone's params as sent with an order: only enabled controls, resolved and clamped. */
+function exportZone(zone: Zone, raw: TextZoneParams | ImageZoneParams | undefined): TextZoneParams | ImageZoneParams {
+  if (zone.type === 'text') {
+    const r = resolveText(zone, raw as TextZoneParams);
+    const c = zone.controls;
+    const out: TextZoneParams = {};
+    if (c.text.enabled) out.text = r.text;
+    if (c.size.enabled) out.size = r.size;
+    if (c.color.enabled) out.color = r.color;
+    if (c.align.enabled) out.align = r.align;
+    if (c.visible.enabled) out.visible = r.visible;
+    if (c.font?.enabled) out.fontId = r.fontId;
+    if (c.case?.enabled) out.case = r.case;
+    if (c.letterSpacing?.enabled) out.letterSpacing = r.letterSpacing;
+    if (c.lineHeight?.enabled) out.lineHeight = r.lineHeight;
+    if (c.glow?.enabled) out.glow = r.glow;
+    if (c.opacity?.enabled) out.opacity = r.opacity;
+    if (c.position?.enabled) out.rect = resolveRect(zone, raw);
+    return out;
+  }
+  const r = resolveImage(zone, raw as ImageZoneParams);
+  const c = zone.controls;
+  const out: ImageZoneParams = {};
+  if (c.scale.enabled) out.scale = r.scale;
+  if (c.align.enabled) {
+    out.alignX = r.alignX;
+    out.alignY = r.alignY;
+  }
+  if (c.position?.enabled) out.rect = resolveRect(zone, raw);
+  return out;
+}
+
 /**
  * Only what the buyer may change, resolved and clamped: the payload sent with an order.
  * Disabled controls are left out entirely (the server would ignore them anyway).
@@ -196,36 +230,13 @@ export function defaultZoneParams(zone: Zone): TextZoneParams | ImageZoneParams 
 export function exportParams(config: TemplateConfig, params: BuyerParams): BuyerParams {
   const zones: BuyerParams['zones'] = {};
   for (const zone of config.zones) {
-    const raw = params.zones[zone.key];
-    if (zone.type === 'text') {
-      const r = resolveText(zone, raw as TextZoneParams);
-      const c = zone.controls;
-      const out: TextZoneParams = {};
-      if (c.text.enabled) out.text = r.text;
-      if (c.size.enabled) out.size = r.size;
-      if (c.color.enabled) out.color = r.color;
-      if (c.align.enabled) out.align = r.align;
-      if (c.visible.enabled) out.visible = r.visible;
-      if (c.font?.enabled) out.fontId = r.fontId;
-      if (c.case?.enabled) out.case = r.case;
-      if (c.letterSpacing?.enabled) out.letterSpacing = r.letterSpacing;
-      if (c.lineHeight?.enabled) out.lineHeight = r.lineHeight;
-      if (c.glow?.enabled) out.glow = r.glow;
-      if (c.opacity?.enabled) out.opacity = r.opacity;
-      if (c.position?.enabled) out.rect = resolveRect(zone, raw);
-      if (Object.keys(out).length) zones[zone.key] = out;
-    } else {
-      const r = resolveImage(zone, raw as ImageZoneParams);
-      const c = zone.controls;
-      const out: ImageZoneParams = {};
-      if (c.scale.enabled) out.scale = r.scale;
-      if (c.align.enabled) {
-        out.alignX = r.alignX;
-        out.alignY = r.alignY;
-      }
-      if (c.position?.enabled) out.rect = resolveRect(zone, raw);
-      if (Object.keys(out).length) zones[zone.key] = out;
-    }
+    const out = exportZone(zone, params.zones[zone.key]);
+    if (Object.keys(out).length) zones[zone.key] = out;
   }
-  return { schemaVersion: 1, hue: resolveHue(config, params), zones };
+  const result: BuyerParams = { schemaVersion: 1, hue: resolveHue(config, params), zones };
+  const layers = layerZones(config, params);
+  if (layers.length) {
+    result.layers = layers.map(({ layer, zone }) => ({ id: layer.id, type: layer.type, ...exportZone(zone, layerParams(layer)) }) as BuyerLayer);
+  }
+  return result;
 }

@@ -13,5 +13,9 @@ export {
 } from './resolve';
 export type { ResolvedText, ResolvedImage } from './resolve';
 export { loadFonts, fontFamily } from './fonts';
+export {
+  LAYER_ID, CUSTOM_LIMITS, customConfig, layerTextZone, layerImageZone, layerZones, expandLayers, layerParams,
+  nextLayerId, newLayerRect,
+} from './custom';
 export { BannerOverlay } from './overlay';
 export type { OverlayState, OverlayResult, ZoneFit } from './overlay';

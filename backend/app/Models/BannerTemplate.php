@@ -116,6 +116,11 @@ class BannerTemplate extends Model
                 }
             }
         }
+        // Fonts for texts the buyer adds
+        $custom = \App\Services\Banners\BannerCustomLayers::config($this->config ?? []);
+        foreach ($custom['fonts'] ?? [] as $id) {
+            $ids[] = (int) $id;
+        }
         return array_values(array_unique($ids));
     }
 

@@ -72,11 +72,63 @@ class BannerParamsValidator
             }
         }
 
+        if (array_key_exists('layers', $raw)) {
+            $out += $this->layers($config, $raw['layers']);
+        }
+
         if ($this->errors) {
             throw ValidationException::withMessages($this->errors);
         }
 
         return $out;
+    }
+
+    /**
+     * Layers the buyer added: each one is checked like a zone with every control on
+     * (BannerCustomLayers). Dropped entirely when the template doesn't allow them.
+     */
+    private function layers(array $config, mixed $layers): array
+    {
+        $custom = BannerCustomLayers::config($config);
+        if (!$custom) {
+            return [];
+        }
+        if (!is_array($layers) || !array_is_list($layers)) {
+            $this->fail('params.layers', 'Invalid layers');
+            return [];
+        }
+        $max = ['text' => (int) $custom['maxText'], 'image' => (int) $custom['maxImage']];
+        $count = ['text' => 0, 'image' => 0];
+        $ids = [];
+        $out = [];
+        foreach ($layers as $i => $layer) {
+            $path = "params.layers.{$i}";
+            $type = is_array($layer) ? ($layer['type'] ?? null) : null;
+            $id = is_array($layer) ? ($layer['id'] ?? null) : null;
+            if (!in_array($type, ['text', 'image'], true) || !is_string($id) || !preg_match(BannerCustomLayers::ID_PATTERN, $id)) {
+                $this->fail($path, 'Invalid layer');
+                continue;
+            }
+            if (isset($ids[$id])) {
+                $this->fail("{$path}.id", 'Duplicate layer');
+                continue;
+            }
+            $ids[$id] = true;
+            if (++$count[$type] > $max[$type]) {
+                $this->fail($path, $type === 'text' ? "At most {$max['text']} added texts" : "At most {$max['image']} added images");
+                continue;
+            }
+            if (!array_key_exists('rect', $layer)) {
+                $this->fail("{$path}.rect", 'Missing layer position');
+                continue;
+            }
+            $zone = $type === 'text' ? BannerCustomLayers::textZone($config, $id) : BannerCustomLayers::imageZone($config, $id);
+            $p = array_diff_key($layer, ['id' => true, 'type' => true]);
+            $normalized = $type === 'text' ? $this->textZone($zone, $p, $path) : $this->imageZone($zone, $p, $path);
+            $out[] = ['id' => $id, 'type' => $type] + $normalized;
+        }
+
+        return $out ? ['layers' => $out] : [];
     }
 
     private function textZone(array $zone, array $p, string $path): array

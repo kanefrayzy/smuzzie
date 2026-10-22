@@ -2,7 +2,7 @@
 // so the expectations can be worked out by hand.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutText, cleanText, truncateChars, charLength, resolveText, resolveRect, exportParams } from '../dist/overlay.mjs';
+import { layoutText, cleanText, truncateChars, charLength, resolveText, resolveRect, exportParams, expandLayers } from '../dist/overlay.mjs';
 
 const measure = (s) => Array.from(s).length * 60;
 const base = { boxW: 600, boxH: 300, lineHeight: 1, letterSpacing: 0 };
@@ -149,4 +149,33 @@ test('zone position: inside the allowed area, fixed size without resizing', () =
   assert.deepEqual(exportParams(config, { schemaVersion: 1, hue: 0, zones: { l: { rect: { x: 0, y: 45, w: 40, h: 10 } } } }).zones.l.rect, {
     x: 0, y: 40, w: 40, h: 10,
   });
+});
+
+test('buyer layers become zones on top, within the template limits', () => {
+  const config = {
+    schemaVersion: 1, accent: '#ff0000', hue: { enabled: false, default: 0, presets: [] }, zones: [],
+    custom: { enabled: true, maxText: 1, maxImage: 1, fonts: [5], bounds: { x: 0, y: 0, w: 100, h: 50 } },
+  };
+  const params = {
+    schemaVersion: 1, hue: 0, zones: {},
+    layers: [
+      { id: 'layer_1', type: 'text', text: 'Hi', fontId: 5, size: 99, rect: { x: 10, y: 45, w: 50, h: 10 } },
+      { id: 'layer_2', type: 'text', text: 'Over the limit', rect: { x: 0, y: 0, w: 10, h: 10 } },
+      { id: 'bad', type: 'image', rect: { x: 0, y: 0, w: 10, h: 10 } },
+      { id: 'layer_3', type: 'image', scale: 50, rect: { x: 0, y: 0, w: 30, h: 12 } },
+    ],
+  };
+  const ex = expandLayers(config, params);
+  assert.deepEqual(ex.config.zones.map((z) => z.key), ['layer_1', 'layer_3']);
+  const r = resolveText(ex.config.zones[0], ex.params.zones.layer_1);
+  assert.equal(r.size, 20); // clamped to the layer limit
+
+  const out = exportParams(config, params);
+  assert.deepEqual(out.layers.map((l) => l.id), ['layer_1', 'layer_3']);
+  assert.deepEqual(out.layers[0].rect, { x: 10, y: 40, w: 50, h: 10 }); // kept inside the area
+  assert.equal(out.layers[0].size, 20);
+  assert.equal(out.layers[1].scale, 50);
+
+  // Switched off: no layers at all
+  assert.equal(exportParams({ ...config, custom: { ...config.custom, enabled: false } }, params).layers, undefined);
 });

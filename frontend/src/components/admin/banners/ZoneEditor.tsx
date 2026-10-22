@@ -12,6 +12,8 @@ import BannerPreview from '@/components/banners/BannerPreview';
 import ZoneCanvas from './ZoneCanvas';
 import ZoneForm, { type ZoneErrors } from './ZoneForm';
 import { SAMPLE_LOGO, newImageZone, newTextZone } from './zoneDefaults';
+import CustomLayersForm from './CustomLayersForm';
+import type { CustomLayersConfig } from '@/lib/banner-overlay';
 
 /**
  * Visual zone editor: rectangles over the template preview with the live overlay
@@ -29,6 +31,11 @@ export default function ZoneEditor({
   const [selected, setSelected] = useState<number | null>(template.config.zones.length ? 0 : null);
   const [zoneErrors, setZoneErrors] = useState<Record<number, ZoneErrors>>({});
   const [generalErrors, setGeneralErrors] = useState<string[]>([]);
+  const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
+  const setCustom = (custom: CustomLayersConfig) => {
+    setConfig((c) => ({ ...c, custom }));
+    setDirty(true);
+  };
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showTexts, setShowTexts] = useState(true);
@@ -36,7 +43,7 @@ export default function ZoneEditor({
   // Accent and hue are edited in the settings form on the same page: always take them from the
   // latest saved template and keep only the zones from this editor
   useEffect(() => {
-    setConfig((c) => (dirty ? { ...template.config, zones: c.zones } : template.config));
+    setConfig((c) => (dirty ? { ...template.config, zones: c.zones, custom: c.custom } : template.config));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template.config]);
 
@@ -108,10 +115,11 @@ export default function ZoneEditor({
   const save = async () => {
     setSaving(true);
     try {
-      const res = await adminApi.updateBannerTemplate(template.id, { config: { ...template.config, zones: config.zones } });
+      const res = await adminApi.updateBannerTemplate(template.id, { config: { ...template.config, zones: config.zones, custom: config.custom } });
       setConfig(res.data.config);
       setZoneErrors({});
       setGeneralErrors([]);
+      setCustomErrors({});
       setDirty(false);
       onSaved(res.data);
       toast.success('Zones saved');
@@ -119,14 +127,17 @@ export default function ZoneEditor({
       const errors = err?.response?.data?.errors as Record<string, string[]> | undefined;
       if (errors) {
         const byZone: Record<number, ZoneErrors> = {};
+        const custom: Record<string, string> = {};
         const general: string[] = [];
         for (const [path, messages] of Object.entries(errors)) {
           const m = /^config\.zones\.(\d+)\.(.+)$/.exec(path);
           if (m) (byZone[Number(m[1])] ||= {})[m[2]] = messages[0];
+          else if (path.startsWith('config.custom')) custom[path] = messages[0];
           else general.push(messages[0]);
         }
         setZoneErrors(byZone);
         setGeneralErrors(general);
+        setCustomErrors(custom);
         const first = Object.keys(byZone)[0];
         if (first !== undefined) setSelected(Number(first));
         toast.error('Some values need fixing');
@@ -236,6 +247,10 @@ export default function ZoneEditor({
             <ZoneForm zone={zone} fonts={fonts} errors={zoneErrors[selected] || {}} onChange={(z) => setZone(selected, z)} />
           </div>
         )}
+
+        <div className="mt-4">
+          <CustomLayersForm value={config.custom} fonts={fonts} errors={customErrors} onChange={setCustom} />
+        </div>
       </div>
     </div>
   );

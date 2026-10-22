@@ -100,11 +100,23 @@ export interface ImageZone extends ZoneRect {
 
 export type Zone = TextZone | ImageZone;
 
+/** Layers the buyer adds on top of the template's zones. Missing in older configs = off. */
+export interface CustomLayersConfig {
+  enabled: boolean;
+  maxText: number;
+  maxImage: number;
+  /** Fonts for added texts; the first one is the starting font */
+  fonts: number[];
+  /** Where added layers may be placed */
+  bounds: Rect;
+}
+
 export interface TemplateConfig {
   schemaVersion: 1;
   accent: string;
   hue: { enabled: boolean; default: number; presets: number[] };
   zones: Zone[];
+  custom?: CustomLayersConfig;
 }
 
 /** Font face as the API returns it; `family` is the CSS name (bf-<id>). */
@@ -139,9 +151,15 @@ export interface ImageZoneParams {
   rect?: Rect;
 }
 
+/** A layer the buyer added; drawn above the template's zones, in list order. */
+export type BuyerLayer =
+  | ({ id: string; type: 'text' } & TextZoneParams)
+  | ({ id: string; type: 'image' } & ImageZoneParams);
+
 /** What the buyer chose. Only enabled controls are sent; the server drops the rest. */
 export interface BuyerParams {
   schemaVersion: 1;
   hue: number;
   zones: Record<string, TextZoneParams | ImageZoneParams>;
+  layers?: BuyerLayer[];
 }

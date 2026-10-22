@@ -54,6 +54,12 @@ return [
         'max_kb' => 2048,
     ],
 
+    // Layers the buyer adds on top of a template (texts and images), upper limits for any template
+    'custom' => [
+        'max_text' => 10,
+        'max_images' => 3,
+    ],
+
     'logo' => [
         'max_kb' => 2048,
         'max_side' => 4096,
