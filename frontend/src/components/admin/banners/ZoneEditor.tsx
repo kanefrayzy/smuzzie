@@ -207,6 +207,10 @@ export default function ZoneEditor({
           <div className="text-sm text-red-300 bg-red-400/10 border border-red-400/20 rounded-lg p-3 mb-4">{generalErrors.join(' ')}</div>
         )}
 
+        <div className="mb-4">
+          <CustomLayersForm value={config.custom} fonts={fonts} errors={customErrors} onChange={setCustom} />
+        </div>
+
         {/* Zone list (later = drawn on top) */}
         <div className="flex flex-wrap gap-1.5 mb-4">
           {config.zones.map((z, i) => (
@@ -248,9 +252,6 @@ export default function ZoneEditor({
           </div>
         )}
 
-        <div className="mt-4">
-          <CustomLayersForm value={config.custom} fonts={fonts} errors={customErrors} onChange={setCustom} />
-        </div>
       </div>
     </div>
   );
