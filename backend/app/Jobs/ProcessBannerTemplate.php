@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Enums\BannerTemplateStatus;
 use App\Models\BannerTemplate;
+use App\Services\Banners\BannerConfigValidator;
+use App\Services\Banners\BannerMedia;
 use App\Services\Banners\TemplateMediaProcessor;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -14,7 +16,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Processes a template video on the "banners" queue: a new upload (master + preview + poster),
+ * Processes a template video or image on the "banners" queue: a new upload (master + preview + poster),
  * or, without an upload, just a fresh preview/poster from the current master
  * (after the watermark settings changed).
  *
@@ -59,6 +61,10 @@ class ProcessBannerTemplate implements ShouldQueue
             return;
         }
 
+        if (isset($fields['kind'])) {
+            $fields['outputs'] = $this->outputsFor($template, $fields['kind'], (int) $fields['width']);
+        }
+
         $template->update($fields + [
             'processing_status' => BannerTemplateStatus::Ready,
             'processing_error' => null,
@@ -71,6 +77,22 @@ class ProcessBannerTemplate implements ShouldQueue
         if ($stale) {
             Storage::disk(config('banners.disks.public'))->delete(array_values($stale));
         }
+    }
+
+    /**
+     * Result formats after a new upload: switching between video and image starts from the new
+     * kind's defaults; a narrower new video lowers the GIF width with it (GIFs are never upscaled).
+     */
+    private function outputsFor(BannerTemplate $template, string $kind, int $width): array
+    {
+        $outputs = $template->outputs ?? [];
+        if ($kind !== $template->kind) {
+            return app(BannerConfigValidator::class)->validateOutputs([], $width, $kind);
+        }
+        if ($kind === BannerMedia::VIDEO && ($outputs['gif']['width'] ?? 0) > $width) {
+            $outputs['gif']['width'] = $width;
+        }
+        return $outputs;
     }
 
     /** Called by the worker when the job dies (timeout, crash). */

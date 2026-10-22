@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\BannerOrder;
 use App\Models\BannerTemplate;
+use App\Services\Banners\BannerMedia;
 use App\Services\Banners\BannerOrderPresenter;
 use App\Services\Banners\BannerOrderService;
 use Illuminate\Http\Request;
@@ -91,7 +92,7 @@ class BannerOrderController extends Controller
         $name = ($order->snapshot['template']['slug'] ?? 'banner') . '-' . substr($order->token, 0, 8) . '.' . $format;
 
         return $disk->download($path, $name, [
-            'Content-Type' => $format === 'gif' ? 'image/gif' : 'video/mp4',
+            'Content-Type' => BannerMedia::MIME[$format],
             'Cache-Control' => 'private, no-store',
         ]);
     }
@@ -106,6 +107,8 @@ class BannerOrderController extends Controller
             return response()->json(['message' => 'Not found'], 404);
         }
 
-        return $disk->response($path, null, ['Content-Type' => 'image/png', 'Cache-Control' => 'private, max-age=600']);
+        $type = str_ends_with($path, '.gif') ? 'image/gif' : 'image/png';
+
+        return $disk->response($path, null, ['Content-Type' => $type, 'Cache-Control' => 'private, max-age=600']);
     }
 }

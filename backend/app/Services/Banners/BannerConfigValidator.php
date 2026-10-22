@@ -138,11 +138,19 @@ class BannerConfigValidator
         return ['x' => $x, 'y' => $y, 'w' => $w, 'h' => $h];
     }
 
-    /** @throws ValidationException */
-    public function validateOutputs(mixed $outputs, ?int $templateWidth = null): array
+    /**
+     * Result formats of a template, by its kind: video templates make an MP4 and optionally a GIF,
+     * image templates a PNG and optionally a JPG.
+     *
+     * @throws ValidationException
+     */
+    public function validateOutputs(mixed $outputs, ?int $templateWidth = null, string $kind = BannerMedia::VIDEO): array
     {
         $this->errors = [];
         $outputs = is_array($outputs) ? $outputs : [];
+        if ($kind === BannerMedia::IMAGE) {
+            return $this->imageOutputs($outputs);
+        }
         $defaults = config('banners.template.default_outputs');
         $gif = is_array($outputs['gif'] ?? null) ? $outputs['gif'] : [];
 
@@ -151,8 +159,26 @@ class BannerConfigValidator
             'mp4' => true, // always produced
             'gif' => [
                 'enabled' => $this->bool($gif['enabled'] ?? $defaults['gif']['enabled']),
-                'width' => (int) $this->number($gif['width'] ?? $defaults['gif']['width'], 'outputs.gif.width', 120, $maxWidth, 0),
+                // The default never exceeds a narrower template (no upscaling)
+                'width' => (int) $this->number($gif['width'] ?? min((int) $defaults['gif']['width'], $maxWidth), 'outputs.gif.width', 120, $maxWidth, 0),
                 'fps' => (int) $this->number($gif['fps'] ?? $defaults['gif']['fps'], 'outputs.gif.fps', 5, 30, 0),
+            ],
+        ];
+        $this->throwIfFailed();
+
+        return $out;
+    }
+
+    /** @throws ValidationException */
+    private function imageOutputs(array $outputs): array
+    {
+        $defaults = config('banners.template.default_image_outputs');
+        $jpg = is_array($outputs['jpg'] ?? null) ? $outputs['jpg'] : [];
+        $out = [
+            'png' => true, // always produced
+            'jpg' => [
+                'enabled' => $this->bool($jpg['enabled'] ?? $defaults['jpg']['enabled']),
+                'quality' => (int) $this->number($jpg['quality'] ?? $defaults['jpg']['quality'], 'outputs.jpg.quality', 60, 100, 0),
             ],
         ];
         $this->throwIfFailed();

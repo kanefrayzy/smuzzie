@@ -9,6 +9,7 @@ use App\Models\BannerTemplate;
 /**
  * Public banner catalog: published templates and what the buyer editor needs
  * (zones config, fonts, watermarked preview). Never exposes the private master.
+ * `kind` is video (preview_url is an MP4) or image (preview_url is a WebP still).
  */
 class BannerCatalogController extends Controller
 {
@@ -57,12 +58,14 @@ class BannerCatalogController extends Controller
             'description' => $t->description,
             'price' => $t->price,
             'currency' => $t->currency,
+            'kind' => $t->kind,
             'width' => $t->width,
             'height' => $t->height,
-            'duration' => $t->duration,
+            'duration' => $t->duration, // null for image templates
             'preview_url' => $t->preview_url,
             'poster_url' => $t->poster_url,
             'outputs' => $t->outputs,
+            'formats' => $t->formats(),
         ];
     }
 }

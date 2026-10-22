@@ -5,6 +5,7 @@ import { Play, AlertTriangle, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/lib/api';
 import { formatFileSize, getApiError } from '@/lib/utils';
+import { DOWNLOAD_ORDER, FORMAT_LABEL } from '@/lib/banner-formats';
 import type { AdminBannerOrderDetails, AdminBannerTemplate } from '@/types/banners';
 import OrderStatusBadge from './OrderStatusBadge';
 
@@ -88,27 +89,32 @@ export default function TestRenderPanel({ template }: { template: AdminBannerTem
         </div>
       )}
 
-      {order?.downloads?.mp4 && (
+      {(order?.downloads?.mp4 || order?.downloads?.png) && (
         <div className="mt-4 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-4 items-start">
-          <video
-            key={order.downloads.mp4}
-            src={order.downloads.mp4}
-            controls
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="w-full max-h-[70vh] object-contain rounded-lg bg-black"
-          />
+          {order.downloads.mp4 ? (
+            <video
+              key={order.downloads.mp4}
+              src={order.downloads.mp4}
+              controls
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full max-h-[70vh] object-contain rounded-lg bg-black"
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={order.downloads.png} src={order.downloads.png} alt="Test render" className="w-full max-h-[70vh] object-contain rounded-lg bg-black" />
+          )}
           <div className="flex md:flex-col gap-2 text-sm">
-            <a href={order.downloads.mp4} className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center gap-1.5">
-              <Download size={14} /> MP4 {order.result?.mp4_size ? formatFileSize(order.result.mp4_size) : ''}
-            </a>
-            {order.downloads.gif && (
-              <a href={order.downloads.gif} className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center gap-1.5">
-                <Download size={14} /> GIF {order.result?.gif_size ? formatFileSize(order.result.gif_size) : ''}
-              </a>
-            )}
+            {DOWNLOAD_ORDER.filter((f) => order.downloads?.[f]).map((f) => {
+              const size = order.result?.[`${f}_size`];
+              return (
+                <a key={f} href={order.downloads![f]} className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center gap-1.5">
+                  <Download size={14} /> {FORMAT_LABEL[f]} {size ? formatFileSize(size) : ''}
+                </a>
+              );
+            })}
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BannerOrderStatus;
+use App\Services\Banners\BannerMedia;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -94,12 +95,18 @@ class BannerOrder extends Model
         return $query->where('status', $status instanceof BannerOrderStatus ? $status->value : $status);
     }
 
-    /** Formats (mp4/gif) whose result files are currently available for download. */
+    /** Formats (mp4/gif, png/jpg) whose result files are currently available for download. */
     public function resultFormats(): array
     {
         if ($this->status !== BannerOrderStatus::Ready || $this->result_purged_at) {
             return [];
         }
-        return array_values(array_filter(['mp4', 'gif'], fn ($f) => !empty($this->result[$f]['path'])));
+        return array_values(array_filter(BannerMedia::FORMATS, fn ($f) => !empty($this->result[$f]['path'])));
+    }
+
+    /** video or image, from the snapshot (orders made before image templates are videos) */
+    public function kind(): string
+    {
+        return BannerMedia::kindOf($this->snapshot);
     }
 }

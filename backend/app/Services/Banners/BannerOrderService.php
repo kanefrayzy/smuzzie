@@ -70,7 +70,7 @@ class BannerOrderService
                     $file,
                     $rect ? array_merge($zone, ['w' => $rect['w'], 'h' => $rect['h']]) : $zone,
                     [$snapshot['media']['width'], $snapshot['media']['height']],
-                    "orders/{$token}/image-{$key}.png",
+                    "orders/{$token}/image-{$key}", // .png, or .gif when animated
                     "images.{$key}"
                 );
                 $images[$key] = $stored['path'];

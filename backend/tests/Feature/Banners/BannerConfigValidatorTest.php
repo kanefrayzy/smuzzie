@@ -149,8 +149,8 @@ class BannerConfigValidatorTest extends TestCase
     {
         $config = $this->config();
         $logo = $config['zones'][0];
-        foreach (['logo2', 'logo3', 'logo4'] as $key) {
-            $config['zones'][] = ['key' => $key] + $logo;
+        foreach (range(2, 13) as $n) { // 13 image zones, the limit is 12
+            $config['zones'][] = ['key' => "logo{$n}"] + $logo;
         }
 
         $this->assertArrayHasKey('config.zones', $this->errorsFor($config));

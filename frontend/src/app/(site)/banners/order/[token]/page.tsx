@@ -7,6 +7,7 @@ import { Check, Download, Loader2, AlertTriangle, Clock } from 'lucide-react';
 import { publicApi } from '@/lib/api';
 import type { BannerOrderStatus, PublicBannerOrder, PublicBannerPayment } from '@/types/banners';
 import PaymentPanel from '@/components/banners/payment/PaymentPanel';
+import { DOWNLOAD_ORDER, FORMAT_LABEL } from '@/lib/banner-formats';
 
 const STEPS: { key: string; label: string; done: (s: BannerOrderStatus) => boolean; active: (s: BannerOrderStatus) => boolean }[] = [
   { key: 'placed', label: 'Order placed', done: () => true, active: () => false },
@@ -150,20 +151,20 @@ export default function BannerOrderPage() {
 
             {order.downloads && (
               <div className="flex flex-wrap gap-3 mt-6">
-                {order.downloads.mp4 && (
-                  <a href={order.downloads.mp4} className="btn-primary text-sm" download>
-                    <Download size={16} /> Download MP4
-                  </a>
-                )}
-                {order.downloads.gif && (
+                {DOWNLOAD_ORDER.filter((f) => order.downloads?.[f]).map((f, i) => (
                   <a
-                    href={order.downloads.gif}
+                    key={f}
+                    href={order.downloads![f]}
                     download
-                    className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white border border-white/15 hover:border-accent-red/50 transition-colors"
+                    className={
+                      i === 0
+                        ? 'btn-primary text-sm'
+                        : 'inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white border border-white/15 hover:border-accent-red/50 transition-colors'
+                    }
                   >
-                    <Download size={16} /> Download GIF
+                    <Download size={16} /> Download {FORMAT_LABEL[f]}
                   </a>
-                )}
+                ))}
               </div>
             )}
             {order.files_expire_at && !order.files_expired && (

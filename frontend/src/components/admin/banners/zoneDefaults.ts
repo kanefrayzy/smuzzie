@@ -80,6 +80,31 @@ export function newImageZone(config: TemplateConfig): ImageZone {
   };
 }
 
+/** Same limit as banners.template.max_image_zones on the server (logos and icons together) */
+export const MAX_IMAGE_ZONES = 12;
+
+/**
+ * A small square zone for an icon (e.g. above a feature card); the buyer may upload a picture or
+ * an animated GIF. Square in pixels, so its height depends on the template's aspect ratio.
+ */
+export function newIconZone(config: TemplateConfig, width: number, height: number): ImageZone {
+  const w = 8;
+  const h = Math.min(100, Math.round(((w * width) / height) * 1000) / 1000);
+  return {
+    key: uniqueKey(config, 'icon'),
+    type: 'image',
+    label: 'Icon',
+    x: 46, y: Math.max(0, 50 - h / 2), w, h,
+    style: { scale: 100, alignX: 'center', alignY: 'center' },
+    controls: {
+      upload: { enabled: true, maxBytes: 2 * 1024 * 1024 },
+      scale: { enabled: true, min: 50, max: 100 },
+      align: { enabled: false, x: ['center'], y: ['center'] },
+      position: POSITION_OFF,
+    },
+  };
+}
+
 /** Image zones saved before moving existed: add the block switched off. */
 export function withImageControls(zone: ImageZone): ImageZone {
   return zone.controls.position ? zone : { ...zone, controls: { ...zone.controls, position: POSITION_OFF } };
@@ -92,6 +117,15 @@ export const SAMPLE_LOGO =
     '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="120" viewBox="0 0 480 120">' +
       '<circle cx="60" cy="60" r="44" fill="#fff"/><circle cx="60" cy="60" r="20" fill="#111"/>' +
       '<text x="124" y="80" font-family="Arial, sans-serif" font-size="64" font-weight="700" fill="#fff">LOGO</text></svg>',
+  );
+
+/** Placeholder icon for icon zones in the admin preview. */
+export const SAMPLE_ICON =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">' +
+      '<rect x="6" y="6" width="108" height="108" rx="26" fill="none" stroke="#fff" stroke-width="8"/>' +
+      '<path d="M60 26l9 22 24 2-18 16 6 24-21-13-21 13 6-24-18-16 24-2z" fill="#fff"/></svg>',
   );
 
 export function isText(z: Zone): z is TextZone {

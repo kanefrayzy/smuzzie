@@ -29,6 +29,43 @@ window.renderOverlay = async function (input) {
 
   return { hue: result.hue, zones: result.zones };
 };
+
+// Slices of the drawn layer, bottom to top, cut around the animated images (GIF zone keys):
+// [{ type: 'static', keys: [...] } | { type: 'animated', key, box: { x, y, w, h, opacity } }].
+// Animated images are never part of a static slice, so they never end up in a screenshot.
+window.planLayers = function (animated) {
+  const O = window.BannerOverlay;
+  const stage = document.getElementById('stage');
+  const gifs = new Set(animated);
+  const plan = [];
+  let run = [];
+  for (const z of O.zoneOrder(stage)) {
+    if (!z.shown) continue;
+    if (z.type === 'image' && gifs.has(z.key)) {
+      const box = O.imageBox(stage, z.key);
+      if (!box || box.w < 0.5 || box.h < 0.5 || box.opacity <= 0) continue;
+      if (run.length) plan.push({ type: 'static', keys: run });
+      run = [];
+      plan.push({ type: 'animated', key: z.key, box: { x: box.x, y: box.y, w: box.w, h: box.h, opacity: box.opacity } });
+    } else {
+      run.push(z.key);
+    }
+  }
+  if (run.length || !plan.length) plan.push({ type: 'static', keys: run });
+  return plan;
+};
+
+// null: every zone; otherwise only these zones are visible
+window.showOnly = function (keys) {
+  const O = window.BannerOverlay;
+  const stage = document.getElementById('stage');
+  if (keys === null) {
+    const all = new Set(O.zoneOrder(stage).map((z) => z.key));
+    O.isolateZones(stage, all);
+  } else {
+    O.isolateZones(stage, new Set(keys));
+  }
+};
 </script>
 </body>
 </html>

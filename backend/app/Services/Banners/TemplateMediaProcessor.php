@@ -12,6 +12,9 @@ use Illuminate\Support\Str;
  *  - a public ≤720 px preview with the watermark burned in,
  *  - a public WebP poster taken from that preview (so it is watermarked too).
  *
+ * An uploaded PNG/JPG/WebP makes an image ("static") template instead: an opaque sRGB PNG
+ * master (orientation applied, metadata dropped) and a watermarked WebP preview and poster.
+ *
  * Master policy: an H.264 yuv420p upload with even dimensions and bt709/untagged color is
  * remuxed without re-encoding (tags set in the bitstream, faststart); anything else is
  * encoded once at high quality. Untagged sources are treated as bt709.
@@ -38,6 +41,9 @@ class TemplateMediaProcessor
     public function processUpload(BannerTemplate $template, string $uploadPath, int $rev): array
     {
         $upload = $this->private()->path($uploadPath);
+        if (in_array((new \finfo(FILEINFO_MIME_TYPE))->file($upload), config('banners.template.image_mimes'), true)) {
+            return $this->processImageUpload($template, $upload, $rev);
+        }
         $info = $this->ffmpeg->probe($upload);
         $this->checkLimits($info);
 
@@ -69,6 +75,7 @@ class TemplateMediaProcessor
         }
 
         return array_merge($preview, [
+            'kind' => BannerMedia::VIDEO,
             'source_rev' => $rev,
             'source_path' => $sourcePath,
             'width' => $master['width'],
@@ -87,6 +94,9 @@ class TemplateMediaProcessor
     {
         if (!$template->source_path || !$this->private()->exists($template->source_path)) {
             throw new \RuntimeException('The template has no processed video yet');
+        }
+        if ($template->isImage()) {
+            return $this->buildImagePreview($template, $template->source_rev, $this->private()->path($template->source_path), $template->watermark ?? []);
         }
         $master = $this->ffmpeg->probe($this->private()->path($template->source_path));
 
@@ -140,6 +150,172 @@ class TemplateMediaProcessor
 
         return ['preview_path' => $previewPath, 'poster_path' => $posterPath];
     }
+
+    // ─── Image templates ─────────────────────────────────────
+
+    /** Opaque sRGB PNG master + watermarked WebP preview and poster from a PNG/JPG/WebP upload. */
+    private function processImageUpload(BannerTemplate $template, string $upload, int $rev): array
+    {
+        $img = $this->decodeImage($upload);
+        $sourcePath = "templates/{$template->uuid}/source-{$rev}-" . Str::lower(Str::random(6)) . '.png';
+        $source = $this->private()->path($sourcePath);
+        $width = imagesx($img);
+        $height = imagesy($img);
+
+        try {
+            $this->writeImage($source, fn (string $tmp) => imagepng($img, $tmp, 6));
+        } finally {
+            imagedestroy($img);
+        }
+
+        try {
+            $preview = $this->buildImagePreview($template, $rev, $source, $template->watermark ?? []);
+        } catch (\Throwable $e) {
+            $this->private()->delete($sourcePath);
+            throw $e;
+        }
+
+        return array_merge($preview, [
+            'kind' => BannerMedia::IMAGE,
+            'source_rev' => $rev,
+            'source_path' => $sourcePath,
+            'width' => $width,
+            'height' => $height,
+            'fps' => null,
+            'duration' => null,
+            'frame_count' => null,
+        ]);
+    }
+
+    /**
+     * Checked from the header first (type, size, color profile), then decoded with GD: EXIF
+     * orientation applied, transparency flattened onto black, everything but the pixels dropped.
+     */
+    private function decodeImage(string $file): \GdImage
+    {
+        $limits = config('banners.template');
+        $types = [IMAGETYPE_PNG => 'image/png', IMAGETYPE_JPEG => 'image/jpeg', IMAGETYPE_WEBP => 'image/webp'];
+        $info = @getimagesize($file);
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file);
+        if (!$info || ($types[$info[2]] ?? null) !== $mime) {
+            throw new \RuntimeException('The file is not a valid PNG, JPG or WebP image');
+        }
+        [$w, $h] = $info;
+        if (max($w, $h) > $limits['max_side'] || $w * $h > $limits['max_image_pixels']) {
+            throw new \RuntimeException("The image is larger than {$limits['max_side']} px on a side");
+        }
+        if (min($w, $h) < 64) {
+            throw new \RuntimeException('The image is smaller than 64 px on a side');
+        }
+        if ($problem = IccProfile::problem($file, $info[2])) {
+            throw new \RuntimeException($problem);
+        }
+
+        // Two full-size truecolor copies at most (4 bytes per pixel each)
+        $need = $w * $h * 4 * 2 + 64 * 1024 * 1024;
+        $limit = $this->bytes((string) ini_get('memory_limit'));
+        if ($limit > 0 && $limit < $need) {
+            ini_set('memory_limit', (string) $need);
+        }
+
+        $img = match ($info[2]) {
+            IMAGETYPE_PNG => @imagecreatefrompng($file),
+            IMAGETYPE_JPEG => @imagecreatefromjpeg($file),
+            IMAGETYPE_WEBP => @imagecreatefromwebp($file),
+        };
+        if (!$img) {
+            throw new \RuntimeException('The image could not be read');
+        }
+        if ($info[2] === IMAGETYPE_JPEG) {
+            $img = BannerImageProcessor::applyExifOrientation($img, $file);
+        }
+
+        // The background is opaque, like a video frame
+        $flat = imagecreatetruecolor(imagesx($img), imagesy($img));
+        imagefill($flat, 0, 0, imagecolorallocate($flat, 0, 0, 0));
+        imagealphablending($flat, true);
+        imagecopy($flat, $img, 0, 0, 0, 0, imagesx($img), imagesy($img));
+        imagedestroy($img);
+
+        return $flat;
+    }
+
+    /** @return array{preview_path: string, poster_path: string} */
+    private function buildImagePreview(BannerTemplate $template, int $rev, string $source, array $watermark): array
+    {
+        $master = @imagecreatefrompng($source);
+        if (!$master) {
+            throw new \RuntimeException('The template image could not be read');
+        }
+        [$w, $h] = $this->previewSize(imagesx($master), imagesy($master));
+
+        $tag = $rev . '-' . Str::lower(Str::random(6));
+        $dir = "banners/templates/{$template->uuid}";
+        $previewPath = "{$dir}/preview-{$tag}.webp";
+        $posterPath = "{$dir}/poster-{$tag}.webp";
+        $wmFile = $this->private()->path('tmp/template-' . $template->uuid . '-' . Str::random(8) . '/watermark.png');
+
+        $img = imagecreatetruecolor($w, $h);
+        try {
+            imagecopyresampled($img, $master, 0, 0, 0, 0, $w, $h, imagesx($master), imagesy($master));
+
+            $this->watermark->png(
+                $w,
+                $h,
+                (string) ($watermark['text'] ?? config('banners.template.default_watermark.text')),
+                (int) ($watermark['opacity'] ?? config('banners.template.default_watermark.opacity')),
+                $wmFile
+            );
+            $mark = imagecreatefrompng($wmFile);
+            imagealphablending($img, true);
+            imagecopy($img, $mark, 0, 0, 0, 0, $w, $h);
+            imagedestroy($mark);
+
+            $this->writeImage($this->public()->path($previewPath), fn (string $tmp) => imagewebp($img, $tmp, 88));
+            $this->writeImage($this->public()->path($posterPath), fn (string $tmp) => imagewebp($img, $tmp, 80));
+        } catch (\Throwable $e) {
+            $this->public()->delete([$previewPath, $posterPath]);
+            throw $e;
+        } finally {
+            imagedestroy($master);
+            imagedestroy($img);
+            @unlink($wmFile);
+            @rmdir(dirname($wmFile));
+        }
+
+        return ['preview_path' => $previewPath, 'poster_path' => $posterPath];
+    }
+
+    /** Write through a temp file so a failure never leaves a half-written file in place. */
+    private function writeImage(string $target, callable $encode): void
+    {
+        if (!is_dir(dirname($target))) {
+            mkdir(dirname($target), 0755, true);
+        }
+        $tmp = $target . '.tmp';
+        if (!$encode($tmp) || !is_file($tmp) || filesize($tmp) === 0) {
+            @unlink($tmp);
+            throw new \RuntimeException('Could not write ' . basename($target));
+        }
+        rename($tmp, $target);
+    }
+
+    private function bytes(string $value): int
+    {
+        $value = trim($value);
+        if ($value === '' || $value === '-1') {
+            return -1;
+        }
+        $n = (int) $value;
+        return match (strtolower(substr($value, -1))) {
+            'g' => $n * 1024 ** 3,
+            'm' => $n * 1024 ** 2,
+            'k' => $n * 1024,
+            default => $n,
+        };
+    }
+
+    // ─── Video limits and sizes ──────────────────────────────
 
     private function checkLimits(array $info): void
     {

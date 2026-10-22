@@ -7,6 +7,7 @@ import BannerTemplateClient from '@/components/banners/BannerTemplateClient';
 import BannerFaq from '@/components/banners/BannerFaq';
 import { absoluteMedia, fetchBannerTemplate, formatPrice, formatsLabel, jsonLd } from '@/lib/banners-server';
 import { SITE_NAME, SITE_URL } from '@/lib/site';
+import { FORMAT_LABEL, isImageTemplate, templateFormats } from '@/lib/banner-formats';
 import type { PublicBannerTemplate } from '@/types/banners';
 
 export const revalidate = 300;
@@ -14,10 +15,11 @@ export const revalidate = 300;
 type Props = { params: { slug: string } };
 
 function describe(t: PublicBannerTemplate): string {
+  const [first, ...rest] = templateFormats(t).map((f) => FORMAT_LABEL[f]);
   return (
     t.description?.trim() ||
-    `Customize the ${t.name} animated banner online: your text, logo and colors. Download MP4 ${t.width}×${t.height}` +
-      `${t.outputs?.gif?.enabled ? ' and GIF' : ''} without a watermark for ${formatPrice(t.price, t.currency)}.`
+    `Customize the ${t.name} ${isImageTemplate(t) ? '' : 'animated '}banner online: your text, logo and colors. ` +
+      `Download ${first} ${t.width}×${t.height}${rest.length ? ` and ${rest.join(' and ')}` : ''} without a watermark for ${formatPrice(t.price, t.currency)}.`
   );
 }
 
@@ -43,10 +45,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (t === 'missing') return { title: 'Template not found', robots: { index: false } };
   if (!t) return { title: 'Animated banner template', alternates: { canonical: path } };
 
-  const title = `${t.name} — Animated Banner Template`;
+  const still = isImageTemplate(t);
+  const title = `${t.name} — ${still ? 'Banner' : 'Animated Banner'} Template`;
   const description = describe(t);
   const poster = absoluteMedia(t.poster_url);
-  const images = poster ? [{ url: poster, width: t.width, height: t.height, alt: `${t.name} animated banner` }] : undefined;
+  const images = poster ? [{ url: poster, width: t.width, height: t.height, alt: `${t.name} ${still ? '' : 'animated '}banner` }] : undefined;
   return {
     // absolute: the catalog layout's own title would otherwise drop the " | Smuzzie" template
     title: { absolute: `${title} | ${SITE_NAME}` },
@@ -59,7 +62,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       siteName: SITE_NAME,
       type: 'website',
       images,
-      videos: t.preview_url ? [{ url: absoluteMedia(t.preview_url)!, width: 720, type: 'video/mp4' }] : undefined,
+      videos: t.preview_url && !still ? [{ url: absoluteMedia(t.preview_url)!, width: 720, type: 'video/mp4' }] : undefined,
     },
     twitter: { card: 'summary_large_image', title: `${title} | ${SITE_NAME}`, description, images: poster ? [poster] : undefined },
   };
@@ -76,13 +79,13 @@ export default async function BannerTemplatePage({ params }: Props) {
       {
         '@type': 'Product',
         '@id': `${url}#product`,
-        name: `${t.name} animated banner`,
+        name: `${t.name} ${isImageTemplate(t) ? '' : 'animated '}banner`,
         description: describe(t),
         image: absoluteMedia(t.poster_url),
         url,
         sku: t.slug,
         brand: { '@type': 'Brand', name: SITE_NAME },
-        category: 'Animated video banner template',
+        category: isImageTemplate(t) ? 'Banner template' : 'Animated video banner template',
         offers: {
           '@type': 'Offer',
           url,
@@ -141,8 +144,17 @@ export default async function BannerTemplatePage({ params }: Props) {
                 <dd className="text-gray-200">{formatsLabel(t)}</dd>
                 <dt className="text-gray-500">Resolution</dt>
                 <dd className="text-gray-200">{t.width}×{t.height} px</dd>
-                <dt className="text-gray-500">Duration</dt>
-                <dd className="text-gray-200">{t.duration} s{t.fps ? ` · ${Math.round(t.fps)} fps` : ''}</dd>
+                {!isImageTemplate(t) && t.duration ? (
+                  <>
+                    <dt className="text-gray-500">Duration</dt>
+                    <dd className="text-gray-200">{t.duration} s{t.fps ? ` · ${Math.round(t.fps)} fps` : ''}</dd>
+                  </>
+                ) : (
+                  <>
+                    <dt className="text-gray-500">Type</dt>
+                    <dd className="text-gray-200">Still image</dd>
+                  </>
+                )}
                 <dt className="text-gray-500">Watermark</dt>
                 <dd className="text-gray-200">Only in the preview</dd>
                 <dt className="text-gray-500">Price</dt>

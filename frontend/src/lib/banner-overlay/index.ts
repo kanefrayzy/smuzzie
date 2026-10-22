@@ -19,3 +19,5 @@ export {
 } from './custom';
 export { BannerOverlay } from './overlay';
 export type { OverlayState, OverlayResult, ZoneFit } from './overlay';
+export { imageBox, zoneOrder, isolateZones, isAnimatedSource } from './boxes';
+export type { ImageBox, ZoneInfo } from './boxes';

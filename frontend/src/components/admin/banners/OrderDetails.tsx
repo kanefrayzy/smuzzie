@@ -5,6 +5,7 @@ import { CheckCircle2, RefreshCw, Download, AlertTriangle, X } from 'lucide-reac
 import toast from 'react-hot-toast';
 import { adminApi } from '@/lib/api';
 import { formatFileSize, getApiError } from '@/lib/utils';
+import { DOWNLOAD_ORDER, FORMAT_LABEL } from '@/lib/banner-formats';
 import type { AdminBannerOrderDetails } from '@/types/banners';
 import BannerPreview from '@/components/banners/BannerPreview';
 import OrderStatusBadge from './OrderStatusBadge';
@@ -113,16 +114,14 @@ export default function OrderDetails({ id, onClose, onChanged }: { id: number; o
                   <RefreshCw size={14} /> Render again
                 </button>
               )}
-              {order.downloads?.mp4 && (
-                <a href={order.downloads.mp4} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-white flex items-center gap-1.5">
-                  <Download size={14} /> MP4 {order.result?.mp4_size ? `(${formatFileSize(order.result.mp4_size)})` : ''}
-                </a>
-              )}
-              {order.downloads?.gif && (
-                <a href={order.downloads.gif} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-white flex items-center gap-1.5">
-                  <Download size={14} /> GIF {order.result?.gif_size ? `(${formatFileSize(order.result.gif_size)})` : ''}
-                </a>
-              )}
+              {DOWNLOAD_ORDER.filter((f) => order.downloads?.[f]).map((f) => {
+                const size = order.result?.[`${f}_size`];
+                return (
+                  <a key={f} href={order.downloads![f]} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-white flex items-center gap-1.5">
+                    <Download size={14} /> {FORMAT_LABEL[f]} {size ? `(${formatFileSize(size)})` : ''}
+                  </a>
+                );
+              })}
             </div>
 
             {order.error && (
@@ -142,6 +141,8 @@ export default function OrderDetails({ id, onClose, onChanged }: { id: number; o
                     width={preview.width}
                     height={preview.height}
                     previewUrl={order.preview_url}
+                    // The template's current preview: a still if it is an image template now
+                    kind={/\.(webp|png|jpe?g)$/i.test(order.preview_url || '') ? 'image' : 'video'}
                     config={preview.config}
                     params={preview.params}
                     images={preview.images}

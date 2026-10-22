@@ -33,10 +33,14 @@ return [
     'template' => [
         'max_upload_mb' => 500,
         'max_duration' => 60,      // seconds
-        'max_side' => 4096,        // px
+        'max_side' => 4096,        // px, videos and images
+        // Static templates: a PNG/JPG/WebP background instead of a video (sRGB or untagged)
+        'max_image_upload_mb' => 50,
+        'max_image_pixels' => 16_777_216, // 4096x4096
+        'image_mimes' => ['image/png', 'image/jpeg', 'image/webp'],
         'max_fps' => 60,
         'max_zones' => 20,
-        'max_image_zones' => 3,
+        'max_image_zones' => 12, // logos and icons (PHP max_file_uploads must stay above this + custom.max_images)
         'preview_width' => 720,
         'preview_crf' => 26,
         'master_crf' => 15,        // only when the upload can't be used as-is (not H.264 yuv420p / odd size)
@@ -46,7 +50,13 @@ return [
         ],
         'default_outputs' => [
             'mp4' => true,
-            'gif' => ['enabled' => false, 'width' => 600, 'fps' => 15],
+            // GIF width is capped by the template width (and 1080); about 3 MB per second at 1000 px / 15 fps
+            'gif' => ['enabled' => false, 'width' => 1000, 'fps' => 15],
+        ],
+        // Image templates: PNG always, JPG optional (quality 60-100)
+        'default_image_outputs' => [
+            'png' => true,
+            'jpg' => ['enabled' => true, 'quality' => 92],
         ],
     ],
 
@@ -64,7 +74,16 @@ return [
         'max_kb' => 2048,
         'max_side' => 4096,
         'max_pixels' => 16_000_000,
-        'mimes' => ['image/png', 'image/jpeg', 'image/webp'],
+        'mimes' => ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+        // Animated GIFs (icons, logos) are kept animated: checked from the file structure first,
+        // then re-encoded by ffmpeg with a time limit. A one-frame GIF is treated like a PNG.
+        'gif' => [
+            'max_side' => 1024,
+            'max_frames' => 300,
+            'max_duration' => 20,             // seconds, as browsers play it
+            'max_total_pixels' => 50_000_000, // canvas width x height x frames: bounds decode work
+            'timeout' => 30,                  // seconds for the ffmpeg re-encode
+        ],
     ],
 
     'text' => [

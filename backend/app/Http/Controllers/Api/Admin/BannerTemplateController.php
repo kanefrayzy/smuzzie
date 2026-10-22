@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessBannerTemplate;
 use App\Models\BannerTemplate;
 use App\Services\Banners\BannerConfigValidator;
+use App\Services\Banners\BannerMedia;
 use App\Services\Banners\BannerOrderPresenter;
 use App\Services\Banners\BannerOrderService;
 use Illuminate\Http\UploadedFile;
@@ -82,7 +83,7 @@ class BannerTemplateController extends Controller
         $zones = $data['config']['zones'] ?? $bannerTemplate->config['zones'] ?? [];
         if (($data['is_active'] ?? $bannerTemplate->is_active) && (!$bannerTemplate->hasMedia() || !$zones)) {
             return response()->json(['errors' => [
-                'is_active' => ['Upload and process the video and add at least one zone before publishing'],
+                'is_active' => ['Upload and process the video or image and add at least one zone before publishing'],
             ]], 422);
         }
 
@@ -110,19 +111,38 @@ class BannerTemplateController extends Controller
         return response()->json(['message' => 'Template deleted']);
     }
 
+    /**
+     * The template background: a video (MP4/MOV) or, for a static template, an image
+     * (PNG/JPG/WebP). What was uploaded decides the template's kind once processing succeeds.
+     * The field is `file`; `video` is still accepted.
+     */
     public function uploadSource(Request $request, BannerTemplate $bannerTemplate)
     {
-        $maxKb = (int) config('banners.template.max_upload_mb', 500) * 1024;
-        $validator = Validator::make($request->all(), [
-            'video' => "required|file|max:{$maxKb}|mimetypes:video/mp4,video/quicktime|extensions:mp4,mov,m4v",
+        $limits = config('banners.template');
+        $file = $request->file('file') ?? $request->file('video');
+        $maxKb = (int) $limits['max_upload_mb'] * 1024;
+        $imageMimes = implode(',', $limits['image_mimes']);
+        $validator = Validator::make(['file' => $file], [
+            'file' => "required|file|max:{$maxKb}|mimetypes:video/mp4,video/quicktime,{$imageMimes}|extensions:mp4,mov,m4v,png,jpg,jpeg,webp",
         ]);
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $file = $request->file('video');
+        $mime = $file->getMimeType();
+        $isImage = in_array($mime, $limits['image_mimes'], true);
+        if ($isImage && $file->getSize() > (int) $limits['max_image_upload_mb'] * 1024 * 1024) {
+            return response()->json(['errors' => ['file' => ["Images up to {$limits['max_image_upload_mb']} MB"]]], 422);
+        }
+
         $rev = $bannerTemplate->source_rev + 1;
-        $ext = strtolower($file->getClientOriginalExtension()) === 'mov' ? 'mov' : 'mp4';
+        $ext = match (true) {
+            $mime === 'image/png' => 'png',
+            $mime === 'image/jpeg' => 'jpg',
+            $mime === 'image/webp' => 'webp',
+            strtolower($file->getClientOriginalExtension()) === 'mov' => 'mov',
+            default => 'mp4',
+        };
         $path = $file->storeAs(
             "templates/{$bannerTemplate->uuid}",
             "upload-{$rev}-" . Str::lower(Str::random(6)) . ".{$ext}",
@@ -151,10 +171,10 @@ class BannerTemplateController extends Controller
     public function reprocess(BannerTemplate $bannerTemplate)
     {
         if (!$bannerTemplate->source_path) {
-            return response()->json(['error' => 'Upload a video first'], 422);
+            return response()->json(['error' => 'Upload a video or an image first'], 422);
         }
         if ($bannerTemplate->upload_path) {
-            return response()->json(['error' => 'A new video is being processed already'], 409);
+            return response()->json(['error' => 'A new upload is being processed already'], 409);
         }
 
         $bannerTemplate->update(['processing_status' => BannerTemplateStatus::Pending, 'processing_error' => null]);
@@ -170,7 +190,7 @@ class BannerTemplateController extends Controller
     public function testRender(Request $request, BannerTemplate $bannerTemplate, BannerOrderService $orders)
     {
         if (!$bannerTemplate->hasMedia()) {
-            return response()->json(['error' => 'Upload and process the video first'], 422);
+            return response()->json(['error' => 'Upload and process the video or image first'], 422);
         }
         if (!($bannerTemplate->config['zones'] ?? [])) {
             return response()->json(['error' => 'Add at least one zone first'], 422);
@@ -268,7 +288,7 @@ class BannerTemplateController extends Controller
             $data['config'] = $this->configValidator->validate($data['config'] ?? []);
         }
         if (array_key_exists('outputs', $data) || !$template) {
-            $data['outputs'] = $this->configValidator->validateOutputs($data['outputs'] ?? [], $template?->width);
+            $data['outputs'] = $this->configValidator->validateOutputs($data['outputs'] ?? [], $template?->width, $template?->kind ?? BannerMedia::VIDEO);
         }
         if (array_key_exists('watermark', $data) || !$template) {
             $data['watermark'] = $this->configValidator->validateWatermark($data['watermark'] ?? []);
@@ -311,6 +331,7 @@ class BannerTemplateController extends Controller
     {
         return $template->toArray() + [
             'has_media' => $template->hasMedia(),
+            'formats' => $template->formats(),
             'is_processing' => in_array($template->processing_status, [BannerTemplateStatus::Pending, BannerTemplateStatus::Processing], true),
         ];
     }

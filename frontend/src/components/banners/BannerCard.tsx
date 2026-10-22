@@ -5,9 +5,13 @@ import Link from 'next/link';
 import { useInView } from 'react-intersection-observer';
 import { getImageUrl } from '@/lib/utils';
 import type { PublicBannerTemplateCard } from '@/types/banners';
+import { formatList, isImageTemplate, templateFormats } from '@/lib/banner-formats';
 import { Play } from 'lucide-react';
 
-/** Catalog card: poster by default, the preview video plays on hover (or while on screen on touch devices). */
+/**
+ * Catalog card: poster by default, the preview video plays on hover (or while on screen on touch
+ * devices). Image templates just show the poster.
+ */
 export default function BannerCard({ template }: { template: PublicBannerTemplateCard }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [active, setActive] = useState(false);
@@ -18,7 +22,8 @@ export default function BannerCard({ template }: { template: PublicBannerTemplat
     setIsTouch(window.matchMedia('(hover: none)').matches);
   }, []);
 
-  const playing = isTouch ? inView : active;
+  const still = isImageTemplate(template);
+  const playing = !still && (isTouch ? inView : active);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -30,7 +35,7 @@ export default function BannerCard({ template }: { template: PublicBannerTemplat
     }
   }, [playing]);
 
-  const formats = template.outputs.gif.enabled ? 'MP4 + GIF' : 'MP4';
+  const formats = formatList(templateFormats(template));
 
   return (
     <Link
@@ -53,23 +58,27 @@ export default function BannerCard({ template }: { template: PublicBannerTemplat
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${playing ? 'opacity-0' : 'opacity-100'}`}
           />
         )}
-        <video
-          ref={videoRef}
-          src={getImageUrl(template.preview_url)}
-          className="absolute inset-0 w-full h-full object-cover"
-          muted
-          loop
-          playsInline
-          preload="none"
-          aria-hidden="true"
-        />
-        <span
-          className={`absolute bottom-3 right-3 w-9 h-9 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/80 transition-opacity ${
-            playing ? 'opacity-0' : 'opacity-100'
-          }`}
-        >
-          <Play size={14} />
-        </span>
+        {!still && (
+          <>
+            <video
+              ref={videoRef}
+              src={getImageUrl(template.preview_url)}
+              className="absolute inset-0 w-full h-full object-cover"
+              muted
+              loop
+              playsInline
+              preload="none"
+              aria-hidden="true"
+            />
+            <span
+              className={`absolute bottom-3 right-3 w-9 h-9 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/80 transition-opacity ${
+                playing ? 'opacity-0' : 'opacity-100'
+              }`}
+            >
+              <Play size={14} />
+            </span>
+          </>
+        )}
       </div>
       <div className="p-4">
         <div className="flex items-baseline justify-between gap-3">
@@ -79,7 +88,7 @@ export default function BannerCard({ template }: { template: PublicBannerTemplat
           </span>
         </div>
         <p className="text-gray-500 text-xs font-mono mt-1">
-          {template.width}×{template.height} · {template.duration} s · {formats}
+          {template.width}×{template.height} · {still || !template.duration ? '' : `${template.duration} s · `}{formats}
         </p>
       </div>
     </Link>

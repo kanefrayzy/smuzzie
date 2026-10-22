@@ -10,13 +10,14 @@ use Illuminate\Support\Facades\Storage;
  * Runs the Node renderer (renderer/src/render.mjs) for an order.
  *
  * Everything the renderer gets comes from the order snapshot: template config and master
- * video, font files, the buyer's normalized params and re-encoded logos. Output is written to
- * a per-attempt temp folder, then moved to orders/<token>/banner.{mp4,gif} on the private disk.
+ * video (or image), font files, the buyer's normalized params and re-encoded logos. Output is
+ * written to a per-attempt temp folder, then moved to orders/<token>/banner.{mp4,gif} (video
+ * templates) or banner.{png,jpg} (image templates) on the private disk.
  */
 class BannerRenderer
 {
     /**
-     * @return array{mp4: array{path: string, size: int}, gif?: array{path: string, size: int}, hue: int, timings: array, fit: array}
+     * @return array{mp4?: array{path: string, size: int}, gif?: array, png?: array, jpg?: array, hue: int, timings: array, fit: array}
      * @throws RenderFailed
      */
     public function render(BannerOrder $order): array
@@ -25,9 +26,10 @@ class BannerRenderer
         $public = Storage::disk(config('banners.disks.public'));
         $snapshot = $order->snapshot;
         $media = $snapshot['media'] ?? [];
+        $kind = BannerMedia::kindOf($snapshot);
 
         if (empty($media['source_path']) || !$private->exists($media['source_path'])) {
-            throw new RenderFailed('The template video for this order is missing');
+            throw new RenderFailed('The template ' . ($kind === BannerMedia::IMAGE ? 'image' : 'video') . ' for this order is missing');
         }
 
         $workRel = "tmp/{$order->token}-" . max(1, (int) $order->attempts);
@@ -52,8 +54,10 @@ class BannerRenderer
             }
 
             $job = [
+                'kind' => $kind,
                 'width' => (int) $media['width'],
                 'height' => (int) $media['height'],
+                'duration' => (float) ($media['duration'] ?? 0),
                 'config' => $snapshot['config'],
                 'params' => $order->params,
                 'source' => $private->path($media['source_path']),
@@ -70,7 +74,7 @@ class BannerRenderer
 
             $output = $this->run($jobFile, $workDir);
 
-            return $this->collect($order, $output, $private);
+            return $this->collect($order, $output, $private, $kind);
         } finally {
             $private->deleteDirectory($workRel);
         }
@@ -101,7 +105,7 @@ class BannerRenderer
         return $result;
     }
 
-    private function collect(BannerOrder $order, array $output, $private): array
+    private function collect(BannerOrder $order, array $output, $private, string $kind): array
     {
         $result = [
             'hue' => $output['hue'] ?? null,
@@ -109,11 +113,11 @@ class BannerRenderer
             'fit' => $output['fit'] ?? [],
         ];
 
-        foreach (['mp4', 'gif'] as $format) {
+        foreach (BannerMedia::FORMATS as $format) {
             $target = "orders/{$order->token}/banner.{$format}";
             $file = $output[$format]['path'] ?? null;
             if (!$file) {
-                $private->delete($target); // don't leave a GIF from an earlier render
+                $private->delete($target); // don't leave a GIF/JPG from an earlier render
                 continue;
             }
             if (!is_file($file) || filesize($file) === 0) {
@@ -129,8 +133,9 @@ class BannerRenderer
             $result[$format] = ['path' => $target, 'size' => filesize($dest)];
         }
 
-        if (empty($result['mp4'])) {
-            throw new RenderFailed('The renderer produced no MP4');
+        $primary = BannerMedia::primary($kind);
+        if (empty($result[$primary])) {
+            throw new RenderFailed('The renderer produced no ' . strtoupper($primary));
         }
 
         return $result;
