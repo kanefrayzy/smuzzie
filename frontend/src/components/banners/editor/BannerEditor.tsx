@@ -16,7 +16,7 @@ import LayersPanel from './LayersPanel';
 import type { PublicBannerTemplate } from '@/types/banners';
 import { FORMAT_LABEL, isImageTemplate, templateFormats } from '@/lib/banner-formats';
 import { LayerCard, Section } from './ui';
-import { clearDraft, loadDraft, saveDraft, type DraftImage } from './draft';
+import { clearDraft, configFingerprint, loadDraft, saveDraft, type DraftImage } from './draft';
 import TextZoneControls, { hasTextControls } from './TextZoneControls';
 import ImageZoneControls from './ImageZoneControls';
 import HueControls from './HueControls';
@@ -37,6 +37,7 @@ export default function BannerEditor({
   footer?: (state: EditorState, reset: () => void) => React.ReactNode;
 }) {
   const { config } = template;
+  const cfg = useMemo(() => configFingerprint(config), [config]);
   const [params, setParams] = useState<BuyerParams>(() => defaultParams(config));
   const [images, setImages] = useState<Record<string, DraftImage>>({});
   const [result, setResult] = useState<OverlayResult | null>(null);
@@ -45,7 +46,7 @@ export default function BannerEditor({
 
   // Restore the draft after mount (localStorage is client-only)
   useEffect(() => {
-    const draft = loadDraft(template.slug);
+    const draft = loadDraft(template.slug, cfg);
     if (draft) {
       const base = defaultParams(config);
       setParams({
@@ -68,15 +69,15 @@ export default function BannerEditor({
       setImages(imgs);
     }
     setRestored(true);
-  }, [template.slug, config]);
+  }, [template.slug, config, cfg]);
 
   // Save the draft shortly after changes
   useEffect(() => {
     if (!restored) return;
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => saveDraft(template.slug, { v: 1, params, images }), 400);
+    saveTimer.current = setTimeout(() => saveDraft(template.slug, { v: 1, params, images, cfg }), 400);
     return () => clearTimeout(saveTimer.current);
-  }, [params, images, restored, template.slug]);
+  }, [params, images, restored, template.slug, cfg]);
 
   const patchZone = useCallback((key: string, patch: TextZoneParams | ImageZoneParams) => {
     setParams((prev) => ({ ...prev, zones: { ...prev.zones, [key]: { ...prev.zones[key], ...patch } } }));

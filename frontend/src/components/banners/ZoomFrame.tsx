@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Minus, Plus, X } from 'lucide-react';
 
 // A banner preview that can be opened full screen with zoom, for placing blocks precisely.
 // The element tree is the same in both modes (only classes and sizes change), so the preview
 // inside keeps its video and layout state when it opens or closes.
 //
-// The full screen view is `position: fixed`, so ancestors must not create a containing block
-// (transform / filter / backdrop-filter) or a low stacking context while it is open.
+// The full screen view is `position: fixed`. An ancestor with a transform, filter or
+// backdrop-filter (glass cards) would become its container instead of the screen, a clip-path
+// would cut it, and a z-index would keep it under the site header, so those are switched off
+// while it is open.
 
 const ZOOMS = [1, 1.5, 2, 3, 4];
 
@@ -28,6 +30,36 @@ export default function ZoomFrame({
   children: React.ReactNode;
 }) {
   const [zoom, setZoom] = useState(1);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!expanded || !rootRef.current) return;
+    const changed: { el: HTMLElement; css: string }[] = [];
+    for (let a = rootRef.current.parentElement; a && a !== document.body; a = a.parentElement) {
+      const s = getComputedStyle(a);
+      const traps =
+        s.transform !== 'none' || s.filter !== 'none' || s.backdropFilter !== 'none' ||
+        s.perspective !== 'none' || s.contain !== 'none' || s.willChange !== 'auto' ||
+        s.clipPath !== 'none' || s.maskImage !== 'none' || s.isolation !== 'auto';
+      if (!traps && s.zIndex === 'auto') continue;
+      changed.push({ el: a, css: a.style.cssText });
+      if (traps) {
+        a.style.setProperty('transform', 'none', 'important');
+        a.style.setProperty('filter', 'none', 'important');
+        a.style.setProperty('backdrop-filter', 'none', 'important');
+        a.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+        a.style.setProperty('perspective', 'none', 'important');
+        a.style.setProperty('contain', 'none', 'important');
+        a.style.setProperty('will-change', 'auto', 'important');
+        a.style.setProperty('clip-path', 'none', 'important');
+        a.style.setProperty('mask-image', 'none', 'important');
+        a.style.setProperty('-webkit-mask-image', 'none', 'important');
+        a.style.setProperty('isolation', 'auto', 'important');
+      }
+      if (s.zIndex !== 'auto') a.style.setProperty('z-index', '200', 'important');
+    }
+    return () => changed.forEach(({ el, css }) => (el.style.cssText = css));
+  }, [expanded]);
 
   useEffect(() => {
     if (!expanded) {
@@ -52,7 +84,7 @@ export default function ZoomFrame({
     'h-8 min-w-[2rem] px-2 rounded-md flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent';
 
   return (
-    <div className={expanded ? 'fixed inset-0 z-[200] flex flex-col bg-[#060608]' : ''}>
+    <div ref={rootRef} className={expanded ? 'fixed inset-0 z-[200] flex flex-col bg-[#060608]' : ''}>
       {expanded && (
         <div className="shrink-0 flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2 border-b border-white/[0.08] bg-[#0b0b0f]">
           {title && <span className="text-sm text-white font-medium truncate mr-2 hidden sm:block">{title}</span>}
