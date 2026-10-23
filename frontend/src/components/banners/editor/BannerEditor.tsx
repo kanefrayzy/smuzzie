@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Image as ImageIcon, Move, RotateCcw, Type } from 'lucide-react';
+import { Check, Image as ImageIcon, Maximize2, Move, RotateCcw, Trash2, Type } from 'lucide-react';
 import BannerPreview from '@/components/banners/BannerPreview';
+import ZoomFrame from '@/components/banners/ZoomFrame';
 import ZoneHandles, { type HandleItem } from '@/components/banners/ZoneHandles';
 import {
   LAYER_ID, customConfig, defaultParams, defaultZoneParams, expandLayers, layerImageZone, layerTextZone, newLayerRect,
-  nextLayerId, resolveRect, resolveText, zoneMinSize,
+  nextLayerId, resolveImage, resolveRect, resolveText, zoneMinSize,
 } from '@/lib/banner-overlay';
+import { zoneImageUrl } from '@/lib/banner-formats';
 import type { BuyerLayer, BuyerParams, ImageZoneParams, OverlayResult, Rect, TextZoneParams, Zone } from '@/lib/banner-overlay';
 import PositionControls from './PositionControls';
 import LayersPanel from './LayersPanel';
@@ -168,6 +170,10 @@ export default function BannerEditor({
     setSelectedZone(key);
   }, []);
 
+  // Full screen preview with zoom, for precise placement (opens with the blocks movable)
+  const [fullscreen, setFullscreen] = useState(false);
+  const closeFullscreen = useCallback(() => setFullscreen(false), []);
+
   // Picking a block on the preview opens its controls
   const selectOnPreview = useCallback((key: string | null) => {
     setSelectedZone(key);
@@ -178,10 +184,18 @@ export default function BannerEditor({
   const expanded = expandLayers(config, params);
   const movable = expanded.config.zones.filter((z) => {
     if (!z.controls.position?.enabled) return false;
-    if (z.type === 'image') return z.controls.upload.enabled && !!images[z.key];
+    if (z.type === 'image') {
+      const shown = (z.controls.upload.enabled && !!images[z.key]) || !!z.style.image;
+      return shown && resolveImage(z, expanded.params.zones[z.key] as ImageZoneParams | undefined).visible;
+    }
     return resolveText(z, expanded.params.zones[z.key] as TextZoneParams | undefined).visible;
   });
   const anyMovable = config.zones.some((z) => z.controls.position?.enabled) || !!customConfig(config);
+
+  const openFullscreen = () => {
+    if (anyMovable) setLayoutMode(true);
+    setFullscreen(true);
+  };
 
   const handleItems: HandleItem[] = movable.map((z) => ({
     id: z.key,
@@ -203,12 +217,33 @@ export default function BannerEditor({
     />
   );
 
-  const previewImages = useMemo(
-    () => Object.fromEntries(Object.entries(images).map(([k, v]) => [k, v.dataUrl])),
-    [images],
+  // The buyer's uploads, else the template's own images
+  const previewImages = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const z of config.zones) {
+      if (z.type === 'image' && z.style.image) out[z.key] = zoneImageUrl(z.style.image);
+    }
+    for (const [k, v] of Object.entries(images)) out[k] = v.dataUrl;
+    return out;
+  }, [images, config]);
+
+  // Image zones with something to do: upload, or remove / move the template's image
+  const imageZones = config.zones.filter(
+    (z) => z.type === 'image' && (z.controls.upload.enabled || (!!z.style.image && (!!z.controls.visible?.enabled || !!z.controls.position?.enabled))),
   );
 
-  const imageZones = config.zones.filter((z) => z.type === 'image' && z.controls.upload.enabled);
+  // Remove / restore right on a card's header (texts and images the template lets the buyer remove)
+  const removeAction = (zone: Zone, visible: boolean) => (
+    <button
+      type="button"
+      onClick={() => patchZone(zone.key, { visible: !visible })}
+      className={`p-1.5 rounded-md ${visible ? 'text-gray-500 hover:text-accent-red' : 'text-gray-300 hover:text-white'}`}
+      aria-label={visible ? `Remove ${zone.label}` : `Restore ${zone.label}`}
+      title={visible ? 'Remove from the banner' : 'Restore'}
+    >
+      {visible ? <Trash2 size={14} /> : <RotateCcw size={14} />}
+    </button>
+  );
   const textZones = config.zones.filter((z): z is Extract<Zone, { type: 'text' }> => z.type === 'text' && hasTextControls(z));
   const still = isImageTemplate(template);
   const [firstFormat, ...otherFormats] = templateFormats(template);
@@ -219,13 +254,39 @@ export default function BannerEditor({
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-8 items-start">
       {/* Preview: on top and sticky under the site header on phones (so edits stay visible while
           scrolling the controls), sticky on the left on desktops */}
-      <div className="sticky top-14 z-10 -mx-4 px-4 pt-2 pb-3 bg-[#060608]/95 backdrop-blur border-b border-white/[0.04] lg:mx-0 lg:px-0 lg:pt-0 lg:pb-0 lg:bg-transparent lg:backdrop-blur-none lg:border-0 lg:sticky lg:top-24 min-w-0">
+      <div
+        className={
+          fullscreen
+            ? // The full screen view is fixed: no blur (it would become its container) and above the header
+              'sticky top-14 z-[200] min-w-0 lg:top-24'
+            : 'sticky top-14 z-10 -mx-4 px-4 pt-2 pb-3 bg-[#060608]/95 backdrop-blur border-b border-white/[0.04] lg:mx-0 lg:px-0 lg:pt-0 lg:pb-0 lg:bg-transparent lg:backdrop-blur-none lg:border-0 lg:sticky lg:top-24 min-w-0'
+        }
+      >
         {/* Width limited so the whole banner stays on screen: ~40% of the viewport height on phones */}
-        <div
-          className="mx-auto w-[min(100%,calc(40vh*var(--ar)))] lg:w-[min(100%,calc((100vh_-_9rem)*var(--ar)))]"
-          style={{ ['--ar' as string]: template.width / template.height }}
-        >
-          <div className="relative">
+        <div className="mx-auto" style={{ ['--ar' as string]: template.width / template.height }}>
+          <ZoomFrame
+            expanded={fullscreen}
+            onClose={closeFullscreen}
+            aspect={template.width / template.height}
+            className="w-[min(100%,calc(40vh*var(--ar)))] lg:w-[min(100%,calc((100vh_-_9rem)*var(--ar)))]"
+            title={template.name}
+            tools={
+              anyMovable && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLayoutMode((v) => !v);
+                    setSelectedZone(null);
+                  }}
+                  className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-white ${
+                    layoutMode ? 'bg-accent-red hover:bg-accent-red/90' : 'bg-white/10 hover:bg-white/15'
+                  }`}
+                >
+                  {layoutMode ? <Check size={14} /> : <Move size={14} />} {layoutMode ? 'Done moving' : 'Move blocks'}
+                </button>
+              )
+            }
+          >
             <BannerPreview
               width={template.width}
               height={template.height}
@@ -255,7 +316,7 @@ export default function BannerEditor({
                 />
               )}
             </BannerPreview>
-          </div>
+          </ZoomFrame>
           {layoutMode ? (
             /* While moving blocks: a clear way out right under the preview (sticky on phones too) */
             <div className="flex items-center justify-center gap-3 mt-2 lg:mt-3">
@@ -273,6 +334,13 @@ export default function BannerEditor({
               >
                 <Check size={14} /> Done
               </button>
+              <button
+                type="button"
+                onClick={openFullscreen}
+                className="shrink-0 hidden sm:flex items-center gap-1 rounded-full bg-white/10 hover:bg-white/15 px-3 py-1.5 text-xs font-semibold text-white"
+              >
+                <Maximize2 size={13} /> Full screen
+              </button>
             </div>
           ) : (
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-2 lg:mt-3 text-[11px] lg:text-xs text-gray-500">
@@ -289,6 +357,9 @@ export default function BannerEditor({
                   <Move size={12} /> Move blocks
                 </button>
               )}
+              <button type="button" onClick={openFullscreen} className="flex items-center gap-1 hover:text-white">
+                <Maximize2 size={12} /> Full screen
+              </button>
             </div>
           )}
         </div>
@@ -341,28 +412,35 @@ export default function BannerEditor({
         {imageZones.length > 0 && (
           <Section title={imageZones.length > 1 ? 'Logo & images' : imageZones[0].label}>
             <div className="space-y-2">
-              {imageZones.map((zone) =>
-                zone.type === 'image' ? (
+              {imageZones.map((zone) => {
+                if (zone.type !== 'image') return null;
+                const p = params.zones[zone.key] as ImageZoneParams | undefined;
+                const visible = resolveImage(zone, p).visible;
+                const defaultUrl = zone.style.image ? zoneImageUrl(zone.style.image) : undefined;
+                return (
                   <LayerCard
                     key={zone.key}
                     icon={<ImageIcon size={15} />}
                     title={zone.label}
-                    subtitle={images[zone.key] ? images[zone.key].name : 'No image yet'}
+                    subtitle={!visible ? 'Removed' : images[zone.key] ? images[zone.key].name : defaultUrl ? 'Template image' : 'No image yet'}
+                    dim={!visible}
                     open={openKey === zone.key}
                     onToggle={() => toggle(zone.key)}
+                    actions={zone.controls.visible?.enabled && defaultUrl ? removeAction(zone, visible) : undefined}
                   >
                     <ImageZoneControls
                       zone={zone}
-                      params={params.zones[zone.key] as ImageZoneParams | undefined}
+                      params={p}
                       image={images[zone.key]}
+                      defaultUrl={defaultUrl}
                       still={still}
                       onChange={(patch) => patchZone(zone.key, patch)}
                       onImage={(img) => setImage(zone.key, img)}
                     />
-                    {images[zone.key] && positionFor(zone)}
+                    {visible && (images[zone.key] || defaultUrl) && positionFor(zone)}
                   </LayerCard>
-                ) : null,
-              )}
+                );
+              })}
             </div>
           </Section>
         )}
@@ -377,10 +455,11 @@ export default function BannerEditor({
                     key={zone.key}
                     icon={<Type size={15} />}
                     title={zone.label}
-                    subtitle={r.visible ? r.text.replace(/\s*\n\s*/g, ' ') || 'Empty' : 'Hidden'}
+                    subtitle={r.visible ? r.text.replace(/\s*\n\s*/g, ' ') || 'Empty' : 'Removed'}
                     dim={!r.visible}
                     open={openKey === zone.key}
                     onToggle={() => toggle(zone.key)}
+                    actions={zone.controls.visible.enabled ? removeAction(zone, r.visible) : undefined}
                   >
                     <TextZoneControls
                       zone={zone}

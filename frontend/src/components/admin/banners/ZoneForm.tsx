@@ -1,12 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Upload } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { adminApi } from '@/lib/api';
+import { getApiError } from '@/lib/utils';
+import { zoneImageUrl } from '@/lib/banner-formats';
 import type {
   Align, AlignY, ImageControls, ImageZone, PositionControl, RangeControl, TextCase, TextControls, TextZone, Zone,
 } from '@/lib/banner-overlay';
 import type { AdminBannerFont } from '@/types/banners';
-import { withImageControls, withStyleControls } from './zoneDefaults';
+import { TEXT_MAX_LENGTH, withImageControls, withStyleControls } from './zoneDefaults';
 
 const input =
   'w-full bg-surface border border-white/5 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-accent-red/50';
@@ -171,11 +175,13 @@ function PositionForm({
 export type ZoneErrors = Record<string, string>;
 
 export default function ZoneForm({
-  zone, fonts, errors, videoWidth, onChange,
+  zone, fonts, errors, videoWidth, templateId, onChange,
 }: {
   zone: Zone;
   fonts: AdminBannerFont[];
   errors: ZoneErrors;
+  /** For uploading a zone's default image */
+  templateId: number;
   /** Template width, to show sizes in px */
   videoWidth?: number;
   onChange: (zone: Zone) => void;
@@ -200,7 +206,7 @@ export default function ZoneForm({
     </div>
   );
 
-  if (zone.type === 'image') return <ImageForm zone={zone} common={common} err={err} onChange={onChange} />;
+  if (zone.type === 'image') return <ImageForm zone={zone} common={common} err={err} templateId={templateId} onChange={onChange} />;
   return <TextForm zone={zone} fonts={fonts} common={common} err={err} videoWidth={videoWidth} onChange={onChange} />;
 }
 
@@ -231,7 +237,7 @@ function TextForm({
       <Group title="Default look">
         <Field label="Default text" error={err('style.text')}>
           {c.text.multiline ? (
-            <textarea className={`${input} resize-none`} rows={2} value={s.text} onChange={(e) => setStyle({ text: e.target.value })} />
+            <textarea className={`${input} resize-y`} rows={3} value={s.text} onChange={(e) => setStyle({ text: e.target.value })} />
           ) : (
             <input className={input} value={s.text} onChange={(e) => setStyle({ text: e.target.value })} />
           )}
@@ -309,7 +315,7 @@ function TextForm({
           <Check label="Text" checked={c.text.enabled} onChange={(enabled) => setCtl('text', { enabled })} />
           <div className="grid grid-cols-2 gap-3 pl-6">
             <Field label="Max characters" error={err('controls.text.maxLength')}>
-              <Num value={c.text.maxLength} step={1} min={1} max={200} onChange={(maxLength) => setCtl('text', { maxLength })} />
+              <Num value={c.text.maxLength} step={1} min={1} max={TEXT_MAX_LENGTH} onChange={(maxLength) => setCtl('text', { maxLength })} />
             </Field>
             <div className="flex items-end pb-2">
               <Check label="Line breaks allowed" checked={c.text.multiline} onChange={(multiline) => setCtl('text', { multiline })} />
@@ -341,7 +347,7 @@ function TextForm({
             <OptionChecks all={ALIGNS} value={c.align.options} onChange={(options) => setCtl('align', { options })} />
           </div>
         </div>
-        <Check label="Show / hide the field" checked={c.visible.enabled} onChange={(enabled) => setCtl('visible', { enabled })} />
+        <Check label="Remove this text (the buyer can delete it from the banner)" checked={c.visible.enabled} onChange={(enabled) => setCtl('visible', { enabled })} />
         <div className="space-y-2">
           <Check label="Font" checked={c.font.enabled} onChange={(enabled) => setCtl('font', { enabled })} />
           {c.font.enabled && (
@@ -395,13 +401,15 @@ function TextForm({
 }
 
 function ImageForm({
-  zone: rawZone, common, err, onChange,
+  zone: rawZone, common, err, templateId, onChange,
 }: {
   zone: ImageZone;
   common: React.ReactNode;
   err: (p: string) => string | undefined;
+  templateId: number;
   onChange: (z: Zone) => void;
 }) {
+  const [uploading, setUploading] = useState(false);
   const zone = withImageControls(rawZone);
   const s = zone.style;
   const c = zone.controls as Required<ImageControls>;
@@ -409,9 +417,69 @@ function ImageForm({
   const setCtl = <K extends keyof ImageControls>(k: K, patch: Partial<Required<ImageControls>[K]>) =>
     onChange({ ...zone, controls: { ...c, [k]: { ...c[k], ...patch } } });
 
+  // The template's own image for this zone: shown in the banner until the buyer replaces or removes it
+  const uploadDefault = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('w', String(zone.w));
+      fd.append('h', String(zone.h));
+      const res = await adminApi.uploadBannerZoneImage(templateId, fd);
+      setStyle({ image: res.data.path });
+      toast.success('Image added. Save zones to keep it');
+    } catch (e) {
+      toast.error(getApiError(e, 'Upload failed'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div>
       {common}
+
+      <Group title="Image in the banner">
+        <div className="flex items-center gap-3">
+          <span
+            className="w-20 h-14 shrink-0 rounded-md flex items-center justify-center overflow-hidden border border-white/10"
+            style={{ background: 'repeating-conic-gradient(#1b1b22 0 25%, #141419 0 50%) 0 0 / 12px 12px' }}
+          >
+            {s.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={zoneImageUrl(s.image)} alt="" className="max-w-[90%] max-h-[85%] object-contain" />
+            ) : (
+              <span className="text-[10px] text-gray-500 text-center px-1">none</span>
+            )}
+          </span>
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className={`px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-white flex items-center gap-1.5 cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                <Upload size={13} /> {uploading ? 'Uploading…' : s.image ? 'Replace' : 'Upload image'}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="sr-only"
+                  onChange={(e) => {
+                    uploadDefault(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              {s.image && (
+                <button type="button" onClick={() => setStyle({ image: undefined })} className="text-xs text-gray-400 hover:text-red-400">
+                  Remove
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-500 leading-snug">
+              Optional. An icon or logo the banner shows by default (PNG, JPG, WebP or animated GIF). Without one the zone stays empty until the buyer uploads.
+            </p>
+            {err('style.image') && <p className="text-[11px] text-red-400">{err('style.image')}</p>}
+          </div>
+        </div>
+      </Group>
 
       <Group title="Default placement">
         <div className="grid grid-cols-3 gap-3">
@@ -437,13 +505,18 @@ function ImageForm({
 
       <Group title="Buyer can change">
         <div className="space-y-2">
-          <Check label="Upload an image" checked={c.upload.enabled} onChange={(enabled) => setCtl('upload', { enabled })} />
+          <Check label={s.image ? 'Replace the image with their own' : 'Upload an image'} checked={c.upload.enabled} onChange={(enabled) => setCtl('upload', { enabled })} />
           <div className="pl-6 max-w-[200px]">
             <Field label="Max file size, KB" error={err('controls.upload.maxBytes')}>
               <Num value={Math.round(c.upload.maxBytes / 1024)} step={1} min={10} max={2048} onChange={(kb) => setCtl('upload', { maxBytes: Math.round(kb * 1024) })} />
             </Field>
           </div>
         </div>
+        <Check
+          label="Remove the image (the buyer can delete it from the banner)"
+          checked={c.visible.enabled}
+          onChange={(enabled) => setCtl('visible', { enabled })}
+        />
         <div className="space-y-2">
           <Check label="Size (slider)" checked={c.scale.enabled} onChange={(enabled) => setCtl('scale', { enabled })} />
           <div className="grid grid-cols-2 gap-3 pl-6">

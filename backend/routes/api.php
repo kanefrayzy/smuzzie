@@ -115,6 +115,7 @@ Route::prefix('v1')->group(function () {
             ->parameters(['banner-templates' => 'bannerTemplate']);
         Route::post('/banner-templates/{bannerTemplate}/source', [BannerTemplateController::class, 'uploadSource']);
         Route::post('/banner-templates/{bannerTemplate}/reprocess', [BannerTemplateController::class, 'reprocess']);
+        Route::post('/banner-templates/{bannerTemplate}/zone-image', [BannerTemplateController::class, 'uploadZoneImage']);
         Route::post('/banner-templates/{bannerTemplate}/test-render', [BannerTemplateController::class, 'testRender'])
             ->middleware('throttle:10,1');
         Route::get('/banner-templates/{bannerTemplate}/test-render', [BannerTemplateController::class, 'latestTestRender']);

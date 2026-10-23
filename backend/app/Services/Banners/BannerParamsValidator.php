@@ -146,7 +146,7 @@ class BannerParamsValidator
                     $this->fail("{$path}.text", 'Line breaks are not allowed in this field');
                 }
                 $text = BannerConfigValidator::cleanText($p['text'], $multiline);
-                $max = min((int) $c['text']['maxLength'], (int) config('banners.text.max_length', 200));
+                $max = min((int) $c['text']['maxLength'], (int) config('banners.text.max_length', 2000));
                 if (mb_strlen($text) > $max) {
                     $this->fail("{$path}.text", "At most {$max} characters");
                 }
@@ -289,6 +289,15 @@ class BannerParamsValidator
                 } else {
                     $out[$field] = $p[$field];
                 }
+            }
+        }
+
+        // Removing the image (older snapshots don't have this control)
+        if (($c['visible']['enabled'] ?? false) && array_key_exists('visible', $p)) {
+            if (!is_bool($p['visible'])) {
+                $this->fail("{$path}.visible", 'Visibility must be true or false');
+            } else {
+                $out['visible'] = $p['visible'];
             }
         }
 

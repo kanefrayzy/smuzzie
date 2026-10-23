@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessBannerTemplate;
 use App\Models\BannerTemplate;
 use App\Services\Banners\BannerConfigValidator;
+use App\Services\Banners\BannerImageProcessor;
 use App\Services\Banners\BannerMedia;
 use App\Services\Banners\BannerOrderPresenter;
 use App\Services\Banners\BannerOrderService;
@@ -109,6 +110,36 @@ class BannerTemplateController extends Controller
         $bannerTemplate->delete();
 
         return response()->json(['message' => 'Template deleted']);
+    }
+
+    /**
+     * A default image for an image zone (an icon or logo the template shows until the buyer
+     * replaces or removes it). Checked and re-encoded like buyer images, stored on the public
+     * disk under a new name (never overwritten, so order snapshots keep working); the zone
+     * refers to it by path once the zones are saved.
+     */
+    public function uploadZoneImage(Request $request, BannerTemplate $bannerTemplate, BannerImageProcessor $processor)
+    {
+        $data = $request->validate([
+            'file' => 'required|file',
+            'w' => 'required|numeric|min:0.1|max:100',
+            'h' => 'required|numeric|min:0.1|max:100',
+        ]);
+        if (!$bannerTemplate->width || !$bannerTemplate->height) {
+            return response()->json(['errors' => ['file' => ['Upload and process the template background first']]], 422);
+        }
+
+        $zone = ['w' => (float) $data['w'], 'h' => (float) $data['h'], 'controls' => ['upload' => ['maxBytes' => PHP_INT_MAX]]];
+        $out = $processor->process(
+            $data['file'], $zone, [(int) $bannerTemplate->width, (int) $bannerTemplate->height],
+            'banners/zone-images/' . Str::uuid(), 'file', config('banners.disks.public'),
+        );
+
+        return response()->json([
+            'path' => $out['path'],
+            'url' => Storage::disk(config('banners.disks.public'))->url($out['path']),
+            'animated' => $out['animated'],
+        ]);
     }
 
     /**
@@ -333,10 +364,13 @@ class BannerTemplateController extends Controller
             'has_media' => $template->hasMedia(),
             'formats' => $template->formats(),
             'is_processing' => in_array($template->processing_status, [BannerTemplateStatus::Pending, BannerTemplateStatus::Processing], true),
-            // Ceilings for the admin form (Max texts / Max images of the buyer's own layers)
+            // Ceilings for the admin forms (zones, text length, the buyer's own layers)
             'limits' => [
                 'custom_max_text' => (int) config('banners.custom.max_text'),
                 'custom_max_images' => (int) config('banners.custom.max_images'),
+                'max_zones' => (int) config('banners.template.max_zones'),
+                'max_image_zones' => (int) config('banners.template.max_image_zones'),
+                'text_max_length' => (int) config('banners.text.max_length'),
             ],
         ];
     }

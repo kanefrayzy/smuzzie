@@ -1,4 +1,5 @@
 import type { BannerFormat, BannerKind, BannerOutputs } from '@/types/banners';
+import { getImageUrl } from '@/lib/utils';
 
 // Video templates produce MP4 (+ GIF), image ("static") templates PNG (+ JPG). Same rules as
 // App\Services\Banners\BannerMedia on the server, which also sends `formats` with templates.
@@ -29,4 +30,9 @@ export function templateFormats(t: HasFormats): BannerFormat[] {
 /** "MP4 + GIF", "PNG + JPG" */
 export function formatList(formats: BannerFormat[]): string {
   return formats.map((f) => FORMAT_LABEL[f]).join(' + ');
+}
+
+/** URL of a template's own zone image (`style.image`, a public disk path) */
+export function zoneImageUrl(path: string): string {
+  return getImageUrl(`/storage/${path}`);
 }

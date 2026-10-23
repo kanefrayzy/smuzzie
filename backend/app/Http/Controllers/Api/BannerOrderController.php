@@ -29,7 +29,7 @@ class BannerOrderController extends Controller
         $validator = Validator::make($request->all(), [
             'template' => 'required|string|max:120',
             'email' => 'required|string|email:rfc|max:254',
-            'params' => 'required|string|max:60000',
+            'params' => 'required|string|max:400000',
             // Template image zones plus image layers the buyer added
             'images' => 'sometimes|array|max:' . ((int) config('banners.template.max_image_zones', 3) + (int) config('banners.custom.max_images', 3)),
             'images.*' => "file|max:{$maxKb}",

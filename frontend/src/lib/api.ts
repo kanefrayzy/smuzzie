@@ -123,6 +123,8 @@ export const adminApi = {
   createBannerTemplate: (data: Record<string, any>) => api.post('/admin/banner-templates', data),
   updateBannerTemplate: (id: number, data: Record<string, any>) => api.put(`/admin/banner-templates/${id}`, data),
   deleteBannerTemplate: (id: number) => api.delete(`/admin/banner-templates/${id}`),
+  uploadBannerZoneImage: (id: number, data: FormData) =>
+    api.post(`/admin/banner-templates/${id}/zone-image`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
   uploadBannerSource: (id: number, data: FormData, onUploadProgress?: (e: any) => void) =>
     api.post(`/admin/banner-templates/${id}/source`, data, {
       headers: { 'Content-Type': 'multipart/form-data' },

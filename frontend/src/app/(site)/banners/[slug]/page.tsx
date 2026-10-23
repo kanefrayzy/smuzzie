@@ -10,7 +10,8 @@ import { SITE_NAME, SITE_URL } from '@/lib/site';
 import { FORMAT_LABEL, isImageTemplate, templateFormats } from '@/lib/banner-formats';
 import type { PublicBannerTemplate } from '@/types/banners';
 
-export const revalidate = 300;
+// Always current: templates added, changed or removed in the admin show up at once
+export const dynamic = 'force-dynamic';
 
 type Props = { params: { slug: string } };
 
@@ -99,7 +100,7 @@ export default async function BannerTemplatePage({ params }: Props) {
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: 'Banner templates', item: `${SITE_URL}/banners` },
+          { '@type': 'ListItem', position: 2, name: 'Banner Maker', item: `${SITE_URL}/banners` },
           { '@type': 'ListItem', position: 3, name: t.name, item: url },
         ],
       },

@@ -76,12 +76,15 @@ export function newImageZone(config: TemplateConfig): ImageZone {
       scale: { enabled: true, min: 30, max: 100 },
       align: { enabled: true, x: ['left', 'center', 'right'], y: ['top', 'center', 'bottom'] },
       position: POSITION_OFF,
+      visible: { enabled: true },
     },
   };
 }
 
 /** Same limit as banners.template.max_image_zones on the server (logos and icons together) */
-export const MAX_IMAGE_ZONES = 12;
+export const MAX_IMAGE_ZONES = 40;
+export const MAX_ZONES = 70;
+export const TEXT_MAX_LENGTH = 2000;
 
 /**
  * A small square zone for an icon (e.g. above a feature card); the buyer may upload a picture or
@@ -101,13 +104,16 @@ export function newIconZone(config: TemplateConfig, width: number, height: numbe
       scale: { enabled: true, min: 50, max: 100 },
       align: { enabled: false, x: ['center'], y: ['center'] },
       position: POSITION_OFF,
+      visible: { enabled: true },
     },
   };
 }
 
-/** Image zones saved before moving existed: add the block switched off. */
+/** Image zones saved before moving / removing existed: add those blocks switched off. */
 export function withImageControls(zone: ImageZone): ImageZone {
-  return zone.controls.position ? zone : { ...zone, controls: { ...zone.controls, position: POSITION_OFF } };
+  const c = zone.controls;
+  if (c.position && c.visible) return zone;
+  return { ...zone, controls: { ...c, position: c.position ?? POSITION_OFF, visible: c.visible ?? { enabled: false } } };
 }
 
 /** Placeholder logo for the admin preview (never uploaded anywhere). */

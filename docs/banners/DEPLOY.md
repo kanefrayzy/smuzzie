@@ -106,7 +106,9 @@ Supervisor поднимет воркер заново, текущее задан
 |---|---|---|
 | `BANNERS_AUTO_APPROVE` | false | true: новые заказы сразу уходят в рендер без подтверждения оплаты. Только для разработки |
 | `BANNERS_CUSTOM_MAX_TEXT` | 20 | потолок «Max texts» для своих слоёв покупателя (в админке у шаблона ставится значение до него) |
-| `BANNERS_CUSTOM_MAX_IMAGES` | 20 | потолок «Max images». Каждая картинка до 2 МБ; держать `max_image_zones` (12) + это значение ниже PHP `max_file_uploads` (на проде 100) |
+| `BANNERS_CUSTOM_MAX_IMAGES` | 20 | потолок «Max images». Каждая картинка до 2 МБ; держать `BANNERS_MAX_IMAGE_ZONES` + это значение ниже PHP `max_file_uploads` (на проде 100) |
+| `BANNERS_MAX_ZONES` | 70 | зон в шаблоне всего |
+| `BANNERS_MAX_IMAGE_ZONES` | 40 | из них логотипов и иконок |
 | `BANNERS_FRONTEND_URL` | `APP_URL` | адрес сайта для ссылок в письмах |
 | `BANNERS_RESULT_TTL_DAYS` | 30 | сколько дней хранить готовые MP4/GIF |
 | `BANNERS_FFMPEG_THREADS` | 3 | потоки ffmpeg на один рендер (на сервере 4 ядра) |

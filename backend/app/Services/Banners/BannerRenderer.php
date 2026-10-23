@@ -52,6 +52,14 @@ class BannerRenderer
                     $images[$key] = $private->path($path);
                 }
             }
+            // The template's own images, where the buyer didn't upload one (the overlay still
+            // hides an image the buyer removed)
+            foreach ($snapshot['config']['zones'] ?? [] as $zone) {
+                $default = $zone['style']['image'] ?? null;
+                if (($zone['type'] ?? '') === 'image' && $default && !isset($images[$zone['key']]) && $public->exists($default)) {
+                    $images[$zone['key']] = $public->path($default);
+                }
+            }
 
             $job = [
                 'kind' => $kind,

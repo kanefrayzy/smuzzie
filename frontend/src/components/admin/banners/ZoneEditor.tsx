@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Save, Type, Image as ImageIcon, ArrowUp, ArrowDown, Eye, EyeOff, Copy, Star } from 'lucide-react';
+import { Plus, Trash2, Save, Type, Image as ImageIcon, ArrowUp, ArrowDown, Eye, EyeOff, Copy, Star, Maximize2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/lib/api';
 import { getApiError } from '@/lib/utils';
@@ -9,9 +9,11 @@ import { defaultParams } from '@/lib/banner-overlay';
 import type { TemplateConfig, Zone } from '@/lib/banner-overlay';
 import type { AdminBannerFont, AdminBannerTemplate } from '@/types/banners';
 import BannerPreview from '@/components/banners/BannerPreview';
+import ZoomFrame from '@/components/banners/ZoomFrame';
+import { zoneImageUrl } from '@/lib/banner-formats';
 import ZoneCanvas from './ZoneCanvas';
 import ZoneForm, { type ZoneErrors } from './ZoneForm';
-import { MAX_IMAGE_ZONES, SAMPLE_ICON, SAMPLE_LOGO, newIconZone, newImageZone, newTextZone } from './zoneDefaults';
+import { MAX_IMAGE_ZONES, MAX_ZONES, SAMPLE_ICON, SAMPLE_LOGO, newIconZone, newImageZone, newTextZone } from './zoneDefaults';
 import CustomLayersForm from './CustomLayersForm';
 import type { CustomLayersConfig } from '@/lib/banner-overlay';
 
@@ -74,6 +76,9 @@ export default function ZoneEditor({
   );
 
   const imageZoneCount = config.zones.filter((z) => z.type === 'image').length;
+  // Server limits (env), with the defaults as a fallback
+  const maxImageZones = template.limits?.max_image_zones ?? MAX_IMAGE_ZONES;
+  const maxZones = template.limits?.max_zones ?? MAX_ZONES;
 
   const add = (type: 'text' | 'image' | 'icon') => {
     const fontId = fonts[0]?.id ?? 0;
@@ -81,8 +86,12 @@ export default function ZoneEditor({
       toast.error('Upload a font first (Banner fonts)');
       return;
     }
-    if (type !== 'text' && imageZoneCount >= MAX_IMAGE_ZONES) {
-      toast.error(`At most ${MAX_IMAGE_ZONES} logo and icon zones`);
+    if (config.zones.length >= maxZones) {
+      toast.error(`At most ${maxZones} zones`);
+      return;
+    }
+    if (type !== 'text' && imageZoneCount >= maxImageZones) {
+      toast.error(`At most ${maxImageZones} logo and icon zones`);
       return;
     }
     const zone =
@@ -164,10 +173,16 @@ export default function ZoneEditor({
   const sampleImages = useMemo(
     () =>
       Object.fromEntries(
-        config.zones.filter((z) => z.type === 'image').map((z) => [z.key, z.key.startsWith('icon') ? SAMPLE_ICON : SAMPLE_LOGO]),
+        config.zones
+          .filter((z) => z.type === 'image')
+          .map((z) => [z.key, z.type === 'image' && z.style.image ? zoneImageUrl(z.style.image) : z.key.startsWith('icon') ? SAMPLE_ICON : SAMPLE_LOGO]),
       ),
     [config.zones],
   );
+  // Full screen canvas with zoom, for placing zones precisely
+  const [fullscreen, setFullscreen] = useState(false);
+  const closeFullscreen = useCallback(() => setFullscreen(false), []);
+
   const errorSet = useMemo(() => new Set(Object.keys(zoneErrors).map(Number)), [zoneErrors]);
   const zone = selected !== null ? config.zones[selected] : null;
 
@@ -177,8 +192,23 @@ export default function ZoneEditor({
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_440px] gap-6 items-start">
-      <div className="min-w-0 xl:sticky xl:top-6">
-        <div className="mx-auto" style={{ width: `min(100%, calc((100vh - 8rem) * ${template.width / template.height}))` }}>
+      <div className={`min-w-0 xl:sticky xl:top-6 ${fullscreen ? 'relative z-[200]' : ''}`}>
+        <ZoomFrame
+          expanded={fullscreen}
+          onClose={closeFullscreen}
+          aspect={template.width / template.height}
+          style={{ width: `min(100%, calc((100vh - 8rem) * ${template.width / template.height}))` }}
+          title={zone ? `${template.name} · ${zone.label}` : template.name}
+          tools={
+            <button
+              type="button"
+              onClick={() => setShowTexts((v) => !v)}
+              className="flex items-center gap-1 rounded-full bg-white/10 hover:bg-white/15 px-3 py-1.5 text-xs font-semibold text-white"
+            >
+              {showTexts ? <EyeOff size={13} /> : <Eye size={13} />} {showTexts ? 'Hide' : 'Show'} texts
+            </button>
+          }
+        >
           <BannerPreview
             width={template.width}
             height={template.height}
@@ -194,10 +224,13 @@ export default function ZoneEditor({
           >
             <ZoneCanvas zones={config.zones} selected={selected} onSelect={setSelected} onRect={setRect} errors={errorSet} />
           </BannerPreview>
-        </div>
+        </ZoomFrame>
         <div className="flex flex-wrap items-center justify-center gap-4 mt-3 text-xs text-gray-500">
           <button type="button" onClick={() => setShowTexts((v) => !v)} className="flex items-center gap-1 hover:text-white">
             {showTexts ? <EyeOff size={13} /> : <Eye size={13} />} {showTexts ? 'Hide' : 'Show'} default texts
+          </button>
+          <button type="button" onClick={() => setFullscreen(true)} className="flex items-center gap-1 text-white hover:text-accent-red">
+            <Maximize2 size={13} /> Full screen
           </button>
           <span>Drag to move · handles resize · arrows nudge 0.1% (Shift: 1%)</span>
         </div>
@@ -211,7 +244,7 @@ export default function ZoneEditor({
           <button
             type="button"
             onClick={() => add('image')}
-            disabled={imageZoneCount >= MAX_IMAGE_ZONES}
+            disabled={imageZoneCount >= maxImageZones}
             className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-white flex items-center gap-1.5 disabled:opacity-40"
           >
             <Plus size={14} /> <ImageIcon size={14} /> Logo
@@ -219,12 +252,12 @@ export default function ZoneEditor({
           <button
             type="button"
             onClick={() => add('icon')}
-            disabled={imageZoneCount >= MAX_IMAGE_ZONES}
+            disabled={imageZoneCount >= maxImageZones}
             title="A small square image zone, e.g. above a feature card. Buyers can upload animated GIFs too."
             className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-white flex items-center gap-1.5 disabled:opacity-40"
           >
             <Plus size={14} /> <Star size={14} /> Icon
-            <span className="text-[11px] text-gray-500 font-mono">{imageZoneCount}/{MAX_IMAGE_ZONES}</span>
+            <span className="text-[11px] text-gray-500 font-mono">{imageZoneCount}/{maxImageZones}</span>
           </button>
           <div className="flex-1" />
           {dirty && <span className="text-xs text-amber-300">Unsaved</span>}
@@ -314,7 +347,7 @@ export default function ZoneEditor({
                 <Trash2 size={14} />
               </button>
             </div>
-            <ZoneForm zone={zone} fonts={fonts} errors={zoneErrors[selected] || {}} videoWidth={template.width ?? undefined} onChange={(z) => setZone(selected, z)} />
+            <ZoneForm zone={zone} fonts={fonts} errors={zoneErrors[selected] || {}} videoWidth={template.width ?? undefined} templateId={template.id} onChange={(z) => setZone(selected, z)} />
           </div>
         )}
 

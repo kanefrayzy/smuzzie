@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import {
-  Upload, X, AlignLeft, AlignCenter, AlignRight, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
+  Upload, X, RotateCcw, Trash2, AlignLeft, AlignCenter, AlignRight, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
 } from 'lucide-react';
 import { isAnimatedSource, resolveImage } from '@/lib/banner-overlay';
 import type { Align, AlignY, ImageZone, ImageZoneParams } from '@/lib/banner-overlay';
@@ -44,13 +44,18 @@ function imageSize(src: string): Promise<{ w: number; h: number }> {
   });
 }
 
-/** Logo upload (drag and drop), size and alignment inside the zone. */
+/**
+ * Logo upload (drag and drop), size and alignment inside the zone. A zone can come with the
+ * template's own image: the buyer may replace it and, if the template allows, remove it.
+ */
 export default function ImageZoneControls({
-  zone, params, image, onChange, onImage, still = false,
+  zone, params, image, defaultUrl, onChange, onImage, still = false,
 }: {
   zone: ImageZone;
   params: ImageZoneParams | undefined;
   image: DraftImage | undefined;
+  /** The template's own image for this zone */
+  defaultUrl?: string;
   /** Image (static) template: an animated GIF ends up as its first frame */
   still?: boolean;
   onChange: (patch: ImageZoneParams) => void;
@@ -88,8 +93,39 @@ export default function ImageZoneControls({
     }
   };
 
+  const shown = image?.dataUrl ?? defaultUrl;
+  const canRemove = !!c.visible?.enabled && !!defaultUrl;
+
+  if (!r.visible) {
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-white/[0.1] bg-white/[0.015]">
+        <span className="text-sm text-gray-400 flex-1">Removed from the banner</span>
+        <button
+          type="button"
+          onClick={() => onChange({ visible: true })}
+          className="text-xs text-white hover:text-accent-red flex items-center gap-1"
+        >
+          <RotateCcw size={13} /> Restore
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
+      {!c.upload.enabled && defaultUrl && (
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-white/[0.08] bg-white/[0.02]">
+          <span
+            className="w-16 h-11 shrink-0 rounded-md flex items-center justify-center overflow-hidden"
+            style={{ background: 'repeating-conic-gradient(#1b1b22 0 25%, #141419 0 50%) 0 0 / 12px 12px' }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={defaultUrl} alt="" className="max-w-[90%] max-h-[80%] object-contain" />
+          </span>
+          <span className="text-sm text-white">Template image</span>
+        </div>
+      )}
+      {c.upload.enabled && (
       <label
         className={`flex items-center gap-3 p-3 rounded-lg border border-dashed cursor-pointer transition-colors ${
           over ? 'border-accent-red/60 bg-accent-red/5' : 'border-white/[0.12] hover:border-accent-red/40 bg-white/[0.02]'
@@ -109,23 +145,28 @@ export default function ImageZoneControls({
           className="w-16 h-11 shrink-0 rounded-md flex items-center justify-center overflow-hidden"
           style={{ background: 'repeating-conic-gradient(#1b1b22 0 25%, #141419 0 50%) 0 0 / 12px 12px' }}
         >
-          {image ? (
+          {shown ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={image.dataUrl} alt="" className="max-w-[90%] max-h-[80%] object-contain" />
+            <img src={shown} alt="" className="max-w-[90%] max-h-[80%] object-contain" />
           ) : (
             <Upload size={18} className="text-gray-500" />
           )}
         </span>
         <span className="min-w-0 text-sm">
-          <strong className="block text-white font-medium truncate">{image ? image.name : `Upload ${zone.label.toLowerCase()}`}</strong>
+          <strong className="block text-white font-medium truncate">
+            {image ? image.name : defaultUrl ? 'Template image' : `Upload ${zone.label.toLowerCase()}`}
+          </strong>
           <span className="block text-gray-500 text-xs">
             {image
               ? formatFileSize(image.size)
-              : `PNG with transparency, JPG, WebP or ${still ? 'GIF' : 'animated GIF'}, up to ${formatFileSize(c.upload.maxBytes)}`}
+              : defaultUrl
+                ? 'Click or drop a file to use your own'
+                : `PNG with transparency, JPG, WebP or ${still ? 'GIF' : 'animated GIF'}, up to ${formatFileSize(c.upload.maxBytes)}`}
           </span>
         </span>
         <input ref={inputRef} type="file" accept={TYPES.join(',')} className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
       </label>
+      )}
 
       {error && (
         <p className="text-xs text-accent-red" role="alert">
@@ -136,7 +177,7 @@ export default function ImageZoneControls({
         <p className="text-xs text-gray-500">This banner is a still image: an animated GIF is used as its first frame.</p>
       )}
 
-      {image && (
+      {shown && (
         <>
           {c.scale.enabled && (
             <Slider
@@ -157,9 +198,18 @@ export default function ImageZoneControls({
             {c.align.enabled && c.align.y.length > 1 && (
               <Segmented<AlignY> label={`${zone.label} vertical alignment`} value={r.alignY} options={c.align.y} onChange={(alignY) => onChange({ alignY })} render={(a) => Y_ICON[a]} />
             )}
-            <button type="button" onClick={() => onImage(null)} className="ml-auto text-xs text-gray-400 hover:text-white flex items-center gap-1">
-              <X size={13} /> Remove
-            </button>
+            <span className="ml-auto flex items-center gap-3">
+              {image && (
+                <button type="button" onClick={() => onImage(null)} className="text-xs text-gray-400 hover:text-white flex items-center gap-1">
+                  {defaultUrl ? <RotateCcw size={13} /> : <X size={13} />} {defaultUrl ? 'Template image' : 'Remove'}
+                </button>
+              )}
+              {canRemove && (
+                <button type="button" onClick={() => onChange({ visible: false })} className="text-xs text-gray-400 hover:text-accent-red flex items-center gap-1">
+                  <Trash2 size={13} /> Remove
+                </button>
+              )}
+            </span>
           </div>
         </>
       )}

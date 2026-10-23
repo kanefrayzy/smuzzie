@@ -10,7 +10,7 @@ import Logo from '@/components/ui/Logo';
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'Portfolio', href: '/portfolio' },
-  { label: 'Banners', href: '/banners' },
+  { label: 'Banner Maker', href: '/banners' },
   { label: 'Services', href: '/get-started' },
   { label: 'Contact', href: '/contact' },
 ];

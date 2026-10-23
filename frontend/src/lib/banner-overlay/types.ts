@@ -95,6 +95,8 @@ export interface ImageStyle {
   scale: number;
   alignX: Align;
   alignY: AlignY;
+  /** The template's own image (public disk path), shown until the buyer replaces or removes it */
+  image?: string;
 }
 
 export interface ImageControls {
@@ -102,6 +104,8 @@ export interface ImageControls {
   scale: { enabled: boolean; min: number; max: number };
   align: { enabled: boolean; x: Align[]; y: AlignY[] };
   position?: PositionControl;
+  /** Buyer may remove the image */
+  visible?: { enabled: boolean };
 }
 
 export interface ImageZone extends ZoneRect {
@@ -158,6 +162,8 @@ export interface TextZoneParams {
 }
 
 export interface ImageZoneParams {
+  /** false = the buyer removed the image */
+  visible?: boolean;
   scale?: number;
   alignX?: Align;
   alignY?: AlignY;

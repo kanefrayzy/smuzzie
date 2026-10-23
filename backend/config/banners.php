@@ -39,8 +39,9 @@ return [
         'max_image_pixels' => 16_777_216, // 4096x4096
         'image_mimes' => ['image/png', 'image/jpeg', 'image/webp'],
         'max_fps' => 60,
-        'max_zones' => 20,
-        'max_image_zones' => 12, // logos and icons (PHP max_file_uploads must stay above this + custom.max_images)
+        'max_zones' => (int) env('BANNERS_MAX_ZONES', 70),
+        // Logos and icons; PHP max_file_uploads (100 on prod) must stay above this + custom.max_images
+        'max_image_zones' => (int) env('BANNERS_MAX_IMAGE_ZONES', 40),
         'preview_width' => 720,
         'preview_crf' => 26,
         'master_crf' => 15,        // only when the upload can't be used as-is (not H.264 yuv420p / odd size)
@@ -89,7 +90,7 @@ return [
     ],
 
     'text' => [
-        'max_length' => 200, // hard cap regardless of what a template allows
+        'max_length' => 2000, // hard cap regardless of what a template allows
     ],
 
     'render' => [

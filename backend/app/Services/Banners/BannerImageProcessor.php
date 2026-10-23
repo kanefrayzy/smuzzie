@@ -26,6 +26,8 @@ class BannerImageProcessor
         IMAGETYPE_GIF => 'image/gif',
     ];
 
+    private string $disk = 'banners';
+
     public function __construct(private ?Ffmpeg $ffmpeg = null)
     {
         $this->ffmpeg ??= new Ffmpeg();
@@ -34,12 +36,15 @@ class BannerImageProcessor
     /**
      * @param array $zone image zone from the snapshot config
      * @param int[] $templateSize [width, height] of the template video
-     * @param string $targetBase private disk path without the extension (.png, or .gif when animated)
+     * @param string $targetBase disk path without the extension (.png, or .gif when animated)
+     * @param string|null $disk where to store it: the private banners disk unless given (a
+     *                          template's default images go to the public disk)
      * @return array{path: string, width: int, height: int, animated: bool}
      * @throws ValidationException
      */
-    public function process(UploadedFile $file, array $zone, array $templateSize, string $targetBase, string $field): array
+    public function process(UploadedFile $file, array $zone, array $templateSize, string $targetBase, string $field, ?string $disk = null): array
     {
+        $this->disk = $disk ?? config('banners.disks.private');
         $fail = fn (string $message) => throw ValidationException::withMessages([$field => [$message]]);
         $limits = config('banners.logo');
 
@@ -174,7 +179,7 @@ class BannerImageProcessor
     private function store(string $tmp, string $targetPath): void
     {
         $stream = fopen($tmp, 'rb');
-        Storage::disk(config('banners.disks.private'))->put($targetPath, $stream);
+        Storage::disk($this->disk)->put($targetPath, $stream);
         fclose($stream);
         @unlink($tmp);
     }

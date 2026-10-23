@@ -8,7 +8,8 @@ import { absoluteMedia, fetchBannerTemplates, jsonLd } from '@/lib/banners-serve
 import { SITE_NAME, SITE_URL } from '@/lib/site';
 
 // Server-rendered so crawlers get the template list, prices and FAQ as HTML.
-export const revalidate = 300;
+// Always current: templates added, changed or removed in the admin show up at once
+export const dynamic = 'force-dynamic';
 
 const STEPS = [
   { icon: Film, title: 'Pick a template', text: 'Animated banners made by our designers, rendered in high resolution.' },
@@ -51,7 +52,7 @@ export default async function BannersCatalogPage() {
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
-          { '@type': 'ListItem', position: 2, name: 'Banner templates', item: `${SITE_URL}/banners` },
+          { '@type': 'ListItem', position: 2, name: 'Banner Maker', item: `${SITE_URL}/banners` },
         ],
       },
       faqJsonLd(),
@@ -67,7 +68,7 @@ export default async function BannersCatalogPage() {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <nav aria-label="Breadcrumb" className="pt-6 text-xs font-mono uppercase tracking-wider text-gray-600">
           <Link href="/" className="hover:text-gray-300">Home</Link> <span aria-hidden="true">/</span>{' '}
-          <span className="text-gray-400">Banners</span>
+          <span className="text-gray-400">Banner Maker</span>
         </nav>
 
         <header className="text-center py-12 md:py-14">

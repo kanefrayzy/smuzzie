@@ -155,6 +155,7 @@ class BannerAnimatedGifTest extends TestCase
     public function test_up_to_twelve_image_zones_with_gif_icons(): void
     {
         $this->needFfmpeg();
+        config(['banners.template.max_image_zones' => 12]); // the limit itself is env (40 by default)
         $icon = fn (int $i) => [
             'key' => "icon_{$i}", 'type' => 'image', 'label' => "Icon {$i}",
             'x' => ($i % 4) * 25, 'y' => 50 + intdiv($i, 4) * 10, 'w' => 8, 'h' => 6,

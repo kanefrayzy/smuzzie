@@ -29,6 +29,7 @@ export interface ResolvedText {
 }
 
 export interface ResolvedImage {
+  visible: boolean;
   scale: number;
   alignX: Align;
   alignY: AlignY;
@@ -145,7 +146,8 @@ export function resolveImage(zone: ImageZone, p: ImageZoneParams | undefined): R
     if (p.alignX && controls.align.x.includes(p.alignX)) alignX = p.alignX;
     if (p.alignY && controls.align.y.includes(p.alignY)) alignY = p.alignY;
   }
-  return { scale, alignX, alignY };
+  const visible = controls.visible?.enabled ? p.visible !== false : true;
+  return { visible, scale, alignX, alignY };
 }
 
 /** Smallest zone a buyer can resize to, percent of the video (or the zone's own size if smaller). */
@@ -203,7 +205,7 @@ export function defaultZoneParams(zone: Zone): TextZoneParams | ImageZoneParams 
       gradient: s.gradient ? { ...s.gradient } : { enabled: false, from: s.color, to: '#ff2d8a', angle: 90 },
     };
   }
-  return { scale: zone.style.scale, alignX: zone.style.alignX, alignY: zone.style.alignY, rect };
+  return { visible: true, scale: zone.style.scale, alignX: zone.style.alignX, alignY: zone.style.alignY, rect };
 }
 
 /** One zone's params as sent with an order: only enabled controls, resolved and clamped. */
@@ -230,6 +232,7 @@ function exportZone(zone: Zone, raw: TextZoneParams | ImageZoneParams | undefine
   const r = resolveImage(zone, raw as ImageZoneParams);
   const c = zone.controls;
   const out: ImageZoneParams = {};
+  if (c.visible?.enabled) out.visible = r.visible;
   if (c.scale.enabled) out.scale = r.scale;
   if (c.align.enabled) {
     out.alignX = r.alignX;

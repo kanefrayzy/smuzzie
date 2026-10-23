@@ -234,7 +234,8 @@ export class BannerOverlay {
     const img = els.inner as HTMLImageElement;
     const r = resolveImage(zone, p);
 
-    if (!src || !zone.controls.upload.enabled) {
+    // The buyer's image, or the template's own one (also when uploads are off); hidden when removed
+    if (!src || !r.visible || (!zone.controls.upload.enabled && !zone.style.image)) {
       els.zone.hidden = true;
       img.removeAttribute('src');
       return;

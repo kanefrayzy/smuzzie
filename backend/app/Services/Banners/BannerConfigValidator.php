@@ -3,6 +3,7 @@
 namespace App\Services\Banners;
 
 use App\Models\BannerFont;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -20,6 +21,8 @@ class BannerConfigValidator
     public const CASES = ['none', 'upper', 'lower'];
     private const KEY_PATTERN = '/^[a-z][a-z0-9_]{0,31}$/';
     private const HEX_PATTERN = '/^#[0-9a-f]{6}$/';
+    /** Default images of image zones, on the public disk (BannerTemplateController::uploadZoneImage) */
+    public const ZONE_IMAGE_PATTERN = '#^banners/zone-images/[A-Za-z0-9-]{8,64}\.(png|gif)$#';
     public const MAX_FONT_OPTIONS = 12;
 
     /** @var array<string, string[]> */
@@ -223,16 +226,18 @@ class BannerConfigValidator
     {
         $style = is_array($zone['style'] ?? null) ? $zone['style'] : [];
         $controls = is_array($zone['controls'] ?? null) ? $zone['controls'] : [];
-        $maxText = (int) config('banners.text.max_length', 200);
+        $maxText = (int) config('banners.text.max_length', 2000);
 
         $textCtl = $this->controlBlock($controls, 'text');
         $multiline = $this->bool($textCtl['multiline'] ?? false);
         $maxLength = (int) $this->number($textCtl['maxLength'] ?? 40, "{$path}.controls.text.maxLength", 1, $maxText, 0);
 
+        // A longer default text raises the buyer's limit to fit it (up to the hard cap)
         $default = self::cleanText((string) ($style['text'] ?? ''), $multiline);
-        if (mb_strlen($default) > $maxLength) {
-            $this->fail("{$path}.style.text", "Default text is longer than the {$maxLength} character limit");
+        if (mb_strlen($default) > $maxText) {
+            $this->fail("{$path}.style.text", "Default text is longer than the {$maxText} character limit");
         }
+        $maxLength = max($maxLength, mb_strlen($default));
 
         $fontId = (int) ($style['fontId'] ?? 0);
         if (!in_array($fontId, $fontIds, true)) {
@@ -385,8 +390,19 @@ class BannerConfigValidator
 
         $base = $this->zoneBase($zone, $path);
 
+        // An image the template shows until the buyer replaces or removes it (uploaded in the admin)
+        $outStyle = ['scale' => (int) $scale, 'alignX' => $alignX, 'alignY' => $alignY];
+        $image = $style['image'] ?? null;
+        if ($image !== null && $image !== '') {
+            if (!is_string($image) || !preg_match(self::ZONE_IMAGE_PATTERN, $image) || !Storage::disk(config('banners.disks.public'))->exists($image)) {
+                $this->fail("{$path}.style.image", 'The default image is missing; upload it again');
+            } else {
+                $outStyle['image'] = $image;
+            }
+        }
+
         return $base + [
-            'style' => ['scale' => (int) $scale, 'alignX' => $alignX, 'alignY' => $alignY],
+            'style' => $outStyle,
             'controls' => [
                 'upload' => [
                     'enabled' => $this->bool($upload['enabled'] ?? true),
@@ -399,6 +415,8 @@ class BannerConfigValidator
                     'y' => $ys ?: [$alignY],
                 ],
                 'position' => $this->position($controls, $base, $path),
+                // The buyer may remove the image (the template's default one or their own)
+                'visible' => ['enabled' => $this->bool($this->controlBlock($controls, 'visible')['enabled'] ?? false)],
             ],
         ];
     }

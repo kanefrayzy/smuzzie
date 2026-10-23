@@ -5,14 +5,14 @@ import { SITE_URL } from '@/lib/site';
 import { FORMAT_LABEL, templateFormats } from '@/lib/banner-formats';
 
 // Server-side reads of the public banner catalog, so the catalog and template pages ship real
-// HTML (texts, prices, structured data) to crawlers instead of a spinner. Cached for 5 minutes.
+// HTML (texts, prices, structured data) to crawlers instead of a spinner. Read fresh on every
+// request (the API is on the same server), so admin changes show up at once.
 
 const API = (process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1').replace(/\/$/, '');
-const REVALIDATE = 300;
 
 async function get<T>(path: string): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
   try {
-    const res = await fetch(`${API}${path}`, { headers: { Accept: 'application/json' }, next: { revalidate: REVALIDATE } });
+    const res = await fetch(`${API}${path}`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
     if (!res.ok) return { ok: false, status: res.status };
     return { ok: true, data: (await res.json()) as T };
   } catch {

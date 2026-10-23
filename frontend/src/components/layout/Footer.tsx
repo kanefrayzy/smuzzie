@@ -10,7 +10,7 @@ const footerLinks = {
   'Quick Links': [
     { label: 'Home', href: '/' },
     { label: 'Portfolio', href: '/portfolio' },
-    { label: 'Banner Builder', href: '/banners' },
+    { label: 'Banner Maker', href: '/banners' },
     { label: 'Contact Us', href: '/contact' },
     { label: 'Get Started', href: '/get-started' },
   ],

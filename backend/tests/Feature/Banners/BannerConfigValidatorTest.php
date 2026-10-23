@@ -52,7 +52,7 @@ class BannerConfigValidatorTest extends TestCase
         );
         $this->assertSame(32, $title['controls']['text']['maxLength']);
         $this->assertSame($this->font->id, $title['style']['fontId']);
-        $this->assertSame(['upload', 'scale', 'align', 'position'], array_keys($out['zones'][0]['controls']));
+        $this->assertSame(['upload', 'scale', 'align', 'position', 'visible'], array_keys($out['zones'][0]['controls']));
     }
 
     public function test_missing_blocks_are_filled_and_unknown_keys_dropped(): void
@@ -124,11 +124,18 @@ class BannerConfigValidatorTest extends TestCase
         $this->assertArrayHasKey('config.zones.1.w', $this->errorsFor($config));
     }
 
-    public function test_default_text_must_fit_the_limit(): void
+    public function test_a_long_default_text_raises_the_limit_up_to_the_hard_cap(): void
     {
         $config = $this->config();
         $config['zones'][1]['style']['text'] = str_repeat('Я', 33); // maxLength 32, counted in characters
+        $out = $this->validator->validate($config);
+        $this->assertSame(33, $out['zones'][1]['controls']['text']['maxLength']);
 
+        $config['zones'][1]['style']['text'] = str_repeat('a', 1500);
+        $config['zones'][1]['controls']['text']['maxLength'] = 2000;
+        $this->assertSame(2000, $this->validator->validate($config)['zones'][1]['controls']['text']['maxLength']);
+
+        $config['zones'][1]['style']['text'] = str_repeat('a', 2001);
         $this->assertArrayHasKey('config.zones.1.style.text', $this->errorsFor($config));
     }
 
@@ -145,14 +152,27 @@ class BannerConfigValidatorTest extends TestCase
         $this->assertArrayHasKey('config.zones.1.controls.color.palette.3', $errors);
     }
 
-    public function test_image_zone_limit(): void
+    public function test_zone_limits(): void
     {
         $config = $this->config();
         $logo = $config['zones'][0];
-        foreach (range(2, 13) as $n) { // 13 image zones, the limit is 12
+        $images = count(array_filter($config['zones'], fn ($z) => $z['type'] === 'image'));
+        foreach (range($images + 1, 40) as $n) { // 40 image zones: the limit
             $config['zones'][] = ['key' => "logo{$n}"] + $logo;
         }
+        $this->assertCount(count($config['zones']), $this->validator->validate($config)['zones']);
 
+        $config['zones'][] = ['key' => 'logo41'] + $logo;
+        $this->assertArrayHasKey('config.zones', $this->errorsFor($config));
+
+        // 70 zones in all
+        $config = $this->config();
+        $text = $config['zones'][1];
+        foreach (range(count($config['zones']) + 1, 70) as $n) {
+            $config['zones'][] = ['key' => "text{$n}"] + $text;
+        }
+        $this->assertCount(70, $this->validator->validate($config)['zones']);
+        $config['zones'][] = ['key' => 'text71'] + $text;
         $this->assertArrayHasKey('config.zones', $this->errorsFor($config));
     }
 
