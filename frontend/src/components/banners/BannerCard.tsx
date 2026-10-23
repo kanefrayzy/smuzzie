@@ -6,11 +6,14 @@ import { useInView } from 'react-intersection-observer';
 import { getImageUrl } from '@/lib/utils';
 import type { PublicBannerTemplateCard } from '@/types/banners';
 import { formatList, isImageTemplate, templateFormats } from '@/lib/banner-formats';
+import { hueFilter } from '@/lib/banner-overlay';
 import { Play } from 'lucide-react';
+import TemplateOverlay from './TemplateOverlay';
 
 /**
  * Catalog card: poster by default, the preview video plays on hover (or while on screen on touch
- * devices). Image templates just show the poster.
+ * devices). Image templates just show the poster. The template's default texts and images are
+ * drawn on top, as the editor shows them.
  */
 export default function BannerCard({ template }: { template: PublicBannerTemplateCard }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -36,6 +39,8 @@ export default function BannerCard({ template }: { template: PublicBannerTemplat
   }, [playing]);
 
   const formats = formatList(templateFormats(template));
+  // Same background tint as the editor starts with
+  const tint = template.config?.hue.enabled ? hueFilter(template.config.hue.default) : 'none';
 
   return (
     <Link
@@ -56,6 +61,7 @@ export default function BannerCard({ template }: { template: PublicBannerTemplat
             alt=""
             loading="lazy"
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${playing ? 'opacity-0' : 'opacity-100'}`}
+            style={{ filter: tint }}
           />
         )}
         {!still && (
@@ -64,12 +70,20 @@ export default function BannerCard({ template }: { template: PublicBannerTemplat
               ref={videoRef}
               src={getImageUrl(template.preview_url)}
               className="absolute inset-0 w-full h-full object-cover"
+              style={{ filter: tint }}
               muted
               loop
               playsInline
               preload="none"
               aria-hidden="true"
             />
+          </>
+        )}
+        {template.config && template.fonts && (
+          <TemplateOverlay width={template.width} height={template.height} config={template.config} fonts={template.fonts} />
+        )}
+        {!still && (
+          <>
             <span
               className={`absolute bottom-3 right-3 w-9 h-9 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/80 transition-opacity ${
                 playing ? 'opacity-0' : 'opacity-100'

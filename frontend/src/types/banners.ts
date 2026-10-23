@@ -92,6 +92,9 @@ export interface PublicBannerTemplateCard {
   poster_url: string | null;
   outputs: BannerOutputs;
   formats?: BannerFormat[];
+  /** Layout and fonts, to draw the default texts over the card (missing in older responses) */
+  config?: TemplateConfig;
+  fonts?: BannerFontFace[];
 }
 
 /** Everything the buyer editor needs (GET /banners/templates/{slug}) */

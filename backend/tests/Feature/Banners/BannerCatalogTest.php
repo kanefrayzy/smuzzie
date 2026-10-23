@@ -24,7 +24,7 @@ class BannerCatalogTest extends TestCase
             ->assertJsonCount(2)
             ->assertJsonPath('0.slug', $first->slug)
             ->assertJsonPath('1.slug', $visible->slug)
-            ->assertJsonMissingPath('0.config')
+            ->assertJsonStructure(['0' => ['config', 'fonts']]) // cards draw the default texts
             ->assertJsonMissingPath('0.id');
     }
 

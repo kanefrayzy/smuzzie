@@ -19,7 +19,8 @@ class BannerCatalogController extends Controller
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
-            ->map(fn (BannerTemplate $t) => $this->card($t));
+            // Cards show the template's default texts over the poster, so they carry the layout too
+            ->map(fn (BannerTemplate $t) => $this->card($t) + ['config' => $t->config, 'fonts' => $this->fonts($t)]);
 
         return response()->json($templates);
     }
@@ -31,8 +32,18 @@ class BannerCatalogController extends Controller
             return response()->json(['message' => 'Not found'], 404);
         }
 
-        // Deleted fonts still render for templates that use them (the file is kept)
-        $fonts = BannerFont::withTrashed()->whereIn('id', $template->fontIds())->get()
+        return response()->json($this->card($template) + [
+            'config' => $template->config,
+            'fonts' => $this->fonts($template),
+            'fps' => $template->fps,
+            'frame_count' => $template->frame_count,
+        ]);
+    }
+
+    /** Font faces the template uses; deleted ones still render (the file is kept) */
+    private function fonts(BannerTemplate $t): array
+    {
+        return BannerFont::withTrashed()->whereIn('id', $t->fontIds())->get()
             ->map(fn (BannerFont $f) => [
                 'id' => $f->id,
                 'family' => $f->family,
@@ -40,14 +51,7 @@ class BannerCatalogController extends Controller
                 'weight' => $f->weight,
                 'style' => $f->style,
                 'url' => $f->url,
-            ])->values();
-
-        return response()->json($this->card($template) + [
-            'config' => $template->config,
-            'fonts' => $fonts,
-            'fps' => $template->fps,
-            'frame_count' => $template->frame_count,
-        ]);
+            ])->values()->all();
     }
 
     private function card(BannerTemplate $t): array
