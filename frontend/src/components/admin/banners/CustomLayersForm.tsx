@@ -3,6 +3,7 @@
 import React from 'react';
 import type { CustomLayersConfig } from '@/lib/banner-overlay';
 import type { AdminBannerFont } from '@/types/banners';
+import FontChecklist from './FontChecklist';
 
 export const CUSTOM_OFF: CustomLayersConfig = {
   enabled: false, maxText: 3, maxImage: 1, fonts: [], bounds: { x: 0, y: 0, w: 100, h: 100 },
@@ -50,19 +51,11 @@ export default function CustomLayersForm({
           </div>
           <div>
             <span className="block text-[11px] text-gray-400 mb-1">Fonts for added texts (the first checked is the starting font)</span>
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-              {fonts.map((f) => (
-                <label key={f.id} className="flex items-center gap-2 text-sm text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={c.fonts.includes(f.id)}
-                    onChange={(e) => set({ fonts: e.target.checked ? [...c.fonts, f.id] : c.fonts.filter((id) => id !== f.id) })}
-                  />
-                  {f.name} {f.weight}
-                  {f.style === 'italic' ? ' italic' : ''}
-                </label>
-              ))}
-            </div>
+            <FontChecklist
+              fonts={fonts}
+              checked={(id) => c.fonts.includes(id)}
+              onToggle={(id, on) => set({ fonts: on ? [...c.fonts, id] : c.fonts.filter((x) => x !== id) })}
+            />
             {err('config.custom.fonts')}
             {err('config.custom.fonts.0')}
           </div>

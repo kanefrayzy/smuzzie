@@ -11,6 +11,7 @@ import type {
 } from '@/lib/banner-overlay';
 import type { AdminBannerFont } from '@/types/banners';
 import { TEXT_MAX_LENGTH, withImageControls, withStyleControls } from './zoneDefaults';
+import FontChecklist from './FontChecklist';
 
 const input =
   'w-full bg-surface border border-white/5 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-accent-red/50';
@@ -246,11 +247,18 @@ function TextForm({
           <Field label="Font" error={err('style.fontId')} className="col-span-2">
             <select className={input} value={s.fontId} onChange={(e) => setStyle({ fontId: Number(e.target.value) })}>
               {!fonts.some((f) => f.id === s.fontId) && <option value={s.fontId}>— pick a font —</option>}
-              {fonts.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name} {f.weight}
-                  {f.style === 'italic' ? ' italic' : ''}
-                </option>
+              {/* Grouped by family: the library can hold hundreds of faces */}
+              {Array.from(new Set(fonts.map((f) => f.name))).map((family) => (
+                <optgroup key={family} label={family}>
+                  {fonts
+                    .filter((f) => f.name === family)
+                    .map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name} {f.weight}
+                        {f.style === 'italic' ? ' italic' : ''}
+                      </option>
+                    ))}
+                </optgroup>
               ))}
             </select>
           </Field>
@@ -353,28 +361,14 @@ function TextForm({
           {c.font.enabled && (
             <div className="pl-6 space-y-1.5">
               <p className="text-[11px] text-gray-500">Fonts the buyer can pick (the default one is always included, up to {MAX_FONT_OPTIONS})</p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                {fonts.map((f) => {
-                  const isDefault = f.id === s.fontId;
-                  const on = isDefault || c.font.options.includes(f.id);
-                  return (
-                    <label key={f.id} className={`flex items-center gap-2 text-sm ${isDefault ? 'text-gray-500' : 'text-gray-300'}`}>
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        disabled={isDefault || (!on && c.font.options.length >= MAX_FONT_OPTIONS)}
-                        onChange={(e) =>
-                          setCtl('font', {
-                            options: e.target.checked ? [...c.font.options, f.id] : c.font.options.filter((id) => id !== f.id),
-                          })
-                        }
-                      />
-                      {f.name} {f.weight}
-                      {f.style === 'italic' ? ' italic' : ''}
-                    </label>
-                  );
-                })}
-              </div>
+              <FontChecklist
+                fonts={fonts}
+                checked={(id) => id === s.fontId || c.font.options.includes(id)}
+                disabled={(id) => id === s.fontId || (!c.font.options.includes(id) && c.font.options.length >= MAX_FONT_OPTIONS)}
+                onToggle={(id, on) =>
+                  setCtl('font', { options: on ? [...c.font.options, id] : c.font.options.filter((x) => x !== id) })
+                }
+              />
               {fontErrors.map((m, j) => (
                 <p key={j} className="text-[11px] text-red-400">{m}</p>
               ))}
