@@ -14,8 +14,9 @@ module.exports = {
           dark: '#040404',
         },
         accent: {
-          red: '#e63946',
-          'red-dark': '#c1121f',
+          // Driven by CSS variables so the dev mode can swap the accent (see globals.css)
+          red: 'rgb(var(--accent) / <alpha-value>)',
+          'red-dark': 'rgb(var(--accent-dark) / <alpha-value>)',
           'red-deep': '#780000',
           crimson: '#dc2626',
           maroon: '#3d0000',

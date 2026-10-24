@@ -11,6 +11,7 @@ interface GetStartedButtonProps {
   onClick?: () => void;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  label?: string;
 }
 
 export default function GetStartedButton({
@@ -18,6 +19,7 @@ export default function GetStartedButton({
   onClick,
   size = 'md',
   className = '',
+  label = 'Get Started',
 }: GetStartedButtonProps) {
   const sizeClasses = {
     sm: 'px-5 py-2 text-xs gap-1.5',
@@ -37,7 +39,7 @@ export default function GetStartedButton({
       <Sparkle size={iconSize[size]} weight="fill" className="sparkle-icon" aria-hidden="true" />
 
       {/* Button text */}
-      <span className="relative z-10 font-bold tracking-wide">Get Started</span>
+      <span className="relative z-10 font-bold tracking-wide">{label}</span>
 
       {/* Magic wand icon on the right */}
       <MagicWandIcon size={iconSize[size]} className="sparkle-icon" />
