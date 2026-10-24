@@ -13,6 +13,7 @@ export {
 } from './resolve';
 export type { ResolvedText, ResolvedImage } from './resolve';
 export { loadFonts, fontFamily } from './fonts';
+export { usedFontIds, usedFonts } from './used-fonts';
 export {
   LAYER_ID, CUSTOM_LIMITS, customConfig, layerTextZone, layerImageZone, layerZones, expandLayers, layerParams,
   nextLayerId, newLayerRect,

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { BannerOverlay, defaultParams, loadFonts } from '@/lib/banner-overlay';
+import { BannerOverlay, defaultParams, loadFonts, usedFonts } from '@/lib/banner-overlay';
 import type { BannerFontFace, TemplateConfig } from '@/lib/banner-overlay';
 import { getImageUrl } from '@/lib/utils';
 import { zoneImageUrl } from '@/lib/banner-formats';
@@ -43,8 +43,10 @@ export default function TemplateOverlay({
     if (!overlay) return;
     let cancelled = false;
     overlay.setFonts(fonts);
-    loadFonts(fonts, (f) => getImageUrl(f.url))
-      .then(() => overlay.fontsReady(config))
+    // Only the faces the default texts use
+    const used = usedFonts(fonts, config, params);
+    loadFonts(used, (f) => getImageUrl(f.url))
+      .then(() => overlay.fontsReady(config, used.map((f) => f.id)))
       .then(() => {
         if (cancelled) return;
         overlay.render({ config, params, images });

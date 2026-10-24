@@ -67,13 +67,14 @@ export class BannerOverlay {
   }
 
   /**
-   * Wait until every face the config can use (defaults and the buyer's choices) can be measured
-   * and drawn. Measurements taken before this would use the fallback font, so render again afterwards.
+   * Wait until the faces can be measured and drawn: `ids` (e.g. usedFontIds), or every face the
+   * config can use. Measurements taken before this would use the fallback font, so render again
+   * afterwards.
    */
-  async fontsReady(config: TemplateConfig): Promise<void> {
+  async fontsReady(config: TemplateConfig, ids?: number[]): Promise<void> {
     const doc = this.stage.ownerDocument;
     const jobs: Promise<unknown>[] = [];
-    for (const id of configFontIds(config)) {
+    for (const id of ids ?? configFontIds(config)) {
       const f = this.fonts.get(id);
       if (f) jobs.push(doc.fonts.load(`${f.style} ${f.weight} 100px "${f.family}"`, 'AaЯя0'));
     }

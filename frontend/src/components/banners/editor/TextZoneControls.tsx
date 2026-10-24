@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { AlignLeft, AlignCenter, AlignRight, Blend, Eye, EyeOff, RotateCcw, Sparkles } from 'lucide-react';
-import { charLength, fontFamily, resolveText, truncateChars } from '@/lib/banner-overlay';
+import { charLength, resolveText, truncateChars } from '@/lib/banner-overlay';
 import type { Align, BannerFontFace, TextCase, TextZone, TextZoneParams, ZoneFit } from '@/lib/banner-overlay';
 import { Segmented, Slider, Swatch, fieldInput } from './ui';
+import FontPicker from './FontPicker';
 
 const CASE_LABEL: Record<TextCase, string> = { none: 'Aa', upper: 'AA', lower: 'aa' };
 const CASE_NAME: Record<TextCase, string> = { none: 'As typed', upper: 'Uppercase', lower: 'Lowercase' };
@@ -311,28 +312,12 @@ function StyleControls({
   return (
     <div className="space-y-3">
       {fontOptions.length > 1 && (
-        <div role="radiogroup" aria-label={`${zone.label} font`} className="flex flex-wrap gap-1.5">
-          {fontOptions.map((fid) => {
-            const f = byId.get(fid)!;
-            const on = r.fontId === fid;
-            return (
-              <button
-                key={fid}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                onClick={() => onChange({ fontId: fid })}
-                title={`${f.name} ${f.weight}`}
-                className={`h-9 px-3 rounded-lg border text-sm transition-colors ${
-                  on ? 'border-accent-red/60 bg-accent-red/15 text-white' : 'border-white/[0.08] bg-white/[0.02] text-gray-300 hover:text-white hover:border-white/20'
-                }`}
-                style={{ fontFamily: fontFamily(fid), fontWeight: f.weight, fontStyle: f.style }}
-              >
-                {f.name}
-              </button>
-            );
-          })}
-        </div>
+        <FontPicker
+          fonts={fontOptions.map((fid) => byId.get(fid)!)}
+          value={r.fontId}
+          onChange={(fontId) => onChange({ fontId })}
+          label={`${zone.label} font`}
+        />
       )}
 
       {c.gradient?.enabled && <GradientControls zone={zone} params={params} onChange={onChange} />}

@@ -7,16 +7,18 @@ import type { AdminBannerFont } from '@/types/banners';
 const faceLabel = (f: AdminBannerFont) => `${f.name} ${f.weight}${f.style === 'italic' ? ' italic' : ''}`;
 
 /**
- * Checkboxes for picking fonts out of a large library: a search field, the checked faces on
- * top, the rest in a scrolling list.
+ * Checkboxes for picking fonts out of a large library: a search field, select all / clear
+ * (for what the search shows), the checked faces on top, the rest in a scrolling list.
  */
 export default function FontChecklist({
-  fonts, checked, disabled, onToggle,
+  fonts, checked, disabled, onToggle, onSetMany,
 }: {
   fonts: AdminBannerFont[];
   checked: (id: number) => boolean;
   disabled?: (id: number) => boolean;
   onToggle: (id: number, on: boolean) => void;
+  /** Check or uncheck many at once (ids that are disabled are left out) */
+  onSetMany: (ids: number[], on: boolean) => void;
 }) {
   const [q, setQ] = useState('');
   const query = q.trim().toLowerCase();
@@ -27,8 +29,25 @@ export default function FontChecklist({
     return [...on, ...off];
   }, [fonts, checked, query]);
 
+  // Select all / clear apply to what the search shows (everything without a search)
+  const matching = fonts.filter((f) => !query || faceLabel(f).toLowerCase().includes(query)).map((f) => f.id);
+  const changeable = (ids: number[]) => ids.filter((id) => !disabled?.(id) || checked(id));
+  const nChecked = fonts.filter((f) => checked(f.id)).length;
+  const link = 'text-[11px] text-gray-300 hover:text-white underline-offset-2 hover:underline disabled:opacity-40 disabled:no-underline';
+
   return (
     <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-[11px] text-gray-500">
+          {nChecked} of {fonts.length} selected
+        </span>
+        <button type="button" className={link} onClick={() => onSetMany(changeable(matching), true)} disabled={matching.length === 0}>
+          {query ? `Select ${matching.length} found` : 'Select all'}
+        </button>
+        <button type="button" className={link} onClick={() => onSetMany(changeable(matching), false)} disabled={nChecked === 0}>
+          {query ? 'Clear found' : 'Clear'}
+        </button>
+      </div>
       {fonts.length > 12 && (
         <label className="relative block">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />

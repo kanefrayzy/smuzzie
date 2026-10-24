@@ -23,7 +23,8 @@ class BannerConfigValidator
     private const HEX_PATTERN = '/^#[0-9a-f]{6}$/';
     /** Default images of image zones, on the public disk (BannerTemplateController::uploadZoneImage) */
     public const ZONE_IMAGE_PATTERN = '#^banners/zone-images/[A-Za-z0-9-]{8,64}\.(png|gif)$#';
-    public const MAX_FONT_OPTIONS = 12;
+    // Fonts a buyer can pick per text (up to the whole library); the editor loads only the used ones
+    public const MAX_FONT_OPTIONS = 500;
 
     /** @var array<string, string[]> */
     private array $errors = [];

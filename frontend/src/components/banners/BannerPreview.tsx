@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { BannerOverlay, hueFilter, loadFonts } from '@/lib/banner-overlay';
+import { BannerOverlay, hueFilter, loadFonts, usedFonts } from '@/lib/banner-overlay';
 import type { BannerFontFace, BuyerParams, OverlayResult, TemplateConfig } from '@/lib/banner-overlay';
 import { getImageUrl } from '@/lib/utils';
 import type { BannerKind } from '@/types/banners';
@@ -55,15 +55,17 @@ export default function BannerPreview({
     };
   }, [width, height]);
 
-  // Fonts: register the faces, then re-measure once they are usable
-  const fontKey = fonts.map((f) => `${f.id}:${f.url}`).join(',');
+  // Fonts: only the faces the texts use now are downloaded (a template may offer hundreds);
+  // picking another font loads it, then everything is measured again
+  const used = usedFonts(fonts, config, params);
+  const fontKey = used.map((f) => `${f.id}:${f.url}`).join(',') + '|' + fonts.length;
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
     let cancelled = false;
     overlay.setFonts(fonts);
-    loadFonts(fonts, (f) => getImageUrl(f.url))
-      .then(() => overlay.fontsReady(config))
+    loadFonts(used, (f) => getImageUrl(f.url))
+      .then(() => overlay.fontsReady(config, used.map((f) => f.id)))
       .then(() => {
         if (!cancelled) setFontsVersion((v) => v + 1);
       });

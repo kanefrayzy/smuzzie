@@ -55,6 +55,11 @@ export default function CustomLayersForm({
               fonts={fonts}
               checked={(id) => c.fonts.includes(id)}
               onToggle={(id, on) => set({ fonts: on ? [...c.fonts, id] : c.fonts.filter((x) => x !== id) })}
+              onSetMany={(ids, on) => {
+                // Keep the starting font (the first checked) first
+                const add = ids.filter((id) => !c.fonts.includes(id));
+                set({ fonts: on ? [...c.fonts, ...add] : c.fonts.filter((id) => !ids.includes(id)) });
+              }}
             />
             {err('config.custom.fonts')}
             {err('config.custom.fonts.0')}

@@ -17,12 +17,14 @@ window.renderOverlay = async function (input) {
   const stage = document.getElementById('stage');
   const overlay = new O.BannerOverlay(stage, input.width, input.height);
 
-  const faces = await O.loadFonts(input.fonts);
-  const failed = input.fonts.filter((f, i) => !faces[i]).map((f) => f.family);
+  // Only the faces the banner uses (a template may offer hundreds)
+  const used = O.usedFonts(input.fonts, input.config, input.params);
+  const faces = await O.loadFonts(used);
+  const failed = used.filter((f, i) => !faces[i]).map((f) => f.family);
   if (failed.length) throw new Error('Font failed to load: ' + failed.join(', '));
 
   overlay.setFonts(input.fonts);
-  await overlay.fontsReady(input.config);
+  await overlay.fontsReady(input.config, used.map((f) => f.id));
   const result = overlay.render({ config: input.config, params: input.params, images: input.images });
   await overlay.imagesReady();
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

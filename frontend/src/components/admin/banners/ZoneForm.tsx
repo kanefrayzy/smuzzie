@@ -18,7 +18,7 @@ const input =
 const ALIGNS: Align[] = ['left', 'center', 'right'];
 const ALIGNS_Y: AlignY[] = ['top', 'center', 'bottom'];
 const CASES: TextCase[] = ['none', 'upper', 'lower'];
-const MAX_FONT_OPTIONS = 12;
+const MAX_FONT_OPTIONS = 500;
 
 function Field({ label, children, error, className = '' }: { label: string; children: React.ReactNode; error?: string; className?: string }) {
   return (
@@ -360,7 +360,7 @@ function TextForm({
           <Check label="Font" checked={c.font.enabled} onChange={(enabled) => setCtl('font', { enabled })} />
           {c.font.enabled && (
             <div className="pl-6 space-y-1.5">
-              <p className="text-[11px] text-gray-500">Fonts the buyer can pick (the default one is always included, up to {MAX_FONT_OPTIONS})</p>
+              <p className="text-[11px] text-gray-500">Fonts the buyer can pick (the default one is always included)</p>
               <FontChecklist
                 fonts={fonts}
                 checked={(id) => id === s.fontId || c.font.options.includes(id)}
@@ -368,6 +368,11 @@ function TextForm({
                 onToggle={(id, on) =>
                   setCtl('font', { options: on ? [...c.font.options, id] : c.font.options.filter((x) => x !== id) })
                 }
+                onSetMany={(ids, on) => {
+                  const set = new Set(c.font.options);
+                  ids.filter((id) => id !== s.fontId).forEach((id) => (on ? set.add(id) : set.delete(id)));
+                  setCtl('font', { options: fonts.map((f) => f.id).filter((id) => set.has(id)).slice(0, MAX_FONT_OPTIONS) });
+                }}
               />
               {fontErrors.map((m, j) => (
                 <p key={j} className="text-[11px] text-red-400">{m}</p>
