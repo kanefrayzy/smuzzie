@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Image as ImageIcon, Maximize2, Move, RotateCcw, Trash2, Type } from 'lucide-react';
+import { Check, Image as ImageIcon, Maximize2, Move, Redo2, RotateCcw, Trash2, Type, Undo2 } from 'lucide-react';
 import BannerPreview from '@/components/banners/BannerPreview';
 import ZoomFrame from '@/components/banners/ZoomFrame';
 import ZoneHandles, { type HandleItem } from '@/components/banners/ZoneHandles';
@@ -20,6 +20,7 @@ import { clearDraft, configFingerprint, loadDraft, saveDraft, type DraftImage } 
 import TextZoneControls, { hasTextControls } from './TextZoneControls';
 import ImageZoneControls from './ImageZoneControls';
 import HueControls from './HueControls';
+import { useUndo, useUndoKeys } from '@/components/banners/useUndo';
 
 export interface EditorState {
   params: BuyerParams;
@@ -71,6 +72,34 @@ export default function BannerEditor({
     setRestored(true);
   }, [template.slug, config, cfg]);
 
+  // ─── Undo / redo ───
+  // Every change of the design is recorded; changes close together (a drag, typing) are one
+  // step, `step()` before an action makes it a separate one.
+  const history = useUndo<EditorState>();
+  const lastState = useRef<EditorState | null>(null);
+  const applying = useRef(false);
+  const forceStep = useRef(false);
+  const step = useCallback(() => {
+    forceStep.current = true;
+  }, []);
+  useEffect(() => {
+    if (!restored) return;
+    if (lastState.current && !applying.current) history.record(lastState.current, forceStep.current);
+    applying.current = false;
+    forceStep.current = false;
+    lastState.current = { params, images };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, images, restored]);
+  const applyState = (state: EditorState | undefined) => {
+    if (!state) return;
+    applying.current = true;
+    setParams(state.params);
+    setImages(state.images);
+  };
+  const undo = () => applyState(history.undo({ params, images }));
+  const redo = () => applyState(history.redo({ params, images }));
+  useUndoKeys(undo, redo);
+
   // Save the draft shortly after changes
   useEffect(() => {
     if (!restored) return;
@@ -84,8 +113,9 @@ export default function BannerEditor({
   }, []);
 
   const resetZone = useCallback((zone: Zone) => {
+    step();
     setParams((prev) => ({ ...prev, zones: { ...prev.zones, [zone.key]: defaultZoneParams(zone) } }));
-  }, []);
+  }, [step]);
 
   // ─── The buyer's own layers ───
   const patchLayer = useCallback((id: string, patch: TextZoneParams | ImageZoneParams) => {
@@ -97,6 +127,7 @@ export default function BannerEditor({
 
   const addLayer = useCallback(
     (type: 'text' | 'image') => {
+      step();
       setParams((prev) => {
         const id = nextLayerId(prev);
         const count = (prev.layers || []).filter((l) => l.type === type).length;
@@ -105,19 +136,21 @@ export default function BannerEditor({
         return { ...prev, layers: [...(prev.layers || []), layer] };
       });
     },
-    [config],
+    [config, step],
   );
 
   const removeLayer = useCallback((id: string) => {
+    step();
     setParams((prev) => ({ ...prev, layers: (prev.layers || []).filter((l) => l.id !== id) }));
     setImages((prev) => {
       const next = { ...prev };
       delete next[id];
       return next;
     });
-  }, []);
+  }, [step]);
 
   const moveLayer = useCallback((id: string, dir: -1 | 1) => {
+    step();
     setParams((prev) => {
       const layers = [...(prev.layers || [])];
       const i = layers.findIndex((l) => l.id === id);
@@ -126,7 +159,7 @@ export default function BannerEditor({
       [layers[i], layers[j]] = [layers[j], layers[i]];
       return { ...prev, layers };
     });
-  }, []);
+  }, [step]);
 
   // Keeps the layer's place, resets everything else
   const resetLayer = useCallback(
@@ -138,19 +171,21 @@ export default function BannerEditor({
   );
 
   const resetAll = useCallback(() => {
+    step();
     setParams(defaultParams(config));
     setImages({});
     clearDraft(template.slug);
-  }, [config, template.slug]);
+  }, [config, template.slug, step]);
 
   const setImage = useCallback((key: string, image: DraftImage | null) => {
+    step();
     setImages((prev) => {
       const next = { ...prev };
       if (image) next[key] = image;
       else delete next[key];
       return next;
     });
-  }, []);
+  }, [step]);
 
   // Accordion: only one text / image / layer shows its controls at a time
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -237,7 +272,10 @@ export default function BannerEditor({
   const removeAction = (zone: Zone, visible: boolean) => (
     <button
       type="button"
-      onClick={() => patchZone(zone.key, { visible: !visible })}
+      onClick={() => {
+        step();
+        patchZone(zone.key, { visible: !visible });
+      }}
       className={`p-1.5 rounded-md ${visible ? 'text-gray-500 hover:text-accent-red' : 'text-gray-300 hover:text-white'}`}
       aria-label={visible ? `Remove ${zone.label}` : `Restore ${zone.label}`}
       title={visible ? 'Remove from the banner' : 'Restore'}
@@ -311,6 +349,7 @@ export default function BannerEditor({
                     if (zone) setRect(zone, rect);
                   }}
                   large
+                  onDragEnd={history.breakStep}
                   snapTo={expanded.config.zones
                     .filter((z) => !handleItems.some((h) => h.id === z.key))
                     .map((z) => resolveRect(z, expanded.params.zones[z.key]))}
@@ -376,9 +415,17 @@ export default function BannerEditor({
               {!still && template.duration ? ` · ${template.duration} s` : ''}
             </p>
           </div>
-          <button type="button" onClick={resetAll} className="shrink-0 text-xs text-gray-400 hover:text-white flex items-center gap-1 mt-1.5">
-            <RotateCcw size={13} /> Reset all
-          </button>
+          <div className="shrink-0 flex items-center gap-1 mt-0.5">
+            <button type="button" onClick={undo} disabled={!history.canUndo} className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-30" title="Undo (Ctrl+Z)" aria-label="Undo">
+              <Undo2 size={15} />
+            </button>
+            <button type="button" onClick={redo} disabled={!history.canRedo} className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-30" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
+              <Redo2 size={15} />
+            </button>
+            <button type="button" onClick={resetAll} className="ml-1 text-xs text-gray-400 hover:text-white flex items-center gap-1">
+              <RotateCcw size={13} /> Reset all
+            </button>
+          </div>
         </div>
         {template.description && <p className="text-sm text-gray-400 -mt-2">{template.description}</p>}
 

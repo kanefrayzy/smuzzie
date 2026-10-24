@@ -5,7 +5,9 @@ import type { Rect } from '@/lib/banner-overlay';
 
 // Draggable zone rectangles over a banner preview, shared by the admin zone editor and the
 // buyer editor. Coordinates are percent of the video. Drag to move, pull the handles to
-// resize, arrow keys nudge the selected zone (0.1%, Shift = 1%).
+// resize, arrow keys nudge the selected zone (0.1%, Shift = 1%). The admin editor can also
+// select several zones (Shift/Ctrl+click, or a rubber band on the empty area) and move them
+// together.
 
 type Mode = 'move' | 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
@@ -155,10 +157,48 @@ export function snapRect(
   return { rect: { x: q(r.x), y: q(r.y), w: q(r.w), h: q(r.h) }, guides };
 }
 
+// ─── Groups ─────────────────────────────────────────────────
+
+/** Move a group of rects by the same delta, as far as every one of them stays in its bounds. */
+function moveGroup(starts: { item: HandleItem; rect: Rect }[], dx: number, dy: number): Record<string, Rect> {
+  let lo = { x: -Infinity, y: -Infinity };
+  let hi = { x: Infinity, y: Infinity };
+  for (const { item, rect } of starts) {
+    const b = item.bounds;
+    lo = { x: Math.max(lo.x, b.x - rect.x), y: Math.max(lo.y, b.y - rect.y) };
+    hi = { x: Math.min(hi.x, b.x + b.w - rect.x - rect.w), y: Math.min(hi.y, b.y + b.h - rect.y - rect.h) };
+  }
+  const cx = clamp(dx, Math.min(lo.x, 0), Math.max(hi.x, 0));
+  const cy = clamp(dy, Math.min(lo.y, 0), Math.max(hi.y, 0));
+  const q = (v: number) => Math.round(v * 1000) / 1000;
+  return Object.fromEntries(starts.map(({ item, rect }) => [item.id, { x: q(rect.x + cx), y: q(rect.y + cy), w: rect.w, h: rect.h }]));
+}
+
+function unionRect(rects: Rect[]): Rect {
+  const x = Math.min(...rects.map((r) => r.x));
+  const y = Math.min(...rects.map((r) => r.y));
+  return { x, y, w: Math.max(...rects.map((r) => r.x + r.w)) - x, h: Math.max(...rects.map((r) => r.y + r.h)) - y };
+}
+
+const FULL: Rect = { x: 0, y: 0, w: 100, h: 100 };
+const NO_MIN = { w: 0, h: 0 };
+
+type Drag =
+  | { kind: 'one'; item: HandleItem; mode: Mode; x: number; y: number; w: number; h: number }
+  | { kind: 'group'; starts: { item: HandleItem; rect: Rect }[]; x: number; y: number; w: number; h: number }
+  | { kind: 'band'; x0: number; y0: number; additive: boolean };
+
+const isTyping = (t: EventTarget | null) => {
+  const el = t as HTMLElement | null;
+  return !!el && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable);
+};
+
 export default function ZoneHandles({
   items, selected, onSelect, onRect, labels = 'selected', large = false, snapTo = [],
+  selection, onToggle, onSelectMany, onRects, onDragEnd,
 }: {
   items: HandleItem[];
+  /** The selected zone (the one with resize handles) */
   selected: string | null;
   onSelect: (id: string | null) => void;
   onRect: (id: string, rect: Rect) => void;
@@ -167,32 +207,92 @@ export default function ZoneHandles({
   large?: boolean;
   /** Extra rectangles to line up with (e.g. zones that can't be moved) */
   snapTo?: Rect[];
+  /** Every selected zone (admin editor); with more than one they move together */
+  selection?: string[];
+  /** Shift/Ctrl/Cmd+click: add a zone to the selection or take it out */
+  onToggle?: (id: string) => void;
+  /** Rubber band on the empty area; `additive` when Shift/Ctrl/Cmd was held */
+  onSelectMany?: (ids: string[], additive: boolean) => void;
+  /** New rects of a group move (drag or arrow keys) */
+  onRects?: (rects: Record<string, Rect>) => void;
+  /** A drag or resize was released (undo history: one gesture, one step) */
+  onDragEnd?: () => void;
 }) {
   const [guides, setGuides] = useState<Guides>({ x: [], y: [] });
+  const [band, setBand] = useState<Rect | null>(null);
+  const bandRef = useRef<Rect | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ item: HandleItem; mode: Mode; x: number; y: number; w: number; h: number } | null>(null);
+  const drag = useRef<Drag | null>(null);
+  const picked = selection ?? (selected ? [selected] : []);
+  const pickedKey = picked.join('|');
+  const multi = picked.length > 1 && !!onRects;
+
+  const toPct = (clientX: number, clientY: number) => {
+    const box = boxRef.current!.getBoundingClientRect();
+    return { x: ((clientX - box.left) / box.width) * 100, y: ((clientY - box.top) / box.height) * 100 };
+  };
 
   const onPointerDown = (e: React.PointerEvent, item: HandleItem, mode: Mode) => {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    if (mode === 'move' && onToggle && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+      onToggle(item.id);
+      return;
+    }
     const box = boxRef.current!.getBoundingClientRect();
-    drag.current = { item, mode, x: e.clientX, y: e.clientY, w: box.width, h: box.height };
-    onSelect(item.id);
+    if (mode === 'move' && multi && picked.includes(item.id)) {
+      drag.current = {
+        kind: 'group',
+        starts: items.filter((i) => picked.includes(i.id)).map((i) => ({ item: i, rect: i.rect })),
+        x: e.clientX, y: e.clientY, w: box.width, h: box.height,
+      };
+    } else {
+      drag.current = { kind: 'one', item, mode, x: e.clientX, y: e.clientY, w: box.width, h: box.height };
+      onSelect(item.id);
+    }
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d) return;
+    if (d.kind === 'band') {
+      const p = toPct(e.clientX, e.clientY);
+      const x = clamp(Math.min(d.x0, p.x), 0, 100);
+      const y = clamp(Math.min(d.y0, p.y), 0, 100);
+      const r = { x, y, w: clamp(Math.max(d.x0, p.x), 0, 100) - x, h: clamp(Math.max(d.y0, p.y), 0, 100) - y };
+      bandRef.current = r;
+      setBand(r);
+      return;
+    }
     const dx = ((e.clientX - d.x) / d.w) * 100;
     const dy = ((e.clientY - d.y) / d.h) * 100;
+    const threshold = { x: (SNAP_PX / d.w) * 100, y: (SNAP_PX / d.h) * 100 };
+    if (d.kind === 'group') {
+      let mx = dx;
+      let my = dy;
+      if (e.altKey) {
+        setGuides({ x: [], y: [] });
+      } else {
+        // The group's outline snaps like a single zone would
+        const ids = new Set(d.starts.map((s) => s.item.id));
+        const start = unionRect(d.starts.map((s) => s.rect));
+        const others = [...items.filter((i) => !ids.has(i.id)).map((i) => i.rect), ...snapTo];
+        const snapped = snapRect({ ...start, x: start.x + dx, y: start.y + dy }, 'move', others, threshold, FULL, NO_MIN);
+        mx = snapped.rect.x - start.x;
+        my = snapped.rect.y - start.y;
+        setGuides(snapped.guides);
+      }
+      onRects?.(moveGroup(d.starts, mx, my));
+      return;
+    }
     let rect = dragRect(d.item.rect, d.mode, dx, dy, d.item.bounds, d.item.min);
     if (e.altKey) {
       setGuides({ x: [], y: [] });
     } else {
       const others = [...items.filter((i) => i.id !== d.item.id).map((i) => i.rect), ...snapTo];
-      const snapped = snapRect(rect, d.mode, others, { x: (SNAP_PX / d.w) * 100, y: (SNAP_PX / d.h) * 100 }, d.item.bounds, d.item.min);
+      const snapped = snapRect(rect, d.mode, others, threshold, d.item.bounds, d.item.min);
       rect = snapped.rect;
       setGuides(snapped.guides);
     }
@@ -200,26 +300,58 @@ export default function ZoneHandles({
   };
 
   const endDrag = () => {
+    const d = drag.current;
     drag.current = null;
     setGuides({ x: [], y: [] });
+    if (d && d.kind !== 'band') onDragEnd?.();
+    if (d?.kind !== 'band') return;
+    const b = bandRef.current;
+    if (b && b.w > 0.3 && b.h > 0.3) {
+      const hit = items
+        .filter((i) => i.rect.x < b.x + b.w && i.rect.x + i.rect.w > b.x && i.rect.y < b.y + b.h && i.rect.y + i.rect.h > b.y)
+        .map((i) => i.id);
+      onSelectMany?.(hit, d.additive);
+    } else if (!d.additive) {
+      onSelect(null);
+    }
+    bandRef.current = null;
+    setBand(null);
+  };
+
+  // Empty area: a rubber band where several zones can be selected, else just deselect
+  const onBackgroundDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    if (!onSelectMany) {
+      onSelect(null);
+      return;
+    }
+    const p = toPct(e.clientX, e.clientY);
+    drag.current = { kind: 'band', x0: p.x, y0: p.y, additive: e.shiftKey || e.ctrlKey || e.metaKey };
+    bandRef.current = null;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const onKey = useCallback(
     (e: KeyboardEvent) => {
-      const item = items.find((i) => i.id === selected);
-      if (!item) return;
-      const target = e.target as HTMLElement;
-      if (target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)) return;
+      if (isTyping(e.target)) return;
       const step = e.shiftKey ? 1 : 0.1;
       const delta: Record<string, [number, number]> = {
         ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step],
       };
       const d = delta[e.key];
       if (!d) return;
+      if (multi) {
+        e.preventDefault();
+        const ids = new Set(pickedKey.split('|'));
+        onRects?.(moveGroup(items.filter((i) => ids.has(i.id)).map((i) => ({ item: i, rect: i.rect })), d[0], d[1]));
+        return;
+      }
+      const item = items.find((i) => i.id === selected);
+      if (!item) return;
       e.preventDefault();
       onRect(item.id, dragRect(item.rect, 'move', d[0], d[1], item.bounds, item.min));
     },
-    [selected, items, onRect],
+    [selected, items, onRect, onRects, multi, pickedKey],
   );
 
   useEffect(() => {
@@ -228,17 +360,33 @@ export default function ZoneHandles({
   }, [onKey]);
 
   const handleBox = large ? 'w-7 h-7 -ml-3.5 -mt-3.5' : 'w-4 h-4 -ml-2 -mt-2';
+  const pickedSet = new Set(picked);
 
   return (
-    <div ref={boxRef} className="absolute inset-0" onPointerDown={() => onSelect(null)}>
+    // Moves and releases bubble up here from the captured zone or handle
+    <div
+      ref={boxRef}
+      className="absolute inset-0"
+      onPointerDown={onBackgroundDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
       {guides.x.map((x) => (
         <div key={`gx-${x}`} className="absolute top-0 bottom-0 w-px bg-[#ff4fd8] pointer-events-none z-[3]" style={{ left: `${x}%` }} aria-hidden="true" />
       ))}
       {guides.y.map((y) => (
         <div key={`gy-${y}`} className="absolute left-0 right-0 h-px bg-[#ff4fd8] pointer-events-none z-[3]" style={{ top: `${y}%` }} aria-hidden="true" />
       ))}
+      {band && (
+        <div
+          className="absolute border border-sky-300 bg-sky-300/10 pointer-events-none z-[4]"
+          style={{ left: `${band.x}%`, top: `${band.y}%`, width: `${band.w}%`, height: `${band.h}%` }}
+          aria-hidden="true"
+        />
+      )}
       {items.map((item) => {
-        const isSel = item.id === selected;
+        const isSel = pickedSet.has(item.id);
         const { color, rect } = item;
         return (
           <div
@@ -252,9 +400,6 @@ export default function ZoneHandles({
               zIndex: isSel ? 2 : 1,
             }}
             onPointerDown={(e) => onPointerDown(e, item, 'move')}
-            onPointerMove={onPointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
           >
             {item.label && (isSel || labels === 'all') && (
               <span
@@ -264,7 +409,8 @@ export default function ZoneHandles({
                 {item.label}
               </span>
             )}
-            {isSel &&
+            {item.id === selected &&
+              !multi &&
               item.resizable &&
               HANDLES.map((hd) => (
                 <span
@@ -272,9 +418,6 @@ export default function ZoneHandles({
                   className={`absolute ${handleBox} flex items-center justify-center touch-none`}
                   style={{ ...hd.style, cursor: hd.cursor }}
                   onPointerDown={(e) => onPointerDown(e, item, hd.mode)}
-                  onPointerMove={onPointerMove}
-                  onPointerUp={endDrag}
-                  onPointerCancel={endDrag}
                 >
                   <span className="block w-3 h-3 bg-white border-2 rounded-sm" style={{ borderColor: color }} />
                 </span>

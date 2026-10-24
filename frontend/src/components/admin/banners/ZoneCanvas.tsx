@@ -9,16 +9,23 @@ const MIN = { w: 0.5, h: 0.5 }; // percent
 
 /**
  * Zone rectangles drawn over the template preview in the admin editor. Drag to move, pull the
- * handles to resize, arrow keys nudge the selected zone (0.1%, Shift = 1%). For the selected
- * zone, the area the buyer may drag it in is drawn dotted.
+ * handles to resize, arrow keys nudge the selection (0.1%, Shift = 1%). Shift/Ctrl+click or a
+ * rubber band selects several zones, which then move together. For a single selected zone, the
+ * area the buyer may drag it in is drawn dotted.
  */
 export default function ZoneCanvas({
-  zones, selected, onSelect, onRect, errors,
+  zones, selected, selection, onSelect, onToggle, onSelectMany, onRect, onRects, onDragEnd, errors,
 }: {
   zones: Zone[];
   selected: number | null;
+  /** Every selected zone; several move together */
+  selection: number[];
   onSelect: (index: number | null) => void;
+  onToggle: (index: number) => void;
+  onSelectMany: (indexes: number[], additive: boolean) => void;
   onRect: (index: number, rect: Rect) => void;
+  onRects: (rects: Record<number, Rect>) => void;
+  onDragEnd?: () => void;
   errors: Set<number>;
 }) {
   const items = useMemo<HandleItem[]>(
@@ -34,7 +41,7 @@ export default function ZoneCanvas({
       })),
     [zones, errors],
   );
-  const pos = selected !== null ? zones[selected]?.controls.position : undefined;
+  const pos = selected !== null && selection.length === 1 ? zones[selected]?.controls.position : undefined;
 
   return (
     <>
@@ -48,9 +55,14 @@ export default function ZoneCanvas({
       <ZoneHandles
         items={items}
         selected={selected === null ? null : String(selected)}
+        selection={selection.map(String)}
         onSelect={(id) => onSelect(id === null ? null : Number(id))}
+        onToggle={(id) => onToggle(Number(id))}
+        onSelectMany={(ids, additive) => onSelectMany(ids.map(Number), additive)}
         onRect={(id, rect) => onRect(Number(id), rect)}
+        onRects={(rects) => onRects(Object.fromEntries(Object.entries(rects).map(([id, r]) => [Number(id), r])))}
         labels="all"
+        onDragEnd={onDragEnd}
       />
     </>
   );
