@@ -196,8 +196,4 @@ export function runStage(
   };
 }
 
-/** A div the stage canvas fills; edges fade into the section background. */
-export const STAGE_MASK = {
-  maskImage: 'radial-gradient(ellipse 50% 50% at 50% 50%, black 62%, transparent 100%)',
-  WebkitMaskImage: 'radial-gradient(ellipse 50% 50% at 50% 50%, black 62%, transparent 100%)',
-} as const;
+export { STAGE_MASK } from './mask';

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { STAGE_MASK } from './hero3d/stage';
+import { STAGE_MASK } from './hero3d/mask';
 
 // three.js + the model (~1 MB) load only on the client, after the page settles
 const ModelHelmet = dynamic(() => import('./hero3d/ModelHelmet'), { ssr: false });
