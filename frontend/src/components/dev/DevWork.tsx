@@ -2,17 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUpRight, Languages, Lock, Maximize2 } from 'lucide-react';
+import { Languages, Lock, Maximize2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 
+// Client projects are shown without names or links: the cards describe the
+// type of project only.
 type Work = {
   key: string;
-  name: string;
-  url: string;
-  domain: string;
+  title: string;
   kind: string;
   text: string;
   tags: string[];
+  /** Spans two columns on wide screens */
+  wide?: boolean;
   /** The screenshot is a translation of a Russian-only site */
   translated?: boolean;
 };
@@ -21,60 +23,57 @@ type Work = {
 const WORKS: Work[] = [
   {
     key: 'pixera',
-    name: 'Pixera',
-    url: 'https://pixera.net/en/',
-    domain: 'pixera.net',
-    kind: 'AI platform',
-    text: 'AI image and video generation with a creator community: gallery, profiles, trends and a blog.',
-    tags: ['Web app', 'AI', '7 languages'],
-  },
-  {
-    key: 'briarey',
-    name: 'Briarey',
-    url: 'https://xn--b1affkdfqgb0alh5d9bg.xn--p1ai/',
-    domain: 'бриарей.рф',
-    kind: 'Industrial e-commerce',
-    text: 'Manufacturer of smoke-exhaust systems: product catalog, cart, equipment calculator, news.',
-    tags: ['Next.js', 'Catalog', 'Calculator'],
-    translated: true,
+    title: 'AI image & video platform',
+    kind: 'Web app · 7 languages',
+    text: 'AI generation with a creator community: gallery, profiles, trends and a blog.',
+    tags: ['Web app', 'AI', 'i18n'],
+    wide: true,
   },
   {
     key: 'bueno',
-    name: 'Bueno Exotics',
-    url: 'https://buenoexoticsny.com/',
-    domain: 'buenoexoticsny.com',
-    kind: 'Car rental · New York',
-    text: 'Exotic car rental on Long Island: availability check, booking requests, occasion pages.',
+    title: 'Exotic car rental',
+    kind: 'Local business · New York',
+    text: 'Availability check, booking requests and pages for every occasion.',
     tags: ['Next.js', 'Booking', 'Local SEO'],
   },
   {
     key: 'npkbsv',
-    name: 'NPK BSV',
-    url: 'https://npk-bsv.ru/',
-    domain: 'npk-bsv.ru',
+    title: 'Helicopter manufacturer',
     kind: 'Aviation engineering',
-    text: 'Coaxial helicopters and composite parts: product pages and an engineering brief form with file upload.',
+    text: 'Coaxial helicopters and composite parts, with an engineering brief form and file upload.',
     tags: ['Next.js', 'B2B', 'Lead form'],
     translated: true,
   },
   {
+    key: 'realchat',
+    title: 'AI companion chat',
+    kind: 'Consumer AI',
+    text: 'Character catalog, personalities with memory, photos in chat and custom characters.',
+    tags: ['Web app', 'AI chat', 'Image generation'],
+  },
+  {
     key: 'blesk',
-    name: 'Blesk',
-    url: 'https://bleskvip.ru/',
-    domain: 'bleskvip.ru',
+    title: 'Dry cleaning service',
     kind: 'Local service',
-    text: 'Dry cleaning chain: step-by-step order request, customer account with order tracking.',
+    text: 'Step-by-step order request and a customer account with order tracking.',
     tags: ['Next.js', 'Customer account', 'Forms'],
     translated: true,
   },
   {
     key: 'nikstudio',
-    name: 'Nik Studio',
-    url: 'https://nikstudio.pro/',
-    domain: 'nikstudio.pro',
-    kind: 'Creative agency',
-    text: 'Studio for industrial brands: project showcase, services, media and client testimonials.',
+    title: 'Creative agency',
+    kind: 'Agency for industrial brands',
+    text: 'Project showcase, services, media and client testimonials.',
     tags: ['Next.js', 'Portfolio', 'Motion'],
+    translated: true,
+  },
+  {
+    key: 'briarey',
+    title: 'Industrial equipment store',
+    kind: 'B2B e-commerce',
+    text: 'Smoke-exhaust systems manufacturer: product catalog, cart, equipment calculator and news.',
+    tags: ['Next.js', 'Catalog', 'Calculator'],
+    wide: true,
     translated: true,
   },
 ];
@@ -83,7 +82,7 @@ const img = (w: Work) => `/images/dev/work/${w.key}.webp`;
 // 1280px version for the full-page viewer
 const imgFull = (w: Work) => `/images/dev/work/${w.key}-full.webp`;
 
-function BrowserBar({ domain }: { domain: string }) {
+function BrowserBar() {
   return (
     <div className="h-8 shrink-0 flex items-center gap-2 px-3 bg-[#141716] border-b border-white/[0.06]">
       <span className="flex gap-1">
@@ -91,8 +90,8 @@ function BrowserBar({ domain }: { domain: string }) {
         <span className="w-2 h-2 rounded-full bg-white/15" />
         <span className="w-2 h-2 rounded-full bg-white/15" />
       </span>
-      <span className="mx-auto flex items-center gap-1 px-3 h-5 rounded bg-white/[0.04] text-[10px] text-white/40 truncate max-w-[70%]">
-        <Lock size={8} className="shrink-0" /> {domain}
+      <span className="mx-auto flex items-center gap-1 px-3 h-5 rounded bg-white/[0.04] text-[10px] text-white/30">
+        <Lock size={8} className="shrink-0" /> client project
       </span>
     </div>
   );
@@ -101,7 +100,7 @@ function BrowserBar({ domain }: { domain: string }) {
 function WorkCard({ w, i, onOpen }: { w: Work; i: number; onOpen: () => void }) {
   return (
     <motion.article
-      className="group"
+      className={`group ${w.wide ? 'lg:col-span-2' : ''}`}
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-60px' }}
@@ -110,16 +109,16 @@ function WorkCard({ w, i, onOpen }: { w: Work; i: number; onOpen: () => void }) 
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`View the full ${w.name} page`}
+        aria-label={`View the full page: ${w.title}`}
         className="block w-full text-left rounded-xl overflow-hidden border border-white/[0.08] bg-[#0b0d0c] transition-all duration-500 group-hover:border-accent-red/40 group-hover:shadow-[0_20px_60px_-20px_rgb(var(--accent)/0.35)]"
       >
-        <BrowserBar domain={w.domain} />
+        <BrowserBar />
         <div className="relative h-[340px] sm:h-[380px] overflow-hidden">
           {/* The page scrolls top to bottom on hover */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={img(w)}
-            alt={`${w.name} website, full page`}
+            alt={`${w.title}, full page`}
             loading="lazy"
             decoding="async"
             className="absolute inset-0 w-full h-full object-cover object-top transition-[object-position] ease-in-out duration-[700ms] [@media(hover:hover)]:group-hover:object-bottom [@media(hover:hover)]:group-hover:duration-[7000ms]"
@@ -131,17 +130,7 @@ function WorkCard({ w, i, onOpen }: { w: Work; i: number; onOpen: () => void }) 
       </button>
 
       <div className="mt-4 px-1">
-        <div className="flex items-baseline justify-between gap-3">
-          <h3 className="font-mono font-bold text-lg text-white">{w.name}</h3>
-          <a
-            href={w.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 inline-flex items-center gap-1 font-mono text-[11px] text-gray-500 hover:text-accent-red transition-colors"
-          >
-            Live site <ArrowUpRight size={12} />
-          </a>
-        </div>
+        <h3 className="font-mono font-bold text-lg text-white">{w.title}</h3>
         <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-accent-red/80">{w.kind}</div>
         <p className="mt-2 text-sm text-gray-500 leading-relaxed">{w.text}</p>
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -191,8 +180,8 @@ export default function DevWork() {
             </p>
           </div>
           <p className="md:max-w-xs font-mono text-[11px] leading-relaxed text-gray-600">
-            Several of these sites are in Russian. Their screenshots were translated into English for this portfolio;
-            the live links open the originals.
+            Client names are kept private. Several of these sites are in Russian; their screenshots were translated
+            into English for this portfolio.
           </p>
         </div>
 
@@ -208,24 +197,16 @@ export default function DevWork() {
           <div className="rounded-xl overflow-hidden border border-white/10 bg-[#0b0d0c] mt-12 sm:mt-0">
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/[0.06]">
               <div className="min-w-0">
-                <div className="font-mono font-bold text-white truncate">{open.name}</div>
+                <div className="font-mono font-bold text-white truncate">{open.title}</div>
                 <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-gray-500">
                   {open.kind}
                   {open.translated && ' · translated from Russian'}
                 </div>
               </div>
-              <a
-                href={open.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 inline-flex items-center gap-1 px-3 h-8 rounded-full border border-accent-red/40 font-mono text-[11px] text-accent-red hover:bg-accent-red/10 transition-colors"
-              >
-                Visit {open.domain} <ArrowUpRight size={12} />
-              </a>
             </div>
             <div className="max-h-[80vh] overflow-y-auto overscroll-contain">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imgFull(open)} alt={`${open.name} website, full page`} className="block w-full h-auto" />
+              <img src={imgFull(open)} alt={`${open.title}, full page`} className="block w-full h-auto" />
             </div>
           </div>
         )}
