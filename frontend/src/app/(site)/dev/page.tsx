@@ -1,6 +1,7 @@
 import DevHero from '@/components/dev/DevHero';
 import DesignToCode from '@/components/dev/DesignToCode';
 import DevServices from '@/components/dev/DevServices';
+import DevWork from '@/components/dev/DevWork';
 import DevProcess from '@/components/dev/DevProcess';
 import DevStack from '@/components/dev/DevStack';
 import DevCase from '@/components/dev/DevCase';
@@ -12,6 +13,7 @@ export default function DevHomePage() {
     <div data-site-mode="dev">
       <DevHero />
       <DesignToCode />
+      <DevWork />
       <DevServices />
       <DevProcess />
       <DevStack />

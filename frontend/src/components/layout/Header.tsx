@@ -20,9 +20,9 @@ const NAV = {
   ],
   dev: [
     { label: 'Home', href: '/dev' },
+    { label: 'Work', href: '/dev#work' },
     { label: 'Services', href: '/dev#services' },
     { label: 'Process', href: '/dev#process' },
-    { label: 'Stack', href: '/dev#stack' },
     { label: 'Contact', href: '/contact' },
   ],
 };
