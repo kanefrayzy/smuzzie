@@ -2,7 +2,8 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { useRef } from 'react';
+import { motion, useInView } from 'framer-motion';
 import { ArrowUpRight, Lock } from 'lucide-react';
 
 const FEATURES = [
@@ -31,6 +32,34 @@ function BrowserShot({ src, url, className }: { src: string; url: string; classN
       <div className="relative aspect-[1440/840]">
         <Image src={src} alt="" fill unoptimized sizes="(min-width: 1024px) 560px, 90vw" className="object-cover object-top" />
       </div>
+    </div>
+  );
+}
+
+/** Smuzzie's animated thread cover (5 s loop). Starts loading only when scrolled near. */
+function ThreadCover() {
+  const ref = useRef<HTMLDivElement>(null);
+  const near = useInView(ref, { once: true, margin: '300px' });
+  return (
+    <div
+      ref={ref}
+      className="relative h-full aspect-[720/1348] rounded-2xl overflow-hidden border border-white/10 bg-black shadow-[0_30px_80px_-20px_rgba(230,57,70,0.45)]"
+    >
+      {near ? (
+        <video
+          src="/images/dev/smuzzie-thread.mp4"
+          poster="/images/dev/smuzzie-thread.webp"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          aria-label="Smuzzie thread cover, animated"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      ) : (
+        <Image src="/images/dev/smuzzie-thread.webp" alt="" fill unoptimized sizes="300px" className="object-cover" />
+      )}
     </div>
   );
 }
@@ -73,30 +102,32 @@ export default function DevCase() {
           </Link>
         </motion.div>
 
-        {/* Real screenshots of this site */}
-        <div className="relative h-[300px] sm:h-[420px] lg:h-[460px]">
+        {/* The banner editor (real screenshot) and Smuzzie's animated thread cover */}
+        <div className="relative h-[420px] sm:h-[520px] lg:h-[560px]">
           <div
             className="absolute inset-0 -z-10"
             style={{ background: 'radial-gradient(circle at 60% 50%, rgb(var(--accent) / 0.12), transparent 65%)' }}
           />
           <motion.div
-            className="absolute right-0 top-0 w-[82%]"
-            initial={{ opacity: 0, y: -20, rotate: 0 }}
-            whileInView={{ opacity: 1, y: 0, rotate: 2.5 }}
+            className="hidden sm:block absolute left-0 top-[22%] w-[80%]"
+            initial={{ opacity: 0, x: -24 }}
+            whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           >
-            <BrowserShot src="/images/dev/case-home.webp" url="smuzzie.com" className="opacity-60" />
+            <BrowserShot src="/images/dev/case-editor.webp" url="smuzzie.com/banners" className="opacity-80" />
           </motion.div>
-          <motion.div
-            className="absolute left-0 bottom-0 w-[86%]"
-            initial={{ opacity: 0, y: 30, rotate: 0 }}
-            whileInView={{ opacity: 1, y: 0, rotate: -1.5 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ delay: 0.15, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <BrowserShot src="/images/dev/case-editor.webp" url="smuzzie.com/banners/simple-modern" />
-          </motion.div>
+          <div className="absolute inset-0 flex justify-center sm:justify-end">
+            <motion.div
+              className="h-full"
+              initial={{ opacity: 0, y: 30, rotate: 0 }}
+              whileInView={{ opacity: 1, y: 0, rotate: 2 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ delay: 0.15, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <ThreadCover />
+            </motion.div>
+          </div>
         </div>
       </div>
     </section>
