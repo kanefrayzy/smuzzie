@@ -17,6 +17,8 @@ type Work = {
   wide?: boolean;
   /** The screenshot is a translation of a Russian-only site */
   translated?: boolean;
+  /** One file for the card and the viewer, shown no wider than this (px) */
+  single?: number;
 };
 
 // Full-page screenshots in public/images/dev/work (1440px viewport, 960px wide WebP)
@@ -30,11 +32,27 @@ const WORKS: Work[] = [
     wide: true,
   },
   {
+    key: 'vorq',
+    title: 'Electric motorcycle brand',
+    kind: 'Product launch site',
+    text: 'Bold launch page for an electric bike: specs, tech breakdown, model lineup and a test-ride form.',
+    tags: ['Landing page', 'Product', 'Lead form'],
+    single: 745,
+  },
+  {
     key: 'bueno',
     title: 'Exotic car rental',
     kind: 'Local business · New York',
     text: 'Availability check, booking requests and pages for every occasion.',
     tags: ['Next.js', 'Booking', 'Local SEO'],
+  },
+  {
+    key: 'sereva',
+    title: 'Boutique cliffside hotel',
+    kind: 'Hospitality · Mediterranean',
+    text: 'Quiet luxury: availability search, suites, experiences, dining and guest stories.',
+    tags: ['Hotel site', 'Booking', 'Editorial'],
+    single: 727,
   },
   {
     key: 'npkbsv',
@@ -50,6 +68,14 @@ const WORKS: Work[] = [
     kind: 'Consumer AI',
     text: 'Character catalog, personalities with memory, photos in chat and custom characters.',
     tags: ['Web app', 'AI chat', 'Image generation'],
+  },
+  {
+    key: 'tumbo',
+    title: "Kids' toy store",
+    kind: 'E-commerce',
+    text: 'Playful storefront with shopping by age and interest, bestsellers, reviews and a newsletter.',
+    tags: ['E-commerce', 'Catalog', 'Cart'],
+    single: 758,
   },
   {
     key: 'blesk',
@@ -80,7 +106,7 @@ const WORKS: Work[] = [
 
 const img = (w: Work) => `/images/dev/work/${w.key}.webp`;
 // 1280px version for the full-page viewer
-const imgFull = (w: Work) => `/images/dev/work/${w.key}-full.webp`;
+const imgFull = (w: Work) => (w.single ? img(w) : `/images/dev/work/${w.key}-full.webp`);
 
 function BrowserBar() {
   return (
@@ -206,7 +232,12 @@ export default function DevWork() {
             </div>
             <div className="max-h-[80vh] overflow-y-auto overscroll-contain">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imgFull(open)} alt={`${open.title}, full page`} className="block w-full h-auto" />
+              <img
+                src={imgFull(open)}
+                alt={`${open.title}, full page`}
+                className="block w-full h-auto mx-auto"
+                style={open.single ? { maxWidth: open.single } : undefined}
+              />
             </div>
           </div>
         )}
